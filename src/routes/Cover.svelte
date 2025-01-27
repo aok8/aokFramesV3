@@ -7,7 +7,6 @@
 <svelte:window bind:scrollY={scrollY} />
 
 <div class="cover"
-    class:hidden={scrollY > 100}
     style={`transform: translateX(${Math.min(scrollY/10, 100)}%); --primary-color: ${theme.primary};`}
 >
     <h1>AOK<span>Frames</span></h1>
@@ -16,18 +15,14 @@
 
 <style>
     .cover {
-        position: absolute;
+        position: fixed;
         top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
         width: 100%;
         height: 100%;
         background-color: var(--primary-color);
         z-index: 1;
-    }
-    .cover.hidden {
-        transform: translateX(100%);
+        transition: transform 0.2s ease-out;
     }
     .cover h1 {
         color: white;

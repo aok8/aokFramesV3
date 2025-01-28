@@ -1,12 +1,59 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
+  import { fade } from 'svelte/transition';
+
+  let isSticky = true;
+  let isScrollingPaused = false;
+  let showText = false;
+
+  // Function to check if the element is still sticky
+  function checkStickyState(entry: IntersectionObserverEntry) {
+    if (entry.intersectionRatio < 1) {
+      isSticky = false;
+      pauseScrolling();
+    }
+  }
+
+  function pauseScrolling() {
+    isScrollingPaused = true;
+    document.body.style.overflow = 'hidden'; // Disable scrolling
+    showText = true; // Show the text
+
+    // After the text fades in and out, resume scrolling
+    setTimeout(() => {
+      showText = false;
+      setTimeout(() => {
+        document.body.style.overflow = ''; // Re-enable scrolling
+        isScrollingPaused = false;
+      }, 500); // Wait for fade-out animation to complete
+    }, 2000); // Adjust timing as needed
+  }
+
   onMount(() => {
     window.scrollTo(0, 0);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(checkStickyState);
+      },
+      { threshold: 1 } // Trigger when the element is fully visible
+    );
+
+    const imageElement = document.querySelector('.full-size-image');
+    if (imageElement) {
+      observer.observe(imageElement);
+    }
+
+    return () => observer.disconnect();
   });
 </script>
 
 <div class="content">
     <img src="/images/bg.jpg" alt="AOK Frames Star Pic" class="full-size-image" />
+    {#if showText}
+        <div class="text" transition:fade>
+          Growth through experience
+        </div>
+    {/if}
 </div>
 <div class="after-cover">
 </div>
@@ -40,4 +87,16 @@
         background-color: #36454F;
         z-index: -1;
     }
-  </style>
+
+    .text {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2; /* Higher than the image */
+        font-size: 5rem;
+        color: white;
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        pointer-events: none; /* Prevent text from blocking interactions */
+    }
+</style>

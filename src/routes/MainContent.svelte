@@ -38,7 +38,7 @@
         width: 100%;
         height: 100%;
         background-color: #36454F;
-        z-index: 0;
+        z-index: -1;
     }
   </style>
   

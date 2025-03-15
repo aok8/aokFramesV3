@@ -60,6 +60,7 @@
 	},
 	"dependencies": {
 		"@fontsource/josefin-sans": "^5.1.1",
-		"@fontsource/open-sans": "^5.1.1"
+		"@fontsource/open-sans": "^5.1.1",
+		"tree": "^0.1.3"
 	}
 }

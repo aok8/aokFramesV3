@@ -5,28 +5,35 @@
   let isSticky = true;
   let isScrollingPaused = false;
   let showText = false;
+  let hasPassed = false; // New flag to track if we've passed the sticky point
 
   // Function to check if the element is still sticky
   function checkStickyState(entry: IntersectionObserverEntry) {
-    if (entry.intersectionRatio < 1) {
+    if (entry.intersectionRatio < 1 && !hasPassed) {
       isSticky = false;
+      hasPassed = true; // Mark that we've passed the sticky point
       pauseScrolling();
     }
   }
 
   function pauseScrolling() {
+    if (isScrollingPaused) return; // Prevent multiple triggers
+    
     isScrollingPaused = true;
-    document.body.style.overflow = 'hidden'; // Disable scrolling
-    showText = true; // Show the text
+    const currentScroll = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    showText = true;
 
-    // After the text fades in and out, resume scrolling
+    // Lock scroll position
+    window.scrollTo(0, currentScroll);
+
     setTimeout(() => {
       showText = false;
       setTimeout(() => {
-        document.body.style.overflow = ''; // Re-enable scrolling
+        document.body.style.overflow = '';
         isScrollingPaused = false;
-      }, 500); // Wait for fade-out animation to complete
-    }, 2000); // Adjust timing as needed
+      }, 500);
+    }, 2000);
   }
 
   onMount(() => {
@@ -56,6 +63,13 @@
     {/if}
 </div>
 <div class="after-cover">
+  <h1>Growth through experience</h1>
+  <p>This page serves as a way to showcase the work I've done through the experiences I've had.</p>
+  <p>I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer.
+    It's because of this, that I have a hard time categorizing my work, it's more a collection of such. I find joy in being able 
+    to see the changes in what caught my eye, and also bring back memories of what exactly it was that excited me. 
+    Hopefully, through this, you'll be excited to see what I've been up to.
+  </p>
 </div>
 
 <style>
@@ -84,8 +98,16 @@
         position: relative;
         width: 100%;
         height: 100%;
-        background-color: #36454F;
+        background-color: #10312A;
         z-index: -1;
+    }
+
+    .after-cover h1 {
+        color: #EFEBE0;
+        font-size: 3rem;
+        font-weight: 100;
+        text-align: center;
+        padding-top: 10rem;
     }
 
     .text {

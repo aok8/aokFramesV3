@@ -65,6 +65,8 @@
 	"dependencies": {
 		"@fontsource/josefin-sans": "^5.1.1",
 		"@fontsource/open-sans": "^5.1.1",
+		"flowbite": "^3.1.2",
+		"flowbite-svelte": "^0.48.4",
 		"lucide-svelte": "^0.485.0",
 		"tree": "^0.1.3"
 	}

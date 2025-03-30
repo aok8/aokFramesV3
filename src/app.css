@@ -1,6 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@plugin 'flowbite/plugin';
  
 @layer base {
   :root {
@@ -76,3 +78,6 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+@source "../node_modules/flowbite-svelte/dist";

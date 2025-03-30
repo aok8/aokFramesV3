@@ -9,6 +9,13 @@
   let hasPassed = false;
   let contentElement: HTMLElement;
   let observer: IntersectionObserver;
+  
+  // Get all images from the Portfolio directory
+  const portfolioImages = import.meta.glob('/static/images/Portfolio/*', { eager: true });
+  const imageUrls = Object.entries(portfolioImages).map(([path]) => {
+    // Convert the full path to a URL path (remove /static prefix)
+    return path.replace('/static', '');
+  });
 
   function resetState() {
     isSticky = true;
@@ -113,16 +120,16 @@
     style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
 >
     <div class="photo-grid">
-        {#each Array(9) as _, i}
+        {#each imageUrls as imageUrl, i}
             <div class="grid-item">
-                <img src="/images/bg.jpg" alt={`Grid photo ${i + 1}`} class="grid-photo" />
+                <img src={imageUrl} alt={`Portfolio photo ${i + 1}`} class="grid-photo" loading="lazy" />
             </div>
         {/each}
     </div>
 
     <div class="about-section">
         <div class="about-content">
-            <img src="/images/bg.jpg" alt="Profile" class="profile-photo" />
+            <img src="/images/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
@@ -204,6 +211,11 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .grid-photo:hover {
+        transform: scale(1.05);
     }
 
     .about-section {

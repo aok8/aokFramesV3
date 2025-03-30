@@ -25,3 +25,6 @@ vite.config.ts.timestamp-*
 
 # Personal Documentation
 /docs
+
+# Images
+/static/images/Portfolio

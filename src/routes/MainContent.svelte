@@ -109,48 +109,50 @@
     {/if}
 </div>
 
-<div class="after-cover">
-  <div class="photo-grid">
-    <!-- Grid will be populated with photos -->
-    {#each Array(9) as _, i}
-      <div class="grid-item">
-        <img src="/images/bg.jpg" alt={`Grid photo ${i + 1}`} class="grid-photo" />
-      </div>
-    {/each}
-  </div>
-
-  <div class="about-section">
-    <div class="about-content">
-      <img src="/images/bg.jpg" alt="Profile" class="profile-photo" />
-      <div class="about-text">
-        <h2>About Me</h2>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-      </div>
+<div class="after-cover"
+    style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
+>
+    <div class="photo-grid">
+        {#each Array(9) as _, i}
+            <div class="grid-item">
+                <img src="/images/bg.jpg" alt={`Grid photo ${i + 1}`} class="grid-photo" />
+            </div>
+        {/each}
     </div>
-  </div>
 
-  <footer class="footer">
-    <div class="footer-content">
+    <div class="about-section">
+        <div class="about-content">
+            <img src="/images/bg.jpg" alt="Profile" class="profile-photo" />
+            <div class="about-text">
+                <h2>About Me</h2>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<footer class="footer"
+    style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
+>
+  <div class="footer-content">
       <h3>AOKFrames</h3>
       <a href="mailto:aokframes@gmail.com" class="email">aokframes@gmail.com</a>
       <a href="https://instagram.com/aokframes" target="_blank" rel="noopener noreferrer" class="instagram">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-        </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+          </svg>
       </a>
-    </div>
-  </footer>
-</div>
+  </div>
+</footer>
 
 <style>
     .content {
-      min-height: 220vh;
-      padding: 0;
-      margin: 0;
-      position: relative;
-      z-index: 1;
+        min-height: 220vh;
+        padding: 0;
+        margin: 0;
+        position: relative;
+        z-index: 1;
     }
 
     .full-size-image {
@@ -180,7 +182,8 @@
     .after-cover {
         position: relative;
         width: 100%;
-        background-color: var(--primary-color);
+        background-color: var(--bg-color);
+        color: var(--text-color);
         z-index: 0;
         padding: 2rem;
     }
@@ -205,7 +208,6 @@
 
     .about-section {
         padding: 4rem 2rem;
-        color: #EFEBE0;
     }
 
     .about-content {
@@ -235,8 +237,7 @@
 
     .footer {
         padding: 2rem;
-        background-color: color-mix(in srgb, var(--primary-color) 80%, black);
-        color: #EFEBE0;
+        background-color: color-mix(in srgb, var(--bg-color) 80%, black);
     }
 
     .footer-content {
@@ -255,22 +256,22 @@
     }
 
     .email {
-        color: #EFEBE0;
+        color: inherit;
         text-decoration: none;
         transition: color 0.2s;
     }
 
     .email:hover {
-        color: #a39e93;
+        opacity: 0.8;
     }
 
     .instagram {
-        color: #EFEBE0;
+        color: inherit;
         transition: color 0.2s;
     }
 
     .instagram:hover {
-        color: #a39e93;
+        opacity: 0.8;
     }
 
     @media (max-width: 768px) {

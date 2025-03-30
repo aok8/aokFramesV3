@@ -134,6 +134,9 @@
                 <h2>About Me</h2>
                 <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
             </div>
+            <button on:click={() => {
+                showMasonry = true;
+            }}>More About Me</button>
         </div>
     </div>
 </div>
@@ -197,13 +200,13 @@
 
     .photo-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        grid-template-rows: masonry;
         gap: 2rem;
         padding: 2rem;
     }
 
     .grid-item {
-        aspect-ratio: 1;
         overflow: hidden;
     }
 

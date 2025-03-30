@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { theme } from '../theme/theme.js';
+  import { Button } from "$lib/components/ui/button";
 
   let isSticky = true;
   let isScrollingPaused = false;
@@ -133,7 +134,7 @@
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-                <button 
+                <!-- <button 
                   class="interactive-button"
                   on:click={() => {
                     window.location.href = '/about';
@@ -161,7 +162,8 @@
                 >
                   <span class="button-content">More About Me</span>
                   <span class="button-glow"></span>
-                </button>
+                </button> -->	
+                <Button variant="outline">More About Me</Button>
             </div>
         </div>
     </div>

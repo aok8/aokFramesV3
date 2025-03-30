@@ -8,6 +8,14 @@
   let showText = false;
   let hasPassed = false;
   let contentElement: HTMLElement;
+  let observer: IntersectionObserver;
+
+  function resetState() {
+    isSticky = true;
+    isScrollingPaused = false;
+    showText = false;
+    hasPassed = false;
+  }
 
   function checkStickyState(entry: IntersectionObserverEntry) {
     // Only use intersection observer to prevent gaps
@@ -44,12 +52,12 @@
     }, 2000);
   }
 
-  onMount(() => {
-    if (typeof window !== 'undefined') {
-      window.scrollTo(0, 0);
+  function initializeObserver() {
+    if (observer) {
+      observer.disconnect();
     }
 
-    const observer = new IntersectionObserver(
+    observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(checkStickyState);
       },
@@ -63,8 +71,27 @@
     if (imageElement) {
       observer.observe(imageElement);
     }
+  }
 
-    return () => observer.disconnect();
+  onMount(() => {
+    if (typeof window !== 'undefined') {
+      // Force scroll to top
+      window.scrollTo(0, 0);
+      
+      // Reset all state
+      resetState();
+      
+      // Initialize observer after a small delay to ensure DOM is ready
+      setTimeout(() => {
+        initializeObserver();
+      }, 100);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+    };
   });
 
   export function handleCoverScrolledAway() {

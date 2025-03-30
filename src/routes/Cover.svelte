@@ -1,11 +1,20 @@
 <script lang="ts">
     import { theme } from '../theme/theme.js';
     import '../app.css';
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
 
     const dispatch = createEventDispatcher();
     let scrollY = 0;
     let hasCoverScrolledAway = false;
+
+    function resetState() {
+        scrollY = 0;
+        hasCoverScrolledAway = false;
+    }
+
+    onMount(() => {
+        resetState();
+    });
 
     $: {
         // Check if cover has scrolled away (100% translated)

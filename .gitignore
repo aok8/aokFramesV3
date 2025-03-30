@@ -27,4 +27,4 @@ vite.config.ts.timestamp-*
 /docs
 
 # Images
-/static/images/Portfolio
+/src/images/Portfolio

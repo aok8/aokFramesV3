@@ -11,10 +11,10 @@
   let observer: IntersectionObserver;
   
   // Get all images from the Portfolio directory
-  const portfolioImages = import.meta.glob('/static/images/Portfolio/*', { eager: true });
+  const portfolioImages = import.meta.glob('/src/images/Portfolio/*', { eager: true });
   const imageUrls = Object.entries(portfolioImages).map(([path]) => {
     // Convert the full path to a URL path (remove /static prefix)
-    return path.replace('/static', '');
+    return path;//.replace('/src/images/Portfolio', '');
   });
 
   function resetState() {

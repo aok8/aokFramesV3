@@ -1,7 +1,23 @@
 <script lang="ts">
-    import { theme } from '../theme/theme';
+    import { theme } from '../theme/theme.js';
     import '../app.css';
+    import { createEventDispatcher } from 'svelte';
+
+    const dispatch = createEventDispatcher();
     let scrollY = 0;
+    let hasCoverScrolledAway = false;
+
+    $: {
+        // Check if cover has scrolled away (100% translated)
+        const coverTranslation = Math.min(scrollY/10, 100);
+        if (coverTranslation >= 99.5 && !hasCoverScrolledAway) {  // Slightly earlier trigger for smoother transition
+            hasCoverScrolledAway = true;
+            // Small delay to ensure cover is fully away
+            setTimeout(() => {
+                dispatch('coverScrolledAway');
+            }, 50);
+        }
+    }
 </script>
 
 <svelte:window bind:scrollY={scrollY} />
@@ -21,8 +37,8 @@
         width: 100%;
         height: 100%;
         background-color: var(--primary-color);
-        z-index: 1;
-        transition: transform 0.2s ease-out;
+        z-index: 10; /* Highest z-index to be above everything initially */
+        transition: transform 0.3s ease-out;  /* Slightly longer transition */
     }
     .cover h1 {
         color: white;

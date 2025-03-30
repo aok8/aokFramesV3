@@ -133,10 +133,36 @@
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                <button 
+                  class="interactive-button"
+                  on:click={() => {
+                    window.location.href = '/about';
+                  }}
+                  on:mouseenter={(e) => {
+                    const button = e.currentTarget;
+                    const rect = button.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    button.style.setProperty('--x', `${x}px`);
+                    button.style.setProperty('--y', `${y}px`);
+                    button.classList.add('hovered');
+                  }}
+                  on:mousemove={(e) => {
+                    const button = e.currentTarget;
+                    const rect = button.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    button.style.setProperty('--x', `${x}px`);
+                    button.style.setProperty('--y', `${y}px`);
+                  }}
+                  on:mouseleave={(e) => {
+                    e.currentTarget.classList.remove('hovered');
+                  }}
+                >
+                  <span class="button-content">More About Me</span>
+                  <span class="button-glow"></span>
+                </button>
             </div>
-            <button on:click={() => {
-                showMasonry = true;
-            }}>More About Me</button>
         </div>
     </div>
 </div>

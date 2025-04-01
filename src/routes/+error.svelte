@@ -14,9 +14,8 @@
     <p>Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
     <p>You can return home by clicking <a href="/">here</a>.</p>
   </div>
+  <Footer />
 </div>
-
-<Footer />
 
 <style>
   .error-container {
@@ -26,12 +25,16 @@
     color: var(--text-color);
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
   }
 
   .error-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     text-align: center;
+    padding: 2rem;
   }
 
   h1 {
@@ -44,11 +47,12 @@
     font-size: 1.5rem;
     margin-top: 1rem;
   }
+
   a {
     color: color-mix(in srgb, var(--text-color) 80%, black);
-    
   }
-  a:hover{
+
+  a:hover {
     opacity: 0.8;
     text-decoration: underline;
   }

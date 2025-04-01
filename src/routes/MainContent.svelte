@@ -205,6 +205,7 @@
         color: white;
         text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         pointer-events: none;
+        white-space: nowrap;
     }
 
     .after-cover {
@@ -293,10 +294,10 @@
             columns: 1;
         }
         .text {
-          font-size: 1.3rem;
+            font-size: 6vw;
         }
-        .about-text{
-          font-size: 0.8rem;
+        .about-text {
+            font-size: 0.8rem;
         }
         .about-text h2{
           font-size: 1.2rem;

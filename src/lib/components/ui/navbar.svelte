@@ -114,7 +114,10 @@
     text-decoration: underline;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
+    .navbar{
+        height: 2rem;
+    }
     .nav-content {
       width: 100%;
     }
@@ -124,12 +127,15 @@
     }
 
     .nav-links {
-      gap: 1rem;
-      padding-right: 1rem;
+      gap: 0.6rem;
+      padding-right: 0.8rem;
     }
 
     .logo a {
-      font-size: 1.25rem;
+      font-size: 0.8rem;
+    }
+    .nav-links a{
+      font-size: 0.6rem;
     }
   }
 </style>

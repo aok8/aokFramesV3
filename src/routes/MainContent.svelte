@@ -288,12 +288,12 @@
         }
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
         .photo-grid {
             columns: 1;
         }
         .text {
-          font-size: 1.5rem;
+          font-size: 1.3rem;
         }
         .about-text{
           font-size: 0.8rem;

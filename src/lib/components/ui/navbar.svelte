@@ -45,9 +45,10 @@
       <a href="/">AOK<span>Frames</span></a>
     </div>
     <ul class="nav-links">
-      <li><a href="/portfolio">Portfolio</a></li>
+      <li><a href="/works">Works</a></li>
       <li><a href="/about">About</a></li>
-      <li><a href="/contact">Contact</a></li>
+      <li><a href="/blog">Blog</a></li>
+      <li><a href="https://aokframes.darkroom.com">Prints</a></li>
     </ul>
   </div>
 </nav>
@@ -84,6 +85,10 @@
     color: var(--text-color);
   }
 
+  .logo a:hover {
+    opacity: 0.8;
+  }
+
   .logo span {
     color: color-mix(in srgb, var(--text-color) 80%, transparent);
     margin-left: 0.25rem;
@@ -106,6 +111,7 @@
 
   .nav-links a:hover {
     opacity: 0.8;
+    text-decoration: underline;
   }
 
   @media (max-width: 768px) {

@@ -4,6 +4,7 @@
   import { theme } from '../theme/theme.js';
   import { Button } from "$lib/components/ui/button";
   import { Footer } from "$lib/components/ui";
+  import { Navbar } from "$lib/components/ui";
 
   let isSticky = true;
   let isScrollingPaused = false;
@@ -110,6 +111,7 @@
 </script>
 
 <div class="content" bind:this={contentElement}>
+    <Navbar />
     <img src="/images/bg.jpg" alt="AOK Frames Star Pic" class="full-size-image" />
     {#if showText}
         <div class="text" transition:fade>

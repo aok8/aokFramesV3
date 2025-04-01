@@ -3,12 +3,13 @@
   import { theme } from '../../../theme/theme.js';
 
   export let backgroundColor: string | undefined = undefined;
+  export let textColor: string | undefined = undefined;
   
   let isOverPhoto = true;
   let navbar: HTMLElement;
 
   function updateNavbarStyle() {
-    if (!navbar) return;
+    if (!navbar || textColor) return; // Don't update if textColor is provided
     
     const navbarRect = navbar.getBoundingClientRect();
     const photoSection = document.querySelector('.full-size-image');
@@ -20,12 +21,14 @@
   }
 
   onMount(() => {
-    window.addEventListener('scroll', updateNavbarStyle);
-    updateNavbarStyle();
+    if (!textColor) { // Only add scroll listener if we're using dynamic colors
+      window.addEventListener('scroll', updateNavbarStyle);
+      updateNavbarStyle();
 
-    return () => {
-      window.removeEventListener('scroll', updateNavbarStyle);
-    };
+      return () => {
+        window.removeEventListener('scroll', updateNavbarStyle);
+      };
+    }
   });
 </script>
 
@@ -34,7 +37,7 @@
   class="navbar"
   style="
     --bg-color: {backgroundColor || 'transparent'}; 
-    --text-color: {isOverPhoto ? 'white' : theme.text.primary};
+    --text-color: {textColor || (isOverPhoto ? 'white' : theme.text.primary)};
   "
 >
   <div class="nav-content">

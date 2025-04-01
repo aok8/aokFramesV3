@@ -1,10 +1,16 @@
 <script lang="ts">
   import { theme } from '../theme/theme.js';
   import { Footer } from "$lib/components/ui";
+  import { Navbar } from "$lib/components/ui";
 </script>
 
 <div class="error-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
+  <Navbar 
+    backgroundColor={theme.text.primary}
+    textColor={theme.background.light}
+  />
   <div class="error-content">
+    <h1>404</h1>
     <p>Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
   </div>
 </div>

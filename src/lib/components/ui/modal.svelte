@@ -29,11 +29,16 @@
   <div 
     class="modal-backdrop"
     on:click={() => onClose()}
+    on:keydown={(e) => e.key === 'Escape' && onClose()}
+    role="presentation"
     transition:fade={{ duration: 200 }}
   >
     <div 
       class="modal-container"
       on:click|stopPropagation
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image viewer"
       transition:scale={{ duration: 200, start: 0.95 }}
       style="--bg-color: {theme.text.primary};"
     >

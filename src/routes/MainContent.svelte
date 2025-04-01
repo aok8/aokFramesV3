@@ -16,11 +16,6 @@
   let selectedPhoto: string | null = null;
   let photoModalOpen = false;
   
-  $: if (photoModalOpen) {
-    console.log('Modal should be open:', photoModalOpen);
-    console.log('Selected photo:', selectedPhoto);
-  }
-  
   // Get all images from the Portfolio directory
   const portfolioImages = import.meta.glob('/src/images/Portfolio/*', { eager: true });
   const imageUrls = Object.entries(portfolioImages).map(([path]) => {
@@ -120,7 +115,7 @@
 
 <div class="content" bind:this={contentElement}>
     <Navbar />
-    <img src="/images/bg.jpg" alt="AOK Frames Star Pic" class="full-size-image" />
+    <img src="/images/bg.jpg" alt="Night sky with stars" class="full-size-image" />
     {#if showText}
         <div class="text" transition:fade>
           Growth through experience
@@ -133,7 +128,7 @@
       {#if selectedPhoto}
         <img 
           src={selectedPhoto} 
-          alt="Selected portfolio photo" 
+          alt="Selected portfolio work" 
           class="modal-photo"
         />
       {/if}
@@ -146,16 +141,26 @@
     <div class="photo-grid">
         {#each imageUrls as imageUrl, i}
             <div class="grid-item">
-                <img 
-                  src={imageUrl} 
-                  alt={`Portfolio photo ${i + 1}`} 
-                  class="grid-photo" 
-                  loading="lazy"
+                <button 
+                  class="image-button"
                   on:click={() => {
                     selectedPhoto = imageUrl;
                     photoModalOpen = true;
                   }}
-                />
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      selectedPhoto = imageUrl;
+                      photoModalOpen = true;
+                    }
+                  }}
+                >
+                  <img 
+                    src={imageUrl} 
+                    alt="Portfolio work" 
+                    class="grid-photo" 
+                    loading="lazy"
+                  />
+                </button>
             </div>
         {/each}
     </div>
@@ -228,16 +233,25 @@
         margin-bottom: 2rem;
     }
 
+    .image-button {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+        border: none;
+        background: none;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+
+    .image-button:hover {
+        transform: scale(1.05);
+    }
+
     .grid-photo {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transition: transform 0.3s ease;
-        cursor: pointer;
-    }
-
-    .grid-photo:hover {
-        transform: scale(1.05);
+        display: block;
     }
 
     .about-section {

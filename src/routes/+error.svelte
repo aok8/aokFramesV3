@@ -52,4 +52,13 @@
     opacity: 0.8;
     text-decoration: underline;
   }
+
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 3rem;
+    }
+    p {
+      font-size: 1rem;
+    }
+  }
 </style> 

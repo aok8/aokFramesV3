@@ -217,15 +217,14 @@
     }
 
     .photo-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-        grid-template-rows: masonry;
-        gap: 2rem;
+        columns: 4;
+        column-gap: 2rem;
         padding: 2rem;
     }
 
     .grid-item {
         overflow: hidden;
+        margin-bottom: 2rem;
     }
 
     .grid-photo {
@@ -275,5 +274,43 @@
       object-fit: contain;
       border-radius: 4px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 1500px) {
+        .photo-grid {
+            columns: 3;
+        }
+    }
+
+    @media (max-width: 1200px) {
+        .photo-grid {
+            columns: 2;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .photo-grid {
+            columns: 1;
+        }
+        .text {
+          font-size: 1.5rem;
+        }
+        .about-text{
+          font-size: 0.8rem;
+        }
+        .about-text h2{
+          font-size: 1.2rem;
+          margin-bottom: 0.4rem;
+        }
+
+        .profile-photo {
+            width: 10vh;
+            height: 10vh;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .about-content{
+          gap: 0.5rem;
+        }
     }
 </style>

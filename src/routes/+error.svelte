@@ -12,6 +12,7 @@
   <div class="error-content">
     <h1>404</h1>
     <p>Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
+    <p>You can return home by clicking <a href="/">here</a>.</p>
   </div>
 </div>
 
@@ -42,5 +43,13 @@
   p {
     font-size: 1.5rem;
     margin-top: 1rem;
+  }
+  a {
+    color: color-mix(in srgb, var(--text-color) 80%, black);
+    
+  }
+  a:hover{
+    opacity: 0.8;
+    text-decoration: underline;
   }
 </style> 

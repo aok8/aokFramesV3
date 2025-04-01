@@ -126,6 +126,18 @@
           Growth through experience
         </div>
     {/if}
+    <Modal
+      bind:open={photoModalOpen}
+      onClose={() => photoModalOpen = false}
+    >
+      {#if selectedPhoto}
+        <img 
+          src={selectedPhoto} 
+          alt="Selected portfolio photo" 
+          class="modal-photo"
+        />
+      {/if}
+    </Modal>
 </div>
 
 <div class="after-cover"
@@ -147,19 +159,6 @@
             </div>
         {/each}
     </div>
-
-    <Modal
-      bind:open={photoModalOpen}
-      onClose={() => photoModalOpen = false}
-    >
-      {#if selectedPhoto}
-        <img 
-          src={selectedPhoto} 
-          alt="Selected portfolio photo" 
-          class="modal-photo"
-        />
-      {/if}
-    </Modal>
 
     <div class="about-section">
         <div class="about-content">

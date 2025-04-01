@@ -56,19 +56,22 @@
     left: 0;
     width: 100%;
     height: 4rem;
-    z-index: 50;
+    z-index: 100;
     background-color: var(--bg-color);
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   .nav-content {
-    max-width: 1200px;
+    width: 95%;
     margin: 0 auto;
-    padding: 0 2rem;
     height: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .logo {
+    padding-left: 1rem;
   }
 
   .logo a {
@@ -88,7 +91,7 @@
     gap: 2rem;
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding-right: 2rem;
   }
 
   .nav-links a {
@@ -104,11 +107,16 @@
 
   @media (max-width: 768px) {
     .nav-content {
-      padding: 0 1rem;
+      width: 100%;
+    }
+
+    .logo {
+      padding-left: 0.5rem;
     }
 
     .nav-links {
       gap: 1rem;
+      padding-right: 1rem;
     }
 
     .logo a {

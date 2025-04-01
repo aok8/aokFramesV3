@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Footer } from "$lib/components/ui";
   import { Navbar } from "$lib/components/ui";
+  import Modal from "$lib/components/ui/modal.svelte";
 
   let isSticky = true;
   let isScrollingPaused = false;
@@ -12,6 +13,13 @@
   let hasPassed = false;
   let contentElement: HTMLElement;
   let observer: IntersectionObserver;
+  let selectedPhoto: string | null = null;
+  let photoModalOpen = false;
+  
+  $: if (photoModalOpen) {
+    console.log('Modal should be open:', photoModalOpen);
+    console.log('Selected photo:', selectedPhoto);
+  }
   
   // Get all images from the Portfolio directory
   const portfolioImages = import.meta.glob('/src/images/Portfolio/*', { eager: true });
@@ -126,10 +134,32 @@
     <div class="photo-grid">
         {#each imageUrls as imageUrl, i}
             <div class="grid-item">
-                <img src={imageUrl} alt={`Portfolio photo ${i + 1}`} class="grid-photo" loading="lazy" />
+                <img 
+                  src={imageUrl} 
+                  alt={`Portfolio photo ${i + 1}`} 
+                  class="grid-photo" 
+                  loading="lazy"
+                  on:click={() => {
+                    selectedPhoto = imageUrl;
+                    photoModalOpen = true;
+                  }}
+                />
             </div>
         {/each}
     </div>
+
+    <Modal
+      bind:open={photoModalOpen}
+      onClose={() => photoModalOpen = false}
+    >
+      {#if selectedPhoto}
+        <img 
+          src={selectedPhoto} 
+          alt="Selected portfolio photo" 
+          class="modal-photo"
+        />
+      {/if}
+    </Modal>
 
     <div class="about-section">
         <div class="about-content">
@@ -204,6 +234,7 @@
         height: 100%;
         object-fit: cover;
         transition: transform 0.3s ease;
+        cursor: pointer;
     }
 
     .grid-photo:hover {
@@ -237,5 +268,13 @@
         font-size: 2rem;
         margin-bottom: 1rem;
         font-weight: 300;
+    }
+
+    .modal-photo {
+      max-width: 95%;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 </style>

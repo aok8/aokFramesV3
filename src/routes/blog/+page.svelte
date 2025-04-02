@@ -15,9 +15,9 @@
   <main class="min-h-screen py-16">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="max-w-4xl mx-auto mb-12 text-center">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">Film Photography Blog</h1>
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Blog</h1>
         <p class="text-lg text-gray-600">
-          Exploring the art of analog photography, one frame at a time. Join me on my journey through the world of film cameras, darkroom techniques, and the timeless beauty of film photography.
+          Exploring the art of photography, one frame at a time. Join me on my journey.
         </p>
       </div>
 

@@ -28,3 +28,4 @@ vite.config.ts.timestamp-*
 
 # Images
 /src/images/Portfolio
+src/content/blog/images

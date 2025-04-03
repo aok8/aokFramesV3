@@ -8,13 +8,13 @@
 
   export let data: PageData;
   
-  console.log('Page data:', data);
+  //console.log('Page data:', data);
   $: {
-    console.log('Setting posts:', data.posts);
+    //console.log('Setting posts:', data.posts);
     posts.set(data.posts);
   }
   
-  $: console.log('Current posts in store:', $posts);
+  //$: console.log('Current posts in store:', $posts);
 </script>
 
 <div class="blog-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">

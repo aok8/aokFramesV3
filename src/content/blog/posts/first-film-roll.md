@@ -1,3 +1,8 @@
+---
+author: AOK
+label: Photography/Experience
+published: 2024-04-02
+---
 # My First Roll of Film: A Journey into Analog Photography
 
 After years of shooting digital, I finally took the plunge into film photography. Armed with my newly acquired Canon AE-1 and a roll of Kodak Portra 400, I set out to explore this classic medium. Here's what I learned from my first roll of film.

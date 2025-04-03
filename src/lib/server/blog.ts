@@ -2,6 +2,7 @@ import { marked } from 'marked';
 import type { BlogPost } from '../types/blog.js';
 import fs from 'fs';
 import path from 'path';
+import matter from 'gray-matter';
 
 // Use absolute paths from workspace root
 const WORKSPACE_ROOT = process.cwd();
@@ -12,21 +13,17 @@ export function loadBlogPost(slug: string): BlogPost | null {
   try {
     const filePath = path.join(POSTS_DIR, `${slug}.md`);
     console.log('Loading blog post from:', filePath);
-    let content = fs.readFileSync(filePath, 'utf-8');
+    let fileContent = fs.readFileSync(filePath, 'utf-8');
     
     // Remove BOM if present
-    if (content.charCodeAt(0) === 0xFEFF) {
+    if (fileContent.charCodeAt(0) === 0xFEFF) {
       console.log('BOM detected, removing...');
-      content = content.slice(1);
+      fileContent = fileContent.slice(1);
     }
     
-    // Debug content
-    console.log('Content encoding check:');
-    console.log('- First char code:', content.charCodeAt(0));
-    console.log('- First few chars:', content.slice(0, 10).split('').map(c => c.charCodeAt(0)));
-    console.log('First few lines of content:', content.split('\n').slice(0, 3));
-    console.log('Content starts with #:', content.startsWith('#'));
-    console.log('First line:', JSON.stringify(content.split('\n')[0]));
+    // Parse frontmatter and content
+    const { data, content } = matter(fileContent);
+    console.log('Parsed frontmatter:', data);
     
     // Extract title from first h1
     const titleMatch = content.match(/^#\s+(.*)/m);
@@ -66,17 +63,14 @@ export function loadBlogPost(slug: string): BlogPost | null {
     const imagePath = path.join(IMAGES_DIR, imageFileName);
     const image = fs.existsSync(imagePath) ? `/src/content/blog/images/${imageFileName}` : undefined;
     
-    // Use file stats for published date
-    const stats = fs.statSync(filePath);
-    
     const post = {
       id: slug,
       title,
       summary,
       content,
-      author: 'AOK', // Could be extracted from frontmatter if added
-      published: stats.mtime.toISOString().split('T')[0],
-      label: 'Photography', // Could be extracted from frontmatter if added
+      author: data.author || 'AOK', // Use frontmatter author or default
+      published: data.published || new Date().toISOString().split('T')[0], // Use frontmatter date or default
+      label: data.label || 'Photography', // Use frontmatter label or default
       image
     };
     

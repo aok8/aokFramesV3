@@ -1,3 +1,8 @@
+---
+author: AOK
+label: Photography/Technical
+published: 2024-04-02
+---
 # After Dark: Exploring Seattle's City Lights
 
 Night photography has always fascinated me. There's something magical about how artificial light transforms familiar scenes into something entirely new. Last night, I ventured into downtown Seattle to explore the city after dark and experiment with some night photography techniques.

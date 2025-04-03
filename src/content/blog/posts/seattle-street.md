@@ -1,3 +1,8 @@
+---
+author: AOK
+label: Photography/Street
+published: 2024-04-03
+---
 # Seattle Street Photography: A Rainy Day at Pike Place
 
 There's something magical about Seattle on a rainy day. The glistening streets, the umbrellas bobbing through crowds, and the soft, diffused light create the perfect conditions for street photography. Today, I spent several hours wandering through Pike Place Market, capturing candid moments of daily life in one of Seattle's most iconic locations.

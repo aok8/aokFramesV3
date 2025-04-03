@@ -1,4 +1,9 @@
-﻿# Night Photography: A random night turned into one of my favorite shots
+﻿---
+author: AOK
+label: Photography/Story
+published: 2024-04-03
+---
+# Night Photography: A random night turned into one of my favorite shots
 
 ## Cinestill
 It started with a day of going to new diners. I thought with the potential of some neon and stuff it'd be good to try out some cinestill 800t. I hadn't shot it in a while, for me personally its extremely specific for subject matter, so it ends up being a fridge sitter for most. 

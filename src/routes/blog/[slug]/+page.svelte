@@ -2,12 +2,16 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import BlogPost from '$lib/components/blog/BlogPost.svelte';
-  import type { BlogPost as BlogPostType } from '../../../lib/types/blog.js';
+  import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
+  import { theme } from '../../../theme/theme.js';
 
   export let data: { post: BlogPostType };
 </script>
 
-<Navbar />
+<Navbar 
+    backgroundColor={theme.text.primary}
+    textColor={theme.background.light}
+  />
 
 <main class="min-h-screen bg-gray-50 py-16">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

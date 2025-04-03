@@ -26,21 +26,21 @@
 </script>
 
 {#if open}
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
   <div 
     class="modal-backdrop"
     on:click={() => onClose()}
     on:keydown={(e) => e.key === 'Escape' && onClose()}
-    role="presentation"
+    role="dialog"
+    aria-modal="true"
     transition:fade={{ duration: 200 }}
   >
     <div 
       class="modal-container"
       on:click|stopPropagation
-      role="dialog"
-      aria-modal="true"
-      aria-label="Image viewer"
-      transition:scale={{ duration: 200, start: 0.95 }}
       style="--bg-color: {theme.text.primary};"
+      transition:scale={{ duration: 200, start: 0.95 }}
     >
       <button 
         class="close-button" 

@@ -4,6 +4,17 @@
   import BlogPost from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
   import { theme } from '../../theme/theme.js';
+  import type { PageData } from './$types.js';
+
+  export let data: PageData;
+  
+  console.log('Page data:', data);
+  $: {
+    console.log('Setting posts:', data.posts);
+    posts.set(data.posts);
+  }
+  
+  $: console.log('Current posts in store:', $posts);
 </script>
 
 <div class="blog-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
@@ -44,17 +55,5 @@
 
   main {
     flex: 1;
-  }
-
-  article {
-    transition: transform 0.2s ease-in-out;
-  }
-
-  article:hover {
-    transform: translateY(-4px);
-  }
-
-  a {
-    text-decoration: none;
   }
 </style> 

@@ -1,16 +1,14 @@
 import { error } from '@sveltejs/kit';
-import type { PageLoad } from './$types.js';
-import { get } from 'svelte/store';
-import { posts } from '../../../lib/stores/blog.js';
+import type { PageServerLoad } from './$types.js';
+import { loadBlogPost } from '$lib/server/blog.js';
 
 interface Params {
   slug: string;
 }
 
-export const load = (({ params }: { params: Params }) => {
+export const load = (async ({ params }: { params: Params }) => {
   try {
-    const allPosts = get(posts);
-    const post = allPosts.find(p => p.id === params.slug);
+    const post = loadBlogPost(params.slug);
     
     if (!params.slug || !post) {
       throw error(404, {
@@ -27,4 +25,4 @@ export const load = (({ params }: { params: Params }) => {
       message: 'Post not found'
     });
   }
-}) satisfies PageLoad; 
+}) satisfies PageServerLoad; 

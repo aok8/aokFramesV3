@@ -10,7 +10,12 @@ const config = {
 
 	kit: {
 		// Using Cloudflare adapter for Cloudflare Pages deployment
-		adapter: adapter()
+		adapter: adapter({
+			routes: {
+				include: ['/*'],
+				exclude: []
+			}
+		})
 	},
 
 	extensions: ['.svelte', '.svx']

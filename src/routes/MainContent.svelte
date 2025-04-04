@@ -16,12 +16,36 @@
   let selectedPhoto: string | null = null;
   let photoModalOpen = false;
   
-  // Get all images from the Portfolio directory
-  const portfolioImages = import.meta.glob('/src/images/Portfolio/*', { eager: true });
-  const imageUrls = Object.entries(portfolioImages).map(([path]) => {
-    // Convert the full path to a URL path (remove /static prefix)
-    return path;//.replace('/src/images/Portfolio', '');
-  });
+  // Portfolio images from R2
+  const portfolioImages = [
+    // Add your portfolio images here
+    '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
+    '/images/portfolio/Portra800_R4m_01_03_25_11.jpg',
+    '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
+    '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg',
+    '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
+    '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
+    '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
+    '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
+    '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg',
+    '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
+    '/images/portfolio/Portra800_F100_09_14_24_6.jpg',
+    '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
+    '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg',
+    '/images/portfolio/Trix400_F100_08_17_24_11.jpg',
+    '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg',
+    '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
+    '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
+    '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg',
+    '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
+    '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
+    '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
+    '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
+    '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
+    '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
+    '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
+    '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
+  ];
 
   function resetState() {
     isSticky = true;
@@ -115,7 +139,7 @@
 
 <div class="content" bind:this={contentElement}>
     <Navbar />
-    <img src="/images/bg.jpg" alt="Night sky with stars" class="full-size-image" />
+    <img src="/images/constants/bg.jpg" alt="Night sky with stars" class="full-size-image" />
     {#if showText}
         <div class="text" transition:fade>
           Growth through experience
@@ -139,7 +163,7 @@
     style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
 >
     <div class="photo-grid">
-        {#each imageUrls as imageUrl, i}
+        {#each portfolioImages as imageUrl, i}
             <div class="grid-item">
                 <button 
                   class="image-button"
@@ -167,7 +191,7 @@
 
     <div class="about-section">
         <div class="about-content">
-            <img src="/images/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
+            <img src="/images/constants/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>I'm a Seattle based photographer who shoots both film and digital. I have a passion for capturing moments and telling stories through images as well as trying to continuously improve while experiencing life to the fullest.</p>

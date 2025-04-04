@@ -3,9 +3,15 @@ import type { Handle } from '@sveltejs/kit';
 export const handle: Handle = async ({ event, resolve }) => {
     const pathname = event.url.pathname;
 
-    // Handle image and blog post requests
+    // Handle image requests
     if (pathname.startsWith('/images/')) {
         try {
+            // Check if R2 is available
+            if (!event.platform?.env?.ASSETS) {
+                console.error('R2 binding not found. Check Cloudflare Pages configuration.');
+                return new Response('Service Unavailable', { status: 503 });
+            }
+
             let key: string;
             
             // Map the URL path to the correct R2 key
@@ -14,11 +20,12 @@ export const handle: Handle = async ({ event, resolve }) => {
             } else if (pathname.startsWith('/images/constants/')) {
                 key = 'constants/' + pathname.substring('/images/constants/'.length);
             } else {
+                console.warn(`Invalid image path requested: ${pathname}`);
                 return new Response('Not Found', { status: 404 });
             }
 
-            // Get the object from R2
-            const object = await event.platform?.env.ASSETS.get(key);
+            console.log(`Fetching R2 object: ${key}`);
+            const object = await event.platform.env.ASSETS.get(key);
 
             if (!object) {
                 console.error(`R2 object not found: ${key}`);
@@ -30,6 +37,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             object.writeHttpMetadata(headers);
             headers.set('etag', object.httpEtag);
             headers.set('Cache-Control', 'public, max-age=31536000');
+            
             return new Response(object.body, { headers });
         } catch (error) {
             console.error('R2 error:', error);
@@ -38,5 +46,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
 
     // For all other requests, proceed normally
-    return resolve(event);
+    const response = await resolve(event);
+    return response;
 }; 

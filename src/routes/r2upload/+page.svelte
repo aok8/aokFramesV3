@@ -1,69 +1,98 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   
-  // Track the R2 bucket structure
-  interface BucketFile {
-    key: string;
-    size?: number;
-    uploaded?: string;
-  }
-
   // Interface for required files
   interface RequiredFile {
     key: string;
     title: string;
-    status?: 'missing' | 'exists';
+    status: 'checking' | 'exists' | 'missing' | 'error';
+    error?: string;
   }
   
   // Required files check
   const requiredFiles: RequiredFile[] = [
-    { key: 'constants/bg.jpg', title: 'Background Image' },
-    { key: 'constants/Profile_Pic.jpg', title: 'Profile Picture' },
-    { key: 'portfolio/Ektar100_Mamiya6_09_15_24_11.jpg', title: 'Portfolio Image 1' },
-    { key: 'portfolio/Portra800_R4m_01_03_25_11.jpg', title: 'Portfolio Image 2' },
-    { key: 'portfolio/Acrosii_Bessa_09_12_23_1.jpg', title: 'Portfolio Image 3' }
+    { key: 'constants/bg.jpg', title: 'Background Image', status: 'checking' },
+    { key: 'constants/Profile_Pic.jpg', title: 'Profile Picture', status: 'checking' },
+    { key: 'portfolio/Ektar100_Mamiya6_09_15_24_11.jpg', title: 'Portfolio Image 1', status: 'checking' },
+    { key: 'portfolio/Portra800_R4m_01_03_25_11.jpg', title: 'Portfolio Image 2', status: 'checking' },
+    { key: 'portfolio/Acrosii_Bessa_09_12_23_1.jpg', title: 'Portfolio Image 3', status: 'checking' }
   ];
   
-  let bucketFiles: BucketFile[] = [];
   let loading = true;
   let error: string | null = null;
   
-  let bucketListResult: any = null;
-  let r2Status = "Checking R2 bucket...";
+  let r2Status = "Checking R2 access...";
+  let checkedCount = 0;
+  let existingCount = 0;
   
   onMount(async () => {
     try {
-      // Get list of files in the R2 bucket
-      const response = await fetch('/r2list');
-      if (!response.ok) {
-        error = `Failed to list R2 files: ${response.status} ${response.statusText}`;
+      // First, check if R2 is accessible at all
+      const diagResponse = await fetch('/api/r2-diagnostics');
+      if (!diagResponse.ok) {
+        error = `Failed to access R2 diagnostics: ${diagResponse.status} ${diagResponse.statusText}`;
         return;
       }
       
-      bucketListResult = await response.json();
+      const diagResult = await diagResponse.json();
+      if (!diagResult.r2_binding_exists) {
+        r2Status = "R2 bucket binding is not configured correctly.";
+        error = "The R2 bucket is not properly bound to your application. Please check Cloudflare Pages settings.";
+        requiredFiles.forEach(file => file.status = 'error');
+        return;
+      }
       
-      if (bucketListResult.error) {
-        r2Status = `Error accessing R2 bucket: ${bucketListResult.error}`;
-      } else if (!bucketListResult.bucket_contents?.objects?.length) {
-        r2Status = "R2 bucket appears to be empty. You need to upload the required files.";
-      } else {
-        r2Status = `R2 bucket contains ${bucketListResult.bucket_contents.objects.length} files.`;
-        
-        // Get the list of files currently in the bucket
-        bucketFiles = bucketListResult.bucket_contents.objects;
-        
-        // Check for required files
-        for (const required of requiredFiles) {
-          const existingFile = bucketFiles.find(f => f.key === required.key);
-          required.status = existingFile ? 'exists' : 'missing';
+      r2Status = "R2 bucket is connected. Checking individual files...";
+      
+      // Check each file individually
+      const checkPromises = requiredFiles.map(async (file) => {
+        try {
+          // Try to request the file through our directr2 endpoint
+          const response = await fetch(`/directr2/${file.key}`);
+          
+          // Update the file status based on response
+          if (response.ok) {
+            file.status = 'exists';
+            existingCount++;
+          } else {
+            file.status = 'missing';
+          }
+          
+          // Update the checked count
+          checkedCount++;
+          updateStatus();
+        } catch (fileError) {
+          file.status = 'error';
+          file.error = fileError instanceof Error ? fileError.message : String(fileError);
+          checkedCount++;
+          updateStatus();
         }
+      });
+      
+      // Wait for all checks to complete
+      await Promise.all(checkPromises);
+      
+      // Final status update
+      if (existingCount === requiredFiles.length) {
+        r2Status = `All required files are present in the R2 bucket.`;
+      } else {
+        r2Status = `Found ${existingCount} of ${requiredFiles.length} required files. Please upload the missing files.`;
       }
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
+      r2Status = "Error checking R2 bucket.";
     } finally {
       loading = false;
     }
   });
+  
+  function updateStatus() {
+    if (existingCount === requiredFiles.length) {
+      r2Status = `All required files are present in the R2 bucket.`;
+    } else {
+      r2Status = `Checked ${checkedCount} of ${requiredFiles.length} files. Found ${existingCount} so far.`;
+    }
+  }
 </script>
 
 <div class="container">
@@ -72,6 +101,10 @@
   <div class="status-box">
     <h2>R2 Bucket Status</h2>
     <p>{r2Status}</p>
+    
+    {#if loading}
+      <div class="loading">Checking files... {checkedCount}/{requiredFiles.length}</div>
+    {/if}
     
     {#if error}
       <div class="error-message">
@@ -96,10 +129,14 @@
           <tr>
             <td>{file.key}</td>
             <td class={file.status}>
-              {#if file.status === 'exists'}
+              {#if file.status === 'checking'}
+                ⏳ Checking...
+              {:else if file.status === 'exists'}
                 ✅ Found
-              {:else}
+              {:else if file.status === 'missing'}
                 ❌ Missing
+              {:else}
+                ⚠️ Error: {file.error || 'Unknown error'}
               {/if}
             </td>
           </tr>
@@ -134,11 +171,13 @@
     </div>
     
     <div class="guidance-section">
-      <h3>3. Using Cloudflare API:</h3>
-      <ol>
-        <li>Set up API tokens with R2 access in the Cloudflare dashboard</li>
-        <li>Use the R2 API to upload objects as outlined in the <a href="https://developers.cloudflare.com/r2/api/workers/workers-api-reference/" target="_blank">Cloudflare R2 documentation</a></li>
-      </ol>
+      <h3>Important R2 Usage Notes:</h3>
+      <ul>
+        <li>Cloudflare Pages with R2 has some limitations - not all R2 methods (like list or getKeys) are available</li>
+        <li>However, the core methods like get, put, and delete work properly</li>
+        <li>Make sure to upload your files using the exact paths shown in the table above</li>
+        <li>The folder structure is important - ensure constants/ and portfolio/ prefixes are used</li>
+      </ul>
     </div>
   </div>
   
@@ -183,6 +222,14 @@ aokframes-website-assets/ (R2 bucket root)
     margin-bottom: 20px;
   }
   
+  .loading {
+    background: #e3f2fd;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    color: #0d47a1;
+  }
+  
   .error-message {
     background: #ffebee;
     color: #c62828;
@@ -213,6 +260,14 @@ aokframes-website-assets/ (R2 bucket root)
   
   .missing {
     color: #e74c3c;
+  }
+  
+  .checking {
+    color: #3498db;
+  }
+  
+  .error {
+    color: #e67e22;
   }
   
   .guidance-section {

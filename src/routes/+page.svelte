@@ -85,6 +85,10 @@
             <div style="font-size: 11px; margin-left: 8px;">
               {Object.keys(r2DiagnosticResult.methods_available).join(', ')}
             </div>
+            <div style="margin-top: 4px; font-size: 11px;">
+              Note: R2 list and getKeys methods are not supported in this environment, 
+              but individual file operations should work properly.
+            </div>
           </div>
         {/if}
         

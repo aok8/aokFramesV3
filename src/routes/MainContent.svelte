@@ -2,10 +2,8 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { theme } from '../theme/theme.js';
-  import { Button } from "$lib/components/ui/button";
-  import { Footer } from "$lib/components/ui";
-  import { Navbar } from "$lib/components/ui";
-  import Modal from "$lib/components/ui/modal.svelte";
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { Footer, Navbar, Modal } from '$lib/components/ui/index.js';
 
   let isSticky = true;
   let isScrollingPaused = false;
@@ -16,46 +14,127 @@
   let selectedPhoto: string | null = null;
   let photoModalOpen = false;
   
-  // Portfolio images from R2
-  const portfolioImages = [
-    // Add your portfolio images here
-    '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
-    '/images/portfolio/Portra800_R4m_01_03_25_11.jpg',
-    '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg',
-    '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
-    '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
-    '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
-    '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg',
-    '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
-    '/images/portfolio/Portra800_F100_09_14_24_6.jpg',
-    '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg',
-    '/images/portfolio/Trix400_F100_08_17_24_11.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg',
-    '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
-    '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
-    '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg',
-    '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
-    '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
-    '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
-    '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
-    '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
-    '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
-    '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
-    '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
-  ];
-
   // Constants for background and profile image with fallbacks
   const bgImage = '/images/constants/bg.jpg';
-  const fallbackBgImage = '/constants/bg.jpg'; // Direct path fallback
+  const fallbackBgImage = '/directr2/constants/bg.jpg'; // Direct R2 URL fallback
   const profileImage = '/images/constants/Profile_Pic.jpg';
-  const fallbackProfileImage = '/constants/Profile_Pic.jpg'; // Direct path fallback
+  const fallbackProfileImage = '/directr2/constants/Profile_Pic.jpg'; // Direct R2 URL fallback
+  
+  // Portfolio images from R2 with direct fallbacks
+  const portfolioImages = [
+    { 
+      url: '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
+      fallback: '/directr2/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg'
+    },
+    { 
+      url: '/images/portfolio/Portra800_R4m_01_03_25_11.jpg',
+      fallback: '/directr2/portfolio/Portra800_R4m_01_03_25_11.jpg'
+    },
+    { 
+      url: '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
+      fallback: '/directr2/portfolio/Acrosii_Bessa_09_12_23_1.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg',
+      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_29.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
+      fallback: '/directr2/portfolio/Trix400_Mamiya6_06_22_24_1.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
+      fallback: '/directr2/portfolio/Trix400_2_BessaR_08_12_24_6.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
+      fallback: '/directr2/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
+      fallback: '/directr2/portfolio/Trix400_Mamiya6_03_24_24_11.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg',
+      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_24.jpg'
+    },
+    { 
+      url: '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
+      fallback: '/directr2/portfolio/Acros100_Mamiya6_08_10_24_12.jpg'
+    },
+    { 
+      url: '/images/portfolio/Portra800_F100_09_14_24_6.jpg',
+      fallback: '/directr2/portfolio/Portra800_F100_09_14_24_6.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
+      fallback: '/directr2/portfolio/Trix400_Mamiya6_08_08_24_5.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg',
+      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_25.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_F100_08_17_24_11.jpg',
+      fallback: '/directr2/portfolio/Trix400_F100_08_17_24_11.jpg'
+    },
+    { 
+      url: '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg',
+      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_20.jpg'
+    },
+    { 
+      url: '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
+      fallback: '/directr2/portfolio/Acros100_Mamiya6_08_09_24_8.jpg'
+    },
+    { 
+      url: '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
+      fallback: '/directr2/portfolio/Gold200_Mamiya6_07_13_24_9.jpg'
+    },
+    { 
+      url: '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg',
+      fallback: '/directr2/portfolio/Portra800_BessaR_07_13_24_14.jpg'
+    },
+    { 
+      url: '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
+      fallback: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg'
+    },
+    { 
+      url: '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
+      fallback: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg'
+    },
+    { 
+      url: '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
+      fallback: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg'
+    },
+    { 
+      url: '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
+      fallback: '/directr2/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg'
+    },
+    { 
+      url: '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
+      fallback: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg'
+    },
+    { 
+      url: '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
+      fallback: '/directr2/portfolio/Portra400_Mamiya6_09_12_23_10.jpg'
+    },
+    { 
+      url: '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
+      fallback: '/directr2/portfolio/Provia_Mamiya6_09_12_23_15.jpg'
+    },
+    { 
+      url: '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg',
+      fallback: '/directr2/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
+    }
+  ];
   
   // Image error handling
   let bgImageError = false;
   let profileImageError = false;
+  
+  // Portfolio item image errors tracking
+  const imageErrors = Array(portfolioImages.length).fill(false);
+  const imageFallbackErrors = Array(portfolioImages.length).fill(false);
 
   function resetState() {
     isSticky = true;
@@ -195,27 +274,48 @@
     style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
 >
     <div class="photo-grid">
-        {#each portfolioImages as imageUrl, i}
+        {#each portfolioImages as image, i}
             <div class="grid-item">
                 <button 
                   class="image-button"
                   on:click={() => {
-                    selectedPhoto = imageUrl;
+                    // For modal view, select the URL that hasn't errored first, fallback second
+                    selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
                     photoModalOpen = true;
                   }}
                   on:keydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                      selectedPhoto = imageUrl;
+                      // For modal view, select the URL that hasn't errored first, fallback second
+                      selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
                       photoModalOpen = true;
                     }
                   }}
                 >
-                  <img 
-                    src={imageUrl} 
-                    alt="Portfolio work" 
-                    class="grid-photo" 
-                    loading="lazy"
-                  />
+                  {#if !imageErrors[i]}
+                    <img 
+                      src={image.url} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.log(`Image failed to load, trying fallback: ${image.url}`);
+                        imageErrors[i] = true;
+                      }}
+                    />
+                  {:else if !imageFallbackErrors[i]}
+                    <img 
+                      src={image.fallback} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.error(`Both image paths failed: ${image.url}`);
+                        imageFallbackErrors[i] = true;
+                      }}
+                    />
+                  {:else}
+                    <div class="error-placeholder">Image unavailable</div>
+                  {/if}
                 </button>
             </div>
         {/each}
@@ -402,5 +502,16 @@
         .about-content{
           gap: 0.5rem;
         }
+    }
+
+    .error-placeholder {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background-color: rgba(0, 0, 0, 0.1);
+        color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
     }
 </style>

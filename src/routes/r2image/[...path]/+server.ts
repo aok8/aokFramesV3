@@ -12,25 +12,34 @@ export const GET = async (event) => {
       return new Response('R2 Configuration Error', { status: 500 });
     }
     
-    // Get the object from R2
-    const object = await platform.env.ASSETS.get(path);
+    // Use direct R2 URL approach instead of trying to use the SDK
+    const bucketName = 'aokframes-website-assets'; // Must match your R2 bucket name
+    const r2Url = `https://${bucketName}.r2.dev/${path}`;
     
-    if (!object) {
+    // Create a new request for the R2 public endpoint
+    const r2Request = new Request(r2Url);
+    
+    // Make the request to R2 public endpoint
+    const r2Response = await fetch(r2Request);
+    
+    if (!r2Response.ok) {
       console.error(`R2 object not found: ${path}`);
       return new Response(`Image not found: ${path}`, { status: 404 });
     }
     
-    console.log(`Found R2 image: ${path}, size: ${object.size}`);
+    console.log(`Found R2 image: ${path}`);
     
-    // Set appropriate headers
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set('etag', object.httpEtag);
-    headers.set('Cache-Control', 'public, max-age=31536000');
+    // Create a new response with caching headers
+    const response = new Response(r2Response.body, {
+      headers: new Headers(r2Response.headers)
+    });
+    
+    // Set caching
+    response.headers.set('Cache-Control', 'public, max-age=31536000');
     
     // Add content type based on file extension if not set
-    if (!headers.has('content-type')) {
-      const fileExtension = path.split('.').pop()?.toLowerCase();
+    if (!response.headers.has('content-type')) {
+      const fileExtension = path.split('.').pop()?.toLowerCase() || '';
       const contentTypes = {
         'jpg': 'image/jpeg',
         'jpeg': 'image/jpeg',
@@ -40,13 +49,14 @@ export const GET = async (event) => {
         'svg': 'image/svg+xml'
       };
       
-      if (fileExtension && contentTypes[fileExtension]) {
-        headers.set('content-type', contentTypes[fileExtension]);
+      // Use a type-safe approach
+      if (fileExtension && Object.keys(contentTypes).includes(fileExtension)) {
+        response.headers.set('content-type', contentTypes[fileExtension as keyof typeof contentTypes]);
       }
     }
     
     // Return the image
-    return new Response(object.body, { headers });
+    return response;
   } catch (error) {
     console.error('Error serving R2 image:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);

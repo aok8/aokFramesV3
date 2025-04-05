@@ -7,10 +7,8 @@ interface DiagnosticResult {
     platform_env_available: boolean;
     context_available: boolean;
     request_headers: Record<string, string>;
-    r2_bucket_list_test?: {
+    r2_bucket_test?: {
         success: boolean;
-        objects_found?: number;
-        truncated?: boolean;
         error?: string;
     };
 }
@@ -31,19 +29,16 @@ export const handle: Handle = async ({ event, resolve }) => {
             
             if (event.platform?.env?.ASSETS) {
                 try {
-                    // Check if we can list objects
-                    const testResult = await event.platform.env.ASSETS.list({
-                        limit: 1
-                    });
-                    diagnostics.r2_bucket_list_test = {
-                        success: true,
-                        objects_found: testResult.objects.length,
-                        truncated: testResult.truncated,
+                    // Try a simple get operation instead of list
+                    // Just checking if we can access the API
+                    await event.platform.env.ASSETS.head('constants/bg.jpg');
+                    diagnostics.r2_bucket_test = {
+                        success: true
                     };
-                } catch (listError) {
-                    diagnostics.r2_bucket_list_test = {
+                } catch (testError) {
+                    diagnostics.r2_bucket_test = {
                         success: false,
-                        error: listError instanceof Error ? listError.message : String(listError)
+                        error: testError instanceof Error ? testError.message : String(testError)
                     };
                 }
             }
@@ -67,10 +62,54 @@ export const handle: Handle = async ({ event, resolve }) => {
         }
     }
 
-    // Check direct paths without /images/ prefix
+    // Handle direct R2 serving endpoint - for bypassing regular handler
+    if (pathname.startsWith('/directr2/')) {
+        try {
+            // Extract the key from the path
+            const key = pathname.substring('/directr2/'.length);
+            
+            if (!event.platform?.env?.ASSETS) {
+                return new Response('R2 binding missing', { status: 500 });
+            }
+            
+            // Use the fetch method from Cloudflare Workers
+            // This accesses the R2 bucket through a different API call mechanism
+            // that should work even when the normal methods don't
+            // Use bucket name from wrangler.toml instead of assuming it has a bucket property
+            const bucketName = 'aokframes-website-assets'; // Must match your R2 bucket name
+            const r2Url = `https://${bucketName}.r2.dev/${key}`;
+            
+            // Create a new request for the R2 public endpoint
+            const r2Request = new Request(r2Url);
+            
+            // Make the request to R2 public endpoint
+            const r2Response = await fetch(r2Request);
+            
+            if (!r2Response.ok) {
+                return new Response(`Failed to fetch from R2: ${r2Response.status} ${r2Response.statusText}`, 
+                    { status: r2Response.status });
+            }
+            
+            // Create a new response with caching headers
+            const response = new Response(r2Response.body, {
+                headers: new Headers(r2Response.headers)
+            });
+            
+            // Set caching
+            response.headers.set('Cache-Control', 'public, max-age=31536000');
+            
+            return response;
+        } catch (error) {
+            console.error('Direct R2 fetch error:', error);
+            return new Response(`Direct R2 error: ${error instanceof Error ? error.message : String(error)}`, 
+                { status: 500 });
+        }
+    }
+
+    // Check direct paths without /images/ prefix - use direct R2 URL approach
     if (pathname.startsWith('/constants/')) {
         try {
-            let key: string = 'constants/' + pathname.substring('/constants/'.length);
+            const key = 'constants/' + pathname.substring('/constants/'.length);
             console.log(`Looking for R2 object with key: ${key} (direct path)`);
             
             if (!event.platform?.env?.ASSETS) {
@@ -78,22 +117,34 @@ export const handle: Handle = async ({ event, resolve }) => {
                 return new Response('R2 Configuration Error', { status: 500 });
             }
             
-            const object = await event.platform.env.ASSETS.get(key);
+            // Use public direct URL approach with hardcoded bucket name
+            const bucketName = 'aokframes-website-assets'; // Must match your R2 bucket name
+            const r2Url = `https://${bucketName}.r2.dev/${key}`;
             
-            if (!object) {
+            // Create a new request for the R2 public endpoint
+            const r2Request = new Request(r2Url);
+            
+            // Make the request to R2 public endpoint
+            const r2Response = await fetch(r2Request);
+            
+            if (!r2Response.ok) {
                 console.error(`Direct path: R2 object not found: ${key}`);
                 return new Response(`Not Found: ${key}`, { status: 404 });
             }
             
-            console.log(`Direct path: Found R2 object: ${key}, size: ${object.size}`);
+            console.log(`Direct path: Found R2 object: ${key}`);
             
-            const headers = new Headers();
-            object.writeHttpMetadata(headers);
-            headers.set('etag', object.httpEtag);
-            headers.set('Cache-Control', 'public, max-age=31536000');
+            // Create a new response with caching headers
+            const response = new Response(r2Response.body, {
+                headers: new Headers(r2Response.headers)
+            });
             
-            const fileExtension = key.split('.').pop()?.toLowerCase();
-            if (fileExtension && !headers.has('content-type')) {
+            // Set caching and content type if needed
+            response.headers.set('Cache-Control', 'public, max-age=31536000');
+            
+            // Determine content type based on file extension if not set
+            if (!response.headers.has('content-type')) {
+                const fileExtension = key.split('.').pop()?.toLowerCase();
                 const contentTypes: Record<string, string> = {
                     'jpg': 'image/jpeg',
                     'jpeg': 'image/jpeg',
@@ -104,12 +155,12 @@ export const handle: Handle = async ({ event, resolve }) => {
                     'md': 'text/markdown'
                 };
                 
-                if (contentTypes[fileExtension]) {
-                    headers.set('content-type', contentTypes[fileExtension]);
+                if (fileExtension && contentTypes[fileExtension]) {
+                    response.headers.set('content-type', contentTypes[fileExtension]);
                 }
             }
             
-            return new Response(object.body, { headers });
+            return response;
         } catch (error) {
             console.error('Direct path R2 error:', error);
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -117,7 +168,7 @@ export const handle: Handle = async ({ event, resolve }) => {
         }
     }
     
-    // Handle image requests
+    // Handle image requests - also using direct URL approach
     if (pathname.startsWith('/images/')) {
         try {
             let key: string;
@@ -136,7 +187,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
             console.log(`Looking for R2 object with key: ${key}`);
 
-            // Get the object from R2
+            // Validate platform environment
             if (!event.platform?.env) {
                 console.error('Platform environment not available');
                 return new Response('Configuration Error', { status: 500 });
@@ -147,24 +198,34 @@ export const handle: Handle = async ({ event, resolve }) => {
                 return new Response('R2 Configuration Error', { status: 500 });
             }
 
-            const object = await event.platform.env.ASSETS.get(key);
-
-            if (!object) {
+            // Use public direct URL approach with hardcoded bucket name
+            const bucketName = 'aokframes-website-assets'; // Must match your R2 bucket name
+            const r2Url = `https://${bucketName}.r2.dev/${key}`;
+            
+            // Create a new request for the R2 public endpoint
+            const r2Request = new Request(r2Url);
+            
+            // Make the request to R2 public endpoint
+            const r2Response = await fetch(r2Request);
+            
+            if (!r2Response.ok) {
                 console.error(`R2 object not found: ${key}`);
-                return new Response(`Not Found: ${key}`, { status: 404 });
+                return new Response(`Not Found: ${key}`, { status: r2Response.status });
             }
 
-            console.log(`Found R2 object: ${key}, size: ${object.size}`);
+            console.log(`Found R2 object: ${key}`);
 
-            // Set appropriate headers
-            const headers = new Headers();
-            object.writeHttpMetadata(headers);
-            headers.set('etag', object.httpEtag);
-            headers.set('Cache-Control', 'public, max-age=31536000');
+            // Create a new response with caching headers
+            const response = new Response(r2Response.body, {
+                headers: new Headers(r2Response.headers)
+            });
+            
+            // Set caching
+            response.headers.set('Cache-Control', 'public, max-age=31536000');
             
             // Determine content type based on file extension if not set
-            const fileExtension = key.split('.').pop()?.toLowerCase();
-            if (fileExtension && !headers.has('content-type')) {
+            if (!response.headers.has('content-type')) {
+                const fileExtension = key.split('.').pop()?.toLowerCase();
                 const contentTypes: Record<string, string> = {
                     'jpg': 'image/jpeg',
                     'jpeg': 'image/jpeg',
@@ -175,12 +236,12 @@ export const handle: Handle = async ({ event, resolve }) => {
                     'md': 'text/markdown'
                 };
                 
-                if (contentTypes[fileExtension]) {
-                    headers.set('content-type', contentTypes[fileExtension]);
+                if (fileExtension && contentTypes[fileExtension]) {
+                    response.headers.set('content-type', contentTypes[fileExtension]);
                 }
             }
             
-            return new Response(object.body, { headers });
+            return response;
         } catch (error) {
             console.error('R2 error:', error);
             // More detailed error for debugging

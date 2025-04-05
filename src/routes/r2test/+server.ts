@@ -15,34 +15,67 @@ export const GET = async (event) => {
       platform_env_available: !!platform?.env,
       r2_binding_exists: !!platform?.env?.ASSETS,
       test_key: testKey,
-      r2_object: null,
-      error: null,
-      headers: {},
-      stack: null
+      r2_object: null as any, // Using any here to avoid TS errors
+      error: null as any,
+      headers: {} as any,
+      stack: null as any,
+      direct_r2_test: {
+        success: false,
+        error: null as any,
+        status: null as any,
+        headers: null as any
+      }
     };
     
     // Attempt to access the R2 bucket if it exists
     if (platform?.env?.ASSETS) {
       try {
-        // Try to get the test object
-        const object = await platform.env.ASSETS.get(testKey);
-        
-        if (object) {
-          // Object found, collect info
-          diagnostics.r2_object = {
-            key: object.key,
-            size: object.size,
-            etag: object.etag,
-            uploaded: object.uploaded?.toISOString()
-          };
+        // Try to get the test object using the R2 API
+        // This may fail with the RPC error but we try it anyway
+        try {
+          const object = await platform.env.ASSETS.get(testKey);
           
-          // Get headers
-          const headers = new Headers();
-          object.writeHttpMetadata(headers);
-          diagnostics.headers = Object.fromEntries([...headers.entries()]);
-        } else {
-          // Object not found
-          diagnostics.error = `Object not found: ${testKey}`;
+          if (object) {
+            diagnostics.r2_object = {
+              key: object.key,
+              size: object.size,
+              etag: object.etag,
+              uploaded: object.uploaded?.toISOString()
+            };
+            
+            // Get headers
+            const headers = new Headers();
+            object.writeHttpMetadata(headers);
+            diagnostics.headers = Object.fromEntries([...headers.entries()]);
+          } else {
+            diagnostics.error = `Object not found: ${testKey}`;
+          }
+        } catch (apiErr) {
+          diagnostics.error = apiErr instanceof Error ? apiErr.message : String(apiErr);
+          diagnostics.stack = apiErr instanceof Error ? apiErr.stack || null : null;
+        }
+        
+        // Also try the direct R2 URL approach which should work
+        try {
+          const bucketName = 'aokframes-website-assets'; // Must match your R2 bucket name
+          const r2Url = `https://${bucketName}.r2.dev/${testKey}`;
+          
+          // Create a new request for the R2 public endpoint
+          const r2Request = new Request(r2Url);
+          
+          // Make the request to R2 public endpoint
+          const r2Response = await fetch(r2Request);
+          
+          diagnostics.direct_r2_test = {
+            success: r2Response.ok,
+            status: r2Response.status,
+            error: r2Response.ok ? null : await r2Response.text().catch(() => 'Failed to get response text'),
+            headers: Object.fromEntries([...r2Response.headers.entries()])
+          };
+        } catch (directErr) {
+          diagnostics.direct_r2_test.error = directErr instanceof Error 
+            ? directErr.message 
+            : String(directErr);
         }
       } catch (err) {
         // Error accessing R2

@@ -10,10 +10,8 @@
       platform_env_available: boolean;
       context_available: boolean;
       request_headers: Record<string, string>;
-      r2_bucket_list_test?: {
+      r2_bucket_test?: {
         success: boolean;
-        objects_found?: number;
-        truncated?: boolean;
         error?: string;
       };
     }
@@ -52,8 +50,8 @@
       <div style="display: flex; gap: 8px; margin-bottom: 8px;">
         <a href="/api/r2-diagnostics" target="_blank" style="color: #66ccff;">R2 Diagnostics</a>
         <a href="/r2test" target="_blank" style="color: #66ccff;">R2 Test</a>
-        <a href="/r2image/constants/bg.jpg" target="_blank" style="color: #66ccff;">Test Background</a>
-        <a href="/r2image/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg" target="_blank" style="color: #66ccff;">Test Portfolio</a>
+        <a href="/directr2/constants/bg.jpg" target="_blank" style="color: #66ccff;">Direct R2 Background</a>
+        <a href="/directr2/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg" target="_blank" style="color: #66ccff;">Direct R2 Portfolio</a>
       </div>
       
       {#if loadingDiagnostics}
@@ -64,13 +62,11 @@
         <div style="color: {r2DiagnosticResult.r2_binding_exists ? '#6bff6b' : '#ff6b6b'}">
           R2 Bucket: {r2DiagnosticResult.r2_binding_exists ? 'Connected ✓' : 'Not Connected ✗'}
         </div>
-        {#if r2DiagnosticResult.r2_bucket_list_test}
+        {#if r2DiagnosticResult.r2_bucket_test}
           <div>
-            List test: {r2DiagnosticResult.r2_bucket_list_test.success ? 'Success' : 'Failed'} 
-            {#if r2DiagnosticResult.r2_bucket_list_test.success}
-              (Found {r2DiagnosticResult.r2_bucket_list_test.objects_found} objects)
-            {:else}
-              - {r2DiagnosticResult.r2_bucket_list_test.error}
+            API Test: {r2DiagnosticResult.r2_bucket_test.success ? 'Success ✓' : 'Failed ✗'} 
+            {#if !r2DiagnosticResult.r2_bucket_test.success && r2DiagnosticResult.r2_bucket_test.error}
+              - {r2DiagnosticResult.r2_bucket_test.error}
             {/if}
           </div>
         {/if}

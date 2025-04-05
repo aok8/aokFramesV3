@@ -19,5 +19,16 @@ export default defineConfig({
 				});
 			},
 		},
-	]
+	],
+	// Configure for Cloudflare Workers environment
+	build: {
+		// Ensure sourcemaps are readable by Cloudflare
+		sourcemap: true,
+		// Adjust for Cloudflare's requirements
+		target: 'es2020',
+	},
+	// Handle special Cloudflare globals
+	define: {
+		'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+	}
 });

@@ -2,10 +2,12 @@ name = "aokframesv3"
 main = ".svelte-kit/cloudflare/worker.js"
 compatibility_date = "2024-04-04"
 
+# Environment variables for the worker
 [vars]
 MY_R2_BUCKET = "aokframes-website-assets"
 
+# R2 bucket binding configuration
 [[r2_buckets]]
 binding = "ASSETS"
 bucket_name = "aokframes-website-assets"
-preview_bucket_name = "aokframes-website-assets-preview"
+preview_bucket_name = "aokframes-website-assets"

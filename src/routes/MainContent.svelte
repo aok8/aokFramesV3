@@ -139,7 +139,7 @@
 
 <div class="content" bind:this={contentElement}>
     <Navbar />
-    <img src="/images/constants/bg.jpg" alt="Night sky with stars" class="full-size-image" />
+    <img src="/constants/bg.jpg" alt="Night sky with stars" class="full-size-image" />
     {#if showText}
         <div class="text" transition:fade>
           Growth through experience
@@ -191,7 +191,7 @@
 
     <div class="about-section">
         <div class="about-content">
-            <img src="/images/constants/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
+            <img src="/constants/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>I'm a Seattle based photographer who shoots both film and digital. I have a passion for capturing moments and telling stories through images as well as trying to continuously improve while experiencing life to the fullest.</p>

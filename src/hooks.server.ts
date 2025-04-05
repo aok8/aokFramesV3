@@ -11,6 +11,7 @@ interface DiagnosticResult {
         success: boolean;
         error?: string;
     };
+    env_keys?: string[];
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -27,8 +28,34 @@ export const handle: Handle = async ({ event, resolve }) => {
                 request_headers: Object.fromEntries([...new Headers(event.request.headers)])
             };
             
+            // Add a list of environment keys for debugging
+            if (event.platform?.env) {
+                diagnostics.env_keys = Object.keys(event.platform.env);
+            }
+            
             if (event.platform?.env?.ASSETS) {
                 try {
+                    // Log details about the R2 binding for debugging
+                    console.log('R2 Binding ASSETS details:');
+                    console.log('Type:', typeof event.platform.env.ASSETS);
+                    console.log('Properties:', Object.keys(event.platform.env.ASSETS));
+                    
+                    // Try accessing a known method on R2 bucket
+                    const testMethods = [
+                        'get', 'head', 'put', 'delete', 
+                        'list', 'createMultipartUpload',
+                        'fetch'
+                    ];
+                    
+                    for (const method of testMethods) {
+                        // @ts-ignore - Bypass type checking for dynamic property access
+                        if (typeof event.platform.env.ASSETS[method] === 'function') {
+                            console.log(`Method ${method} is available`);
+                        } else {
+                            console.log(`Method ${method} is NOT available`);
+                        }
+                    }
+                    
                     // Simple test - just check if the R2 binding exists
                     // Don't try to call any methods that might not be implemented
                     diagnostics.r2_bucket_test = {
@@ -90,15 +117,23 @@ export const handle: Handle = async ({ event, resolve }) => {
                 return new Response('R2 Configuration Error', { status: 500 });
             }
             
+            // Print R2 binding details
+            console.log('R2 Binding properties for image request:');
+            console.log('Type:', typeof event.platform.env.ASSETS);
+            console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(event.platform.env.ASSETS)));
+
             try {
                 // Try to access the object from R2 directly
                 // This is the most basic method that should be supported
+                console.log(`Attempting to get R2 object with key: ${key}`);
                 const object = await event.platform.env.ASSETS.get(key);
                 
                 if (!object) {
                     console.error(`Object not found: ${key}`);
                     return new Response(`Not Found: ${key}`, { status: 404 });
                 }
+                
+                console.log(`Found R2 object: ${key}, properties:`, Object.keys(object));
                 
                 // Create headers manually instead of using writeHttpMetadata
                 const headers = new Headers();
@@ -131,6 +166,7 @@ export const handle: Handle = async ({ event, resolve }) => {
                 
                 // Try an alternative approach for Cloudflare Pages
                 try {
+                    console.log(`Attempting alternative fetch method for: ${key}`);
                     // Use the Cloudflare R2 binding directly as a fetch source
                     // Some Cloudflare environments implement this method
                     // @ts-ignore - The fetch method is available in some Cloudflare deployments but not in type definition
@@ -139,8 +175,11 @@ export const handle: Handle = async ({ event, resolve }) => {
                     );
                     
                     if (!response.ok) {
+                        console.error(`Alternative fetch failed with status: ${response.status}`);
                         return new Response(`Object not found: ${key}`, { status: 404 });
                     }
+                    
+                    console.log(`Alternative fetch successful for: ${key}`);
                     
                     // Add caching headers
                     const headers = new Headers(response.headers);

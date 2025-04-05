@@ -56,6 +56,8 @@
       <div style="display: flex; gap: 8px; margin-bottom: 8px;">
         <a href="/api/r2-diagnostics" target="_blank" style="color: #66ccff;">R2 Diagnostics</a>
         <a href="/r2test" target="_blank" style="color: #66ccff;">R2 Test</a>
+        <a href="/r2list" target="_blank" style="color: #66ccff;">R2 List Files</a>
+        <a href="/r2upload" target="_blank" style="color: #66ccff;">R2 Upload Utility</a>
         <a href="/directr2/constants/bg.jpg" target="_blank" style="color: #66ccff;">Direct R2 Background</a>
         <a href="/directr2/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg" target="_blank" style="color: #66ccff;">Direct R2 Portfolio</a>
       </div>

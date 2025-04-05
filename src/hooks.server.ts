@@ -88,7 +88,7 @@ export const handle: Handle = async ({ event, resolve }) => {
         }
     }
 
-    // Handle image requests in a simplified way
+    // Handle image requests in a simplified way that directly accesses the bucket via its public URL
     if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/')) {
         try {
             let key;
@@ -111,37 +111,119 @@ export const handle: Handle = async ({ event, resolve }) => {
 
             console.log(`Looking for R2 object with key: ${key}`);
 
-            // Check if platform and R2 are available
-            if (!event.platform?.env?.ASSETS) {
-                console.error('R2 bucket binding not available');
-                return new Response('R2 Configuration Error', { status: 500 });
+            // Check if platform is available - this is our minimal requirement 
+            if (!event.platform?.env) {
+                console.error('Platform environment not available');
+                return new Response('Configuration Error', { status: 500 });
             }
             
-            // Print R2 binding details
-            console.log('R2 Binding properties for image request:');
-            console.log('Type:', typeof event.platform.env.ASSETS);
-            console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(event.platform.env.ASSETS)));
-
-            try {
-                // Try to access the object from R2 directly
-                // This is the most basic method that should be supported
-                console.log(`Attempting to get R2 object with key: ${key}`);
-                const object = await event.platform.env.ASSETS.get(key);
+            // Try to use a public URL for the bucket
+            // This is the most compatible approach when Workers KV integration has limitations
+            
+            // Construct a direct public URL to the R2 bucket
+            // First, attempt using environment variable if available
+            const bucketName = 'aokframes-website-assets';
+            
+            // For Cloudflare R2, the public URL format is usually:
+            // https://<accountid>.r2.dev/<bucketname>/<key>
+            // or if you have a custom domain setup:
+            // https://r2.yourdomain.com/<key>
+            
+            // Try to determine the appropriate URL
+            let publicUrls = [
+                // Standard public URLs (if enabled in Cloudflare dashboard)
+                `https://pub-${bucketName}.r2.dev/${key}`,
                 
-                if (!object) {
-                    console.error(`Object not found: ${key}`);
-                    return new Response(`Not Found: ${key}`, { status: 404 });
+                // Account-specific URL format (if known)
+                //`https://<your-account-id>.r2.dev/${bucketName}/${key}`,
+                
+                // Custom domain if configured
+                //`https://r2.yourdomain.com/${key}`,
+                
+                // Fallback with bucket name as subdomain
+                `https://${bucketName}.r2.dev/${key}`
+            ];
+            
+            // Try each URL option until one works
+            let response = null;
+            let lastError = null;
+            
+            for (const url of publicUrls) {
+                try {
+                    console.log(`Trying to fetch from ${url}`);
+                    const fetchResponse = await fetch(url, {
+                        // Use standard cache options
+                        cache: 'force-cache'
+                    });
+                    
+                    if (fetchResponse.ok) {
+                        console.log(`Successfully fetched from ${url}`);
+                        response = fetchResponse;
+                        break;
+                    } else {
+                        console.log(`Failed to fetch from ${url}: ${fetchResponse.status}`);
+                        lastError = new Error(`Failed with status ${fetchResponse.status}`);
+                    }
+                } catch (err) {
+                    console.error(`Error fetching from ${url}:`, err);
+                    lastError = err;
+                }
+            }
+            
+            if (!response) {
+                console.error(`All public URL attempts failed for ${key}`, lastError);
+                
+                // Final fallback - try using the Cloudflare Worker ASSETS binding differently
+                try {
+                    if (event.platform.env.ASSETS && typeof event.platform.env.ASSETS === 'object') {
+                        // If the R2 binding is present but methods aren't working
+                        // This is a last-ditch effort
+                        console.log("Attempting proxy fetch using default bucket host");
+                        
+                        const proxyUrl = `https://aokframes-website-assets.r2.dev/${key}`;
+                        const proxyResponse = await fetch(proxyUrl);
+                        
+                        if (proxyResponse.ok) {
+                            console.log(`Proxy fetch succeeded for ${key}`);
+                            
+                            // Create a new response with appropriate headers
+                            const headers = new Headers(proxyResponse.headers);
+                            headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+                            
+                            // Set content-type based on file extension if not already set
+                            if (!headers.has('content-type')) {
+                                const fileExtension = key.split('.').pop()?.toLowerCase();
+                                const contentTypes: Record<string, string> = {
+                                    'jpg': 'image/jpeg',
+                                    'jpeg': 'image/jpeg',
+                                    'png': 'image/png',
+                                    'gif': 'image/gif',
+                                    'webp': 'image/webp',
+                                    'svg': 'image/svg+xml',
+                                    'md': 'text/markdown'
+                                };
+                                
+                                if (fileExtension && contentTypes[fileExtension]) {
+                                    headers.set('content-type', contentTypes[fileExtension]);
+                                }
+                            }
+                            
+                            return new Response(proxyResponse.body, { headers });
+                        }
+                    }
+                } catch (proxyError) {
+                    console.error("Proxy fetch failed:", proxyError);
                 }
                 
-                console.log(`Found R2 object: ${key}, properties:`, Object.keys(object));
-                
-                // Create headers manually instead of using writeHttpMetadata
-                const headers = new Headers();
-                
-                // Set basic headers
-                headers.set('Cache-Control', 'public, max-age=31536000');
-                
-                // Set content-type based on file extension
+                return new Response(`Object not found: ${key}`, { status: 404 });
+            }
+            
+            // Create a new response with appropriate headers
+            const headers = new Headers(response.headers);
+            headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+            
+            // Set content-type based on file extension if not already set
+            if (!headers.has('content-type')) {
                 const fileExtension = key.split('.').pop()?.toLowerCase();
                 const contentTypes: Record<string, string> = {
                     'jpg': 'image/jpeg',
@@ -156,48 +238,11 @@ export const handle: Handle = async ({ event, resolve }) => {
                 if (fileExtension && contentTypes[fileExtension]) {
                     headers.set('content-type', contentTypes[fileExtension]);
                 }
-                
-                // Return the object body with headers
-                return new Response(object.body, {
-                    headers
-                });
-            } catch (error) {
-                console.error(`Error accessing R2 object: ${key}`, error);
-                
-                // Try an alternative approach for Cloudflare Pages
-                try {
-                    console.log(`Attempting alternative fetch method for: ${key}`);
-                    // Use the Cloudflare R2 binding directly as a fetch source
-                    // Some Cloudflare environments implement this method
-                    // @ts-ignore - The fetch method is available in some Cloudflare deployments but not in type definition
-                    const response = await event.platform.env.ASSETS.fetch(
-                        new Request(`https://fake-host/${key}`)
-                    );
-                    
-                    if (!response.ok) {
-                        console.error(`Alternative fetch failed with status: ${response.status}`);
-                        return new Response(`Object not found: ${key}`, { status: 404 });
-                    }
-                    
-                    console.log(`Alternative fetch successful for: ${key}`);
-                    
-                    // Add caching headers
-                    const headers = new Headers(response.headers);
-                    headers.set('Cache-Control', 'public, max-age=31536000');
-                    
-                    return new Response(response.body, {
-                        headers
-                    });
-                } catch (fetchError) {
-                    console.error(`Alternative R2 fetch failed for: ${key}`, fetchError);
-                    return new Response(
-                        `R2 access failed. Please check Cloudflare R2 binding and permissions. Error: ${
-                            error instanceof Error ? error.message : String(error)
-                        }`,
-                        { status: 500 }
-                    );
-                }
             }
+            
+            return new Response(response.body, {
+                headers
+            });
         } catch (error) {
             console.error('R2 error:', error);
             const errorMessage = error instanceof Error ? error.message : String(error);

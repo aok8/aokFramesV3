@@ -24,6 +24,7 @@
   let r2Status = "Checking R2 access...";
   let checkedCount = 0;
   let existingCount = 0;
+  let directCheckLatency: number[] = [];
   
   onMount(async () => {
     try {
@@ -31,6 +32,7 @@
       const diagResponse = await fetch('/api/r2-diagnostics');
       if (!diagResponse.ok) {
         error = `Failed to access R2 diagnostics: ${diagResponse.status} ${diagResponse.statusText}`;
+        loading = false;
         return;
       }
       
@@ -39,38 +41,51 @@
         r2Status = "R2 bucket binding is not configured correctly.";
         error = "The R2 bucket is not properly bound to your application. Please check Cloudflare Pages settings.";
         requiredFiles.forEach(file => file.status = 'error');
+        loading = false;
         return;
       }
       
       r2Status = "R2 bucket is connected. Checking individual files...";
       
-      // Check each file individually
-      const checkPromises = requiredFiles.map(async (file) => {
+      // Check each file individually with a direct fetch using our proxy approach
+      for (const file of requiredFiles) {
         try {
-          // Try to request the file through our directr2 endpoint
-          const response = await fetch(`/directr2/${file.key}`);
+          const startTime = performance.now();
+          // Try to fetch directly from our /directr2/ endpoint which uses the new approach
+          const url = `/directr2/${file.key}`;
+          console.log(`Checking file: ${file.key} at ${url}`);
+          
+          const response = await fetch(url, { 
+            method: 'HEAD',  // Use HEAD to just check if exists without downloading
+            cache: 'no-store' // Avoid caching to get fresh results
+          });
+          
+          const endTime = performance.now();
+          directCheckLatency.push(Math.round(endTime - startTime));
           
           // Update the file status based on response
           if (response.ok) {
             file.status = 'exists';
             existingCount++;
-          } else {
+          } else if (response.status === 404) {
             file.status = 'missing';
+          } else {
+            file.status = 'error';
+            file.error = `HTTP ${response.status}: ${response.statusText}`;
           }
           
-          // Update the checked count
-          checkedCount++;
-          updateStatus();
         } catch (fileError) {
           file.status = 'error';
           file.error = fileError instanceof Error ? fileError.message : String(fileError);
-          checkedCount++;
-          updateStatus();
         }
-      });
-      
-      // Wait for all checks to complete
-      await Promise.all(checkPromises);
+        
+        // Update the checked count and status
+        checkedCount++;
+        updateStatus();
+        
+        // Slight delay to make UI updates smoother and show the loading state
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
       // Final status update
       if (existingCount === requiredFiles.length) {
@@ -78,6 +93,13 @@
       } else {
         r2Status = `Found ${existingCount} of ${requiredFiles.length} required files. Please upload the missing files.`;
       }
+      
+      // Add performance info
+      if (directCheckLatency.length > 0) {
+        const avgLatency = directCheckLatency.reduce((sum, val) => sum + val, 0) / directCheckLatency.length;
+        console.log(`Average file check latency: ${avgLatency.toFixed(0)}ms`);
+      }
+      
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       r2Status = "Error checking R2 bucket.";
@@ -103,7 +125,10 @@
     <p>{r2Status}</p>
     
     {#if loading}
-      <div class="loading">Checking files... {checkedCount}/{requiredFiles.length}</div>
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Checking files... {checkedCount}/{requiredFiles.length}</div>
+      </div>
     {/if}
     
     {#if error}
@@ -130,7 +155,7 @@
             <td>{file.key}</td>
             <td class={file.status}>
               {#if file.status === 'checking'}
-                ⏳ Checking...
+                <span class="spinner-small"></span> Checking...
               {:else if file.status === 'exists'}
                 ✅ Found
               {:else if file.status === 'missing'}
@@ -173,9 +198,9 @@
     <div class="guidance-section">
       <h3>Important R2 Usage Notes:</h3>
       <ul>
-        <li>Cloudflare Pages with R2 has some limitations - not all R2 methods (like list or getKeys) are available</li>
-        <li>However, the core methods like get, put, and delete work properly</li>
-        <li>Make sure to upload your files using the exact paths shown in the table above</li>
+        <li><strong>R2 Access Limitation</strong>: This environment does not support the R2 <code>get</code>, <code>list</code>, or <code>getKeys</code> methods directly</li>
+        <li>This utility is using a workaround by checking publicly accessible URLs for each file directly</li>
+        <li>Make sure your R2 bucket has public access enabled or uses public URL tokens</li>
         <li>The folder structure is important - ensure constants/ and portfolio/ prefixes are used</li>
       </ul>
     </div>
@@ -224,10 +249,39 @@ aokframes-website-assets/ (R2 bucket root)
   
   .loading {
     background: #e3f2fd;
-    padding: 10px;
+    padding: 15px;
     border-radius: 4px;
     margin-top: 10px;
     color: #0d47a1;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #3498db;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+  }
+  
+  .spinner-small {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #3498db;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+    margin-right: 5px;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   
   .error-message {

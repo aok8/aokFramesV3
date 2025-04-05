@@ -6,8 +6,11 @@ compatibility_date = "2024-04-04"
 [vars]
 MY_R2_BUCKET = "aokframes-website-assets"
 
-# R2 bucket binding configuration
+# R2 bucket binding configuration with proper access
 [[r2_buckets]]
 binding = "ASSETS"
 bucket_name = "aokframes-website-assets"
 preview_bucket_name = "aokframes-website-assets"
+
+# Set workers compatibility flags (must be an array)
+compatibility_flags = ["formdata_parser_supports_files", "nodejs_compat"]

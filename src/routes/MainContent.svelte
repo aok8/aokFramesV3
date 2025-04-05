@@ -47,6 +47,16 @@
     '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
   ];
 
+  // Constants for background and profile image with fallbacks
+  const bgImage = '/images/constants/bg.jpg';
+  const fallbackBgImage = '/constants/bg.jpg'; // Direct path fallback
+  const profileImage = '/images/constants/Profile_Pic.jpg';
+  const fallbackProfileImage = '/constants/Profile_Pic.jpg'; // Direct path fallback
+  
+  // Image error handling
+  let bgImageError = false;
+  let profileImageError = false;
+
   function resetState() {
     isSticky = true;
     isScrollingPaused = false;
@@ -139,7 +149,26 @@
 
 <div class="content" bind:this={contentElement}>
     <Navbar />
-    <img src="/constants/bg.jpg" alt="Night sky with stars" class="full-size-image" />
+    {#if !bgImageError}
+      <img 
+        src={bgImage} 
+        alt="Night sky with stars" 
+        class="full-size-image" 
+        on:error={() => {
+          console.log('Background image failed to load, trying fallback');
+          bgImageError = true;
+        }}
+      />
+    {:else}
+      <img 
+        src={fallbackBgImage} 
+        alt="Night sky with stars" 
+        class="full-size-image" 
+        on:error={() => {
+          console.error('Both background image paths failed');
+        }}
+      />
+    {/if}
     {#if showText}
         <div class="text" transition:fade>
           Growth through experience
@@ -154,6 +183,9 @@
           src={selectedPhoto} 
           alt="Selected portfolio work" 
           class="modal-photo"
+          on:error={(e) => {
+            console.error(`Failed to load image: ${selectedPhoto}`);
+          }}
         />
       {/if}
     </Modal>
@@ -191,7 +223,26 @@
 
     <div class="about-section">
         <div class="about-content">
-            <img src="/constants/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
+            {#if !profileImageError}
+              <img 
+                src={profileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.log('Profile image failed to load, trying fallback');
+                  profileImageError = true;
+                }}
+              />
+            {:else}
+              <img 
+                src={fallbackProfileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.error('Both profile image paths failed');
+                }}
+              />
+            {/if}
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>I'm a Seattle based photographer who shoots both film and digital. I have a passion for capturing moments and telling stories through images as well as trying to continuously improve while experiencing life to the fullest.</p>

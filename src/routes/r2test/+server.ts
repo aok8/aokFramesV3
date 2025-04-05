@@ -24,8 +24,24 @@ export const GET = async (event) => {
         error: null as any,
         status: null as any,
         headers: null as any
+      },
+      methods_available: {} as Record<string, boolean>,
+      r2_fetch_test: {
+        attempted: false,
+        success: false,
+        error: null as any,
+        headers: null as any
       }
     };
+    
+    // Check which methods are available on ASSETS binding
+    if (platform?.env?.ASSETS) {
+      const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(platform.env.ASSETS));
+      diagnostics.methods_available = methods.reduce((acc: Record<string, boolean>, method) => {
+        acc[method] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+    }
     
     // Attempt to access the R2 bucket if it exists
     if (platform?.env?.ASSETS) {
@@ -45,8 +61,12 @@ export const GET = async (event) => {
             
             // Get headers
             const headers = new Headers();
-            object.writeHttpMetadata(headers);
-            diagnostics.headers = Object.fromEntries([...headers.entries()]);
+            try {
+              object.writeHttpMetadata(headers);
+              diagnostics.headers = Object.fromEntries([...headers.entries()]);
+            } catch (headerErr) {
+              diagnostics.headers = { error: headerErr instanceof Error ? headerErr.message : String(headerErr) };
+            }
           } else {
             diagnostics.error = `Object not found: ${testKey}`;
           }
@@ -55,8 +75,21 @@ export const GET = async (event) => {
           diagnostics.stack = apiErr instanceof Error ? apiErr.stack || null : null;
         }
         
-        // Also try the direct R2 URL approach which should work
+        // Test the R2 fetch method which might be available in some environments
         try {
+          diagnostics.r2_fetch_test.attempted = true;
+          // @ts-ignore - The fetch method is available in some Cloudflare deployments
+          const fetchResponse = await platform.env.ASSETS.fetch(new Request(`https://fake-host/${testKey}`));
+          diagnostics.r2_fetch_test.success = fetchResponse.ok;
+          diagnostics.r2_fetch_test.headers = Object.fromEntries([...fetchResponse.headers.entries()]);
+        } catch (fetchErr) {
+          diagnostics.r2_fetch_test.error = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+        }
+        
+        // Also try the direct R2 URL approach as a backup
+        try {
+          // This approach won't work without proper public access configuration
+          // But testing it provides useful diagnostics
           const bucketName = 'aokframes-website-assets'; // Must match your R2 bucket name
           const r2Url = `https://${bucketName}.r2.dev/${testKey}`;
           

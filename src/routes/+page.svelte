@@ -14,6 +14,12 @@
         success: boolean;
         error?: string;
       };
+      methods_available?: Record<string, boolean>;
+      r2_fetch_test?: {
+        attempted: boolean;
+        success: boolean;
+        error?: string;
+      };
     }
     
     let mainContent: MainContent;
@@ -68,6 +74,26 @@
             {#if !r2DiagnosticResult.r2_bucket_test.success && r2DiagnosticResult.r2_bucket_test.error}
               - {r2DiagnosticResult.r2_bucket_test.error}
             {/if}
+          </div>
+        {/if}
+        
+        {#if r2DiagnosticResult.methods_available}
+          <div style="margin-top: 8px;">
+            <div>Available R2 Methods:</div>
+            <div style="font-size: 11px; margin-left: 8px;">
+              {Object.keys(r2DiagnosticResult.methods_available).join(', ')}
+            </div>
+          </div>
+        {/if}
+        
+        {#if r2DiagnosticResult.r2_fetch_test?.attempted}
+          <div style="margin-top: 8px;">
+            <div>
+              R2 Fetch API: {r2DiagnosticResult.r2_fetch_test.success ? 'Available ✓' : 'Unavailable ✗'}
+              {#if !r2DiagnosticResult.r2_fetch_test.success && r2DiagnosticResult.r2_fetch_test.error}
+                - {r2DiagnosticResult.r2_fetch_test.error}
+              {/if}
+            </div>
           </div>
         {/if}
       {/if}

@@ -6,7 +6,6 @@ interface DiagnosticResult {
     platform_available: boolean;
     platform_env_available: boolean;
     context_available: boolean;
-    detected_env_vars: string[];
     request_headers: Record<string, string>;
     r2_bucket_list_test?: {
         success: boolean;
@@ -27,8 +26,6 @@ export const handle: Handle = async ({ event, resolve }) => {
                 platform_available: !!event.platform,
                 platform_env_available: !!(event.platform?.env),
                 context_available: !!(event.platform?.context),
-                detected_env_vars: Object.keys(process.env || {}).filter(k => 
-                    k.includes('CF_') || k.includes('R2_') || k.includes('CLOUDFLARE')),
                 request_headers: Object.fromEntries([...new Headers(event.request.headers)])
             };
             

@@ -24,7 +24,6 @@
   let r2Status = "Checking R2 access...";
   let checkedCount = 0;
   let existingCount = 0;
-  let directCheckLatency: number[] = [];
   
   onMount(async () => {
     try {
@@ -47,21 +46,16 @@
       
       r2Status = "R2 bucket is connected. Checking individual files...";
       
-      // Check each file individually with a direct fetch using our proxy approach
+      // Check each file individually using our direct approach
       for (const file of requiredFiles) {
         try {
-          const startTime = performance.now();
-          // Try to fetch directly from our /directr2/ endpoint which uses the new approach
+          // Try to fetch directly from our /directr2/ endpoint 
           const url = `/directr2/${file.key}`;
-          console.log(`Checking file: ${file.key} at ${url}`);
           
           const response = await fetch(url, { 
             method: 'HEAD',  // Use HEAD to just check if exists without downloading
             cache: 'no-store' // Avoid caching to get fresh results
           });
-          
-          const endTime = performance.now();
-          directCheckLatency.push(Math.round(endTime - startTime));
           
           // Update the file status based on response
           if (response.ok) {
@@ -83,7 +77,7 @@
         checkedCount++;
         updateStatus();
         
-        // Slight delay to make UI updates smoother and show the loading state
+        // Slight delay to make UI updates smoother
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
@@ -92,12 +86,6 @@
         r2Status = `All required files are present in the R2 bucket.`;
       } else {
         r2Status = `Found ${existingCount} of ${requiredFiles.length} required files. Please upload the missing files.`;
-      }
-      
-      // Add performance info
-      if (directCheckLatency.length > 0) {
-        const avgLatency = directCheckLatency.reduce((sum, val) => sum + val, 0) / directCheckLatency.length;
-        console.log(`Average file check latency: ${avgLatency.toFixed(0)}ms`);
       }
       
     } catch (err) {
@@ -196,12 +184,12 @@
     </div>
     
     <div class="guidance-section">
-      <h3>Important R2 Usage Notes:</h3>
+      <h3>R2 Best Practices:</h3>
       <ul>
-        <li><strong>R2 Access Limitation</strong>: This environment does not support the R2 <code>get</code>, <code>list</code>, or <code>getKeys</code> methods directly</li>
-        <li>This utility is using a workaround by checking publicly accessible URLs for each file directly</li>
-        <li>Make sure your R2 bucket has public access enabled or uses public URL tokens</li>
+        <li>Ensure all image files are optimized to reduce loading times</li>
+        <li>Use consistent naming conventions for all files</li>
         <li>The folder structure is important - ensure constants/ and portfolio/ prefixes are used</li>
+        <li>After uploading, refresh this page to verify all files are accessible</li>
       </ul>
     </div>
   </div>

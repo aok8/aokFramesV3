@@ -88,7 +88,7 @@ export const handle: Handle = async ({ event, resolve }) => {
         }
     }
 
-    // Handle image requests in a simplified way that directly accesses the bucket via its public URL
+    // Handle image requests in a simplified way that directly accesses the bucket
     if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/')) {
         try {
             let key;
@@ -112,36 +112,89 @@ export const handle: Handle = async ({ event, resolve }) => {
             console.log(`Looking for R2 object with key: ${key}`);
 
             // Check if platform is available - this is our minimal requirement 
-            if (!event.platform?.env) {
-                console.error('Platform environment not available');
-                return new Response('Configuration Error', { status: 500 });
+            if (!event.platform?.env?.ASSETSBUCKET) {
+                console.error('R2 bucket binding not available');
+                return new Response('R2 Bucket Not Available', { status: 500 });
             }
             
-            // Try to use a public URL for the bucket
-            // This is the most compatible approach when Workers KV integration has limitations
+            // Based on the test results, we can see that 'head' and 'get' methods are available
+            // Let's first check if the object exists with 'head', then get it with 'get'
+            try {
+                // First check if the object exists using head (which is faster)
+                const headResult = await event.platform.env.ASSETSBUCKET.head(key);
+                
+                if (!headResult) {
+                    console.error(`Object not found for key: ${key}`);
+                    return new Response(`Object not found: ${key}`, { status: 404 });
+                }
+                
+                // Object exists, now get it
+                console.log(`Found object, retrieving: ${key}`);
+                const obj = await event.platform.env.ASSETSBUCKET.get(key);
+                
+                if (!obj) {
+                    console.error(`Object retrieval failed for key: ${key}`);
+                    return new Response(`Object retrieval failed: ${key}`, { status: 404 });
+                }
+                
+                // Set up appropriate headers
+                const headers = new Headers();
+                
+                // Use the content-type from the object if available
+                if (obj.httpMetadata?.contentType) {
+                    headers.set('Content-Type', obj.httpMetadata.contentType);
+                } else {
+                    // Set content-type based on file extension if not in metadata
+                    const fileExtension = key.split('.').pop()?.toLowerCase();
+                    const contentTypes: Record<string, string> = {
+                        'jpg': 'image/jpeg',
+                        'jpeg': 'image/jpeg',
+                        'png': 'image/png',
+                        'gif': 'image/gif',
+                        'webp': 'image/webp',
+                        'svg': 'image/svg+xml',
+                        'md': 'text/markdown'
+                    };
+                    
+                    if (fileExtension && contentTypes[fileExtension]) {
+                        headers.set('Content-Type', contentTypes[fileExtension]);
+                    }
+                }
+                
+                // Add caching headers
+                headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+                
+                // Return the object body with headers
+                return new Response(obj.body, { headers });
+                
+            } catch (directAccessError) {
+                console.error('Direct R2 access failed:', directAccessError);
+                
+                // If direct access fails, fall back to our public URL approach
+                console.log('Falling back to public URL approach...');
+            }
             
-            // Construct a direct public URL to the R2 bucket
-            // First, attempt using environment variable if available
+            // FALLBACK APPROACH: Try public URLs first, which could work if bucket has public access
+            // Based on your R2 test results, we need to try different URL patterns
+            
             const bucketName = 'aokframes-website-assets';
+            // Try a standard public access format pattern rather than a specific ID
+            // This format should be set up in your Cloudflare R2 dashboard
             
-            // For Cloudflare R2, the public URL format is usually:
-            // https://<accountid>.r2.dev/<bucketname>/<key>
-            // or if you have a custom domain setup:
-            // https://r2.yourdomain.com/<key>
-            
-            // Try to determine the appropriate URL
+            // Try various URL patterns that could work with Cloudflare R2
             let publicUrls = [
-                // Standard public URLs (if enabled in Cloudflare dashboard)
+                // R2 direct binding first
+                `/r2/${bucketName}/${key}`,
+                
+                // Typical public URL formats
                 `https://pub-${bucketName}.r2.dev/${key}`,
+                `https://${bucketName}.r2.dev/${key}`,
                 
-                // Account-specific URL format (if known)
-                //`https://<your-account-id>.r2.dev/${bucketName}/${key}`,
+                // Custom domain format if configured
+                `https://r2.aokframes.com/${key}`,
                 
-                // Custom domain if configured
-                //`https://r2.yourdomain.com/${key}`,
-                
-                // Fallback with bucket name as subdomain
-                `https://${bucketName}.r2.dev/${key}`
+                // Worker route patterns
+                `https://aokframes.com/r2/${key}`,
             ];
             
             // Try each URL option until one works
@@ -152,8 +205,8 @@ export const handle: Handle = async ({ event, resolve }) => {
                 try {
                     console.log(`Trying to fetch from ${url}`);
                     const fetchResponse = await fetch(url, {
-                        // Use standard cache options
-                        cache: 'force-cache'
+                        // No-store to avoid caching issues during testing
+                        cache: 'no-store'
                     });
                     
                     if (fetchResponse.ok) {
@@ -171,56 +224,17 @@ export const handle: Handle = async ({ event, resolve }) => {
             }
             
             if (!response) {
-                console.error(`All public URL attempts failed for ${key}`, lastError);
-                
-                // Final fallback - try using the Cloudflare Worker ASSETSBUCKET binding differently
-                try {
-                    if (event.platform.env.ASSETSBUCKET && typeof event.platform.env.ASSETSBUCKET === 'object') {
-                        // If the R2 binding is present but methods aren't working
-                        // This is a last-ditch effort
-                        console.log("Attempting proxy fetch using default bucket host");
-                        
-                        const proxyUrl = `https://aokframes-website-assets.r2.dev/${key}`;
-                        const proxyResponse = await fetch(proxyUrl);
-                        
-                        if (proxyResponse.ok) {
-                            console.log(`Proxy fetch succeeded for ${key}`);
-                            
-                            // Create a new response with appropriate headers
-                            const headers = new Headers(proxyResponse.headers);
-                            headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
-                            
-                            // Set content-type based on file extension if not already set
-                            if (!headers.has('content-type')) {
-                                const fileExtension = key.split('.').pop()?.toLowerCase();
-                                const contentTypes: Record<string, string> = {
-                                    'jpg': 'image/jpeg',
-                                    'jpeg': 'image/jpeg',
-                                    'png': 'image/png',
-                                    'gif': 'image/gif',
-                                    'webp': 'image/webp',
-                                    'svg': 'image/svg+xml',
-                                    'md': 'text/markdown'
-                                };
-                                
-                                if (fileExtension && contentTypes[fileExtension]) {
-                                    headers.set('content-type', contentTypes[fileExtension]);
-                                }
-                            }
-                            
-                            return new Response(proxyResponse.body, { headers });
-                        }
-                    }
-                } catch (proxyError) {
-                    console.error("Proxy fetch failed:", proxyError);
-                }
-                
-                return new Response(`Object not found: ${key}`, { status: 404 });
+                console.error(`All access methods failed for ${key}`, lastError);
+                return new Response(`Object not found or inaccessible: ${key}`, { status: 404 });
             }
             
             // Create a new response with appropriate headers
             const headers = new Headers(response.headers);
             headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+            
+            // Add cross-origin headers to allow assets to be loaded from any origin
+            headers.set('Access-Control-Allow-Origin', '*');
+            headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
             
             // Set content-type based on file extension if not already set
             if (!headers.has('content-type')) {

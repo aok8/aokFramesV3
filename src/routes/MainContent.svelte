@@ -15,116 +15,116 @@
   let photoModalOpen = false;
   
   // Constants for background and profile image with fallbacks
-  const bgImage = '/images/constants/bg.jpg';
-  const fallbackBgImage = '/directr2/constants/bg.jpg'; // Direct R2 URL fallback
-  const profileImage = '/images/constants/Profile_Pic.jpg';
-  const fallbackProfileImage = '/directr2/constants/Profile_Pic.jpg'; // Direct R2 URL fallback
+  const bgImage = '/directr2/constants/bg.jpg'; // Direct R2 as primary now
+  const fallbackBgImage = '/images/constants/bg.jpg'; // Local fallback
+  const profileImage = '/directr2/constants/Profile_Pic.jpg'; // Direct R2 as primary
+  const fallbackProfileImage = '/images/constants/Profile_Pic.jpg'; // Local fallback
   
-  // Portfolio images from R2 with direct fallbacks
+  // Portfolio images from R2 with fallbacks
   const portfolioImages = [
     { 
-      url: '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
-      fallback: '/directr2/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg'
+      url: '/directr2/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
+      fallback: '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg'
     },
     { 
-      url: '/images/portfolio/Portra800_R4m_01_03_25_11.jpg',
-      fallback: '/directr2/portfolio/Portra800_R4m_01_03_25_11.jpg'
+      url: '/directr2/portfolio/Portra800_R4m_01_03_25_11.jpg',
+      fallback: '/images/portfolio/Portra800_R4m_01_03_25_11.jpg'
     },
     { 
-      url: '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
-      fallback: '/directr2/portfolio/Acrosii_Bessa_09_12_23_1.jpg'
+      url: '/directr2/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
+      fallback: '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg',
-      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_29.jpg'
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_29.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
-      fallback: '/directr2/portfolio/Trix400_Mamiya6_06_22_24_1.jpg'
+      url: '/directr2/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
+      fallback: '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
-      fallback: '/directr2/portfolio/Trix400_2_BessaR_08_12_24_6.jpg'
+      url: '/directr2/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
+      fallback: '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
-      fallback: '/directr2/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg'
+      url: '/directr2/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
+      fallback: '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
-      fallback: '/directr2/portfolio/Trix400_Mamiya6_03_24_24_11.jpg'
+      url: '/directr2/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
+      fallback: '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg',
-      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_24.jpg'
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_24.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg'
     },
     { 
-      url: '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
-      fallback: '/directr2/portfolio/Acros100_Mamiya6_08_10_24_12.jpg'
+      url: '/directr2/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
+      fallback: '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg'
     },
     { 
-      url: '/images/portfolio/Portra800_F100_09_14_24_6.jpg',
-      fallback: '/directr2/portfolio/Portra800_F100_09_14_24_6.jpg'
+      url: '/directr2/portfolio/Portra800_F100_09_14_24_6.jpg',
+      fallback: '/images/portfolio/Portra800_F100_09_14_24_6.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
-      fallback: '/directr2/portfolio/Trix400_Mamiya6_08_08_24_5.jpg'
+      url: '/directr2/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
+      fallback: '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg',
-      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_25.jpg'
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_25.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_F100_08_17_24_11.jpg',
-      fallback: '/directr2/portfolio/Trix400_F100_08_17_24_11.jpg'
+      url: '/directr2/portfolio/Trix400_F100_08_17_24_11.jpg',
+      fallback: '/images/portfolio/Trix400_F100_08_17_24_11.jpg'
     },
     { 
-      url: '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg',
-      fallback: '/directr2/portfolio/Trix400_BessaR_08_12_24_20.jpg'
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_20.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg'
     },
     { 
-      url: '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
-      fallback: '/directr2/portfolio/Acros100_Mamiya6_08_09_24_8.jpg'
+      url: '/directr2/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
+      fallback: '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg'
     },
     { 
-      url: '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
-      fallback: '/directr2/portfolio/Gold200_Mamiya6_07_13_24_9.jpg'
+      url: '/directr2/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
+      fallback: '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg'
     },
     { 
-      url: '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg',
-      fallback: '/directr2/portfolio/Portra800_BessaR_07_13_24_14.jpg'
+      url: '/directr2/portfolio/Portra800_BessaR_07_13_24_14.jpg',
+      fallback: '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg'
     },
     { 
-      url: '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
-      fallback: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg'
+      url: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
+      fallback: '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg'
     },
     { 
-      url: '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
-      fallback: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg'
+      url: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
+      fallback: '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg'
     },
     { 
-      url: '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
-      fallback: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg'
+      url: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
+      fallback: '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg'
     },
     { 
-      url: '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
-      fallback: '/directr2/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg'
+      url: '/directr2/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
+      fallback: '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg'
     },
     { 
-      url: '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
-      fallback: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg'
+      url: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
+      fallback: '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg'
     },
     { 
-      url: '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
-      fallback: '/directr2/portfolio/Portra400_Mamiya6_09_12_23_10.jpg'
+      url: '/directr2/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
+      fallback: '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg'
     },
     { 
-      url: '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
-      fallback: '/directr2/portfolio/Provia_Mamiya6_09_12_23_15.jpg'
+      url: '/directr2/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
+      fallback: '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg'
     },
     { 
-      url: '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg',
-      fallback: '/directr2/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
+      url: '/directr2/portfolio/Provia_Mamiya6_09_12_23_1.jpg',
+      fallback: '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
     }
   ];
   
@@ -135,6 +135,22 @@
   // Portfolio item image errors tracking
   const imageErrors = Array(portfolioImages.length).fill(false);
   const imageFallbackErrors = Array(portfolioImages.length).fill(false);
+
+  // Load status reporting
+  let imagesLoaded = 0;
+  let totalImages = portfolioImages.length + 2; // +2 for bg and profile
+  
+  // Additional function to get cloudflare-specific public URL format if needed
+  function getCloudflarePublicUrl(key: string): string {
+    // Format for r2 usually includes account ID
+    return `/directr2/${key}`;
+  }
+  
+  // Function to handle an image load success
+  function onImageLoad() {
+    imagesLoaded++;
+    console.log(`Loaded ${imagesLoaded}/${totalImages} images`);
+  }
 
   function resetState() {
     isSticky = true;

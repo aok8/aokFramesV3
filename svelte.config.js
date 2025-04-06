@@ -11,11 +11,16 @@ const config = {
 	kit: {
 		// Using Cloudflare adapter for Cloudflare Pages deployment
 		adapter: adapter({
+			// Ensure we're using the correct target for Cloudflare
 			routes: {
 				include: ['/*'],
 				exclude: []
 			}
-		})
+		}),
+		// Add proper handling for client-side routes
+		paths: {
+			base: ''
+		}
 	},
 
 	extensions: ['.svelte', '.svx']

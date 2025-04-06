@@ -1,6 +1,9 @@
 {
 	"name": "aokframesv3",
 	"version": "0.0.1",
+	"engines": {
+		"node": ">=20.9.0"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",

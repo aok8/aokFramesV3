@@ -2,10 +2,8 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { theme } from '../theme/theme.js';
-  import { Button } from "$lib/components/ui/button";
-  import { Footer } from "$lib/components/ui";
-  import { Navbar } from "$lib/components/ui";
-  import Modal from "$lib/components/ui/modal.svelte";
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { Footer, Navbar, Modal } from '$lib/components/ui/index.js';
 
   let isSticky = true;
   let isScrollingPaused = false;
@@ -16,36 +14,143 @@
   let selectedPhoto: string | null = null;
   let photoModalOpen = false;
   
-  // Portfolio images from R2
+  // Constants for background and profile image with fallbacks
+  const bgImage = '/directr2/constants/bg.jpg'; // Direct R2 as primary now
+  const fallbackBgImage = '/images/constants/bg.jpg'; // Local fallback
+  const profileImage = '/directr2/constants/Profile_Pic.jpg'; // Direct R2 as primary
+  const fallbackProfileImage = '/images/constants/Profile_Pic.jpg'; // Local fallback
+  
+  // Portfolio images from R2 with fallbacks
   const portfolioImages = [
-    // Add your portfolio images here
-    '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
-    '/images/portfolio/Portra800_R4m_01_03_25_11.jpg',
-    '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg',
-    '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
-    '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
-    '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
-    '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg',
-    '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
-    '/images/portfolio/Portra800_F100_09_14_24_6.jpg',
-    '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg',
-    '/images/portfolio/Trix400_F100_08_17_24_11.jpg',
-    '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg',
-    '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
-    '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
-    '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg',
-    '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
-    '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
-    '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
-    '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
-    '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
-    '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
-    '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
-    '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
+    { 
+      url: '/directr2/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg',
+      fallback: '/images/portfolio/Ektar100_Mamiya6_09_15_24_11.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Portra800_R4m_01_03_25_11.jpg',
+      fallback: '/images/portfolio/Portra800_R4m_01_03_25_11.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Acrosii_Bessa_09_12_23_1.jpg',
+      fallback: '/images/portfolio/Acrosii_Bessa_09_12_23_1.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_29.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_29.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_Mamiya6_06_22_24_1.jpg',
+      fallback: '/images/portfolio/Trix400_Mamiya6_06_22_24_1.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_2_BessaR_08_12_24_6.jpg',
+      fallback: '/images/portfolio/Trix400_2_BessaR_08_12_24_6.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg',
+      fallback: '/images/portfolio/Trix400_2_Mamiya6_08_08_24_12.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_Mamiya6_03_24_24_11.jpg',
+      fallback: '/images/portfolio/Trix400_Mamiya6_03_24_24_11.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_24.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_24.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Acros100_Mamiya6_08_10_24_12.jpg',
+      fallback: '/images/portfolio/Acros100_Mamiya6_08_10_24_12.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Portra800_F100_09_14_24_6.jpg',
+      fallback: '/images/portfolio/Portra800_F100_09_14_24_6.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_Mamiya6_08_08_24_5.jpg',
+      fallback: '/images/portfolio/Trix400_Mamiya6_08_08_24_5.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_25.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_25.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_F100_08_17_24_11.jpg',
+      fallback: '/images/portfolio/Trix400_F100_08_17_24_11.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Trix400_BessaR_08_12_24_20.jpg',
+      fallback: '/images/portfolio/Trix400_BessaR_08_12_24_20.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Acros100_Mamiya6_08_09_24_8.jpg',
+      fallback: '/images/portfolio/Acros100_Mamiya6_08_09_24_8.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Gold200_Mamiya6_07_13_24_9.jpg',
+      fallback: '/images/portfolio/Gold200_Mamiya6_07_13_24_9.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Portra800_BessaR_07_13_24_14.jpg',
+      fallback: '/images/portfolio/Portra800_BessaR_07_13_24_14.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg',
+      fallback: '/images/portfolio/Lomo800_Mamiya6_06_09_24_8.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg',
+      fallback: '/images/portfolio/Ektar100_Mamiya6_09_12_23_6.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg',
+      fallback: '/images/portfolio/Lomo800_Mamiya6_06_09_24_1.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg',
+      fallback: '/images/portfolio/Cinestill800t_MamiyaSix_07_16_23_12.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg',
+      fallback: '/images/portfolio/Ektar100_Mamiya6_09_12_23_1.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Portra400_Mamiya6_09_12_23_10.jpg',
+      fallback: '/images/portfolio/Portra400_Mamiya6_09_12_23_10.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Provia_Mamiya6_09_12_23_15.jpg',
+      fallback: '/images/portfolio/Provia_Mamiya6_09_12_23_15.jpg'
+    },
+    { 
+      url: '/directr2/portfolio/Provia_Mamiya6_09_12_23_1.jpg',
+      fallback: '/images/portfolio/Provia_Mamiya6_09_12_23_1.jpg'
+    }
   ];
+  
+  // Image error handling
+  let bgImageError = false;
+  let profileImageError = false;
+  
+  // Portfolio item image errors tracking
+  const imageErrors = Array(portfolioImages.length).fill(false);
+  const imageFallbackErrors = Array(portfolioImages.length).fill(false);
+
+  // Load status reporting
+  let imagesLoaded = 0;
+  let totalImages = portfolioImages.length + 2; // +2 for bg and profile
+  
+  // Additional function to get cloudflare-specific public URL format if needed
+  function getCloudflarePublicUrl(key: string): string {
+    // Format for r2 usually includes account ID
+    return `/directr2/${key}`;
+  }
+  
+  // Function to handle an image load success
+  function onImageLoad() {
+    imagesLoaded++;
+    console.log(`Loaded ${imagesLoaded}/${totalImages} images`);
+  }
 
   function resetState() {
     isSticky = true;
@@ -139,7 +244,26 @@
 
 <div class="content" bind:this={contentElement}>
     <Navbar />
-    <img src="/images/constants/bg.jpg" alt="Night sky with stars" class="full-size-image" />
+    {#if !bgImageError}
+      <img 
+        src={bgImage} 
+        alt="Night sky with stars" 
+        class="full-size-image" 
+        on:error={() => {
+          console.log('Background image failed to load, trying fallback');
+          bgImageError = true;
+        }}
+      />
+    {:else}
+      <img 
+        src={fallbackBgImage} 
+        alt="Night sky with stars" 
+        class="full-size-image" 
+        on:error={() => {
+          console.error('Both background image paths failed');
+        }}
+      />
+    {/if}
     {#if showText}
         <div class="text" transition:fade>
           Growth through experience
@@ -154,6 +278,9 @@
           src={selectedPhoto} 
           alt="Selected portfolio work" 
           class="modal-photo"
+          on:error={(e) => {
+            console.error(`Failed to load image: ${selectedPhoto}`);
+          }}
         />
       {/if}
     </Modal>
@@ -163,27 +290,48 @@
     style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
 >
     <div class="photo-grid">
-        {#each portfolioImages as imageUrl, i}
+        {#each portfolioImages as image, i}
             <div class="grid-item">
                 <button 
                   class="image-button"
                   on:click={() => {
-                    selectedPhoto = imageUrl;
+                    // For modal view, select the URL that hasn't errored first, fallback second
+                    selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
                     photoModalOpen = true;
                   }}
                   on:keydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                      selectedPhoto = imageUrl;
+                      // For modal view, select the URL that hasn't errored first, fallback second
+                      selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
                       photoModalOpen = true;
                     }
                   }}
                 >
-                  <img 
-                    src={imageUrl} 
-                    alt="Portfolio work" 
-                    class="grid-photo" 
-                    loading="lazy"
-                  />
+                  {#if !imageErrors[i]}
+                    <img 
+                      src={image.url} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.log(`Image failed to load, trying fallback: ${image.url}`);
+                        imageErrors[i] = true;
+                      }}
+                    />
+                  {:else if !imageFallbackErrors[i]}
+                    <img 
+                      src={image.fallback} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.error(`Both image paths failed: ${image.url}`);
+                        imageFallbackErrors[i] = true;
+                      }}
+                    />
+                  {:else}
+                    <div class="error-placeholder">Image unavailable</div>
+                  {/if}
                 </button>
             </div>
         {/each}
@@ -191,7 +339,26 @@
 
     <div class="about-section">
         <div class="about-content">
-            <img src="/images/constants/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
+            {#if !profileImageError}
+              <img 
+                src={profileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.log('Profile image failed to load, trying fallback');
+                  profileImageError = true;
+                }}
+              />
+            {:else}
+              <img 
+                src={fallbackProfileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.error('Both profile image paths failed');
+                }}
+              />
+            {/if}
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>I'm a Seattle based photographer who shoots both film and digital. I have a passion for capturing moments and telling stories through images as well as trying to continuously improve while experiencing life to the fullest.</p>
@@ -351,5 +518,16 @@
         .about-content{
           gap: 0.5rem;
         }
+    }
+
+    .error-placeholder {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background-color: rgba(0, 0, 0, 0.1);
+        color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
     }
 </style>

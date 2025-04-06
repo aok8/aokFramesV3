@@ -16,77 +16,6 @@ interface DiagnosticResult {
 
 export const handle: Handle = async ({ event, resolve }) => {
     const pathname = event.url.pathname;
-    
-    // Special diagnostics path for debugging R2 access
-    if (pathname === '/api/r2-diagnostics') {
-        try {
-            const diagnostics: DiagnosticResult = {
-                r2_binding_exists: !!(event.platform?.env?.ASSETSBUCKET),
-                platform_available: !!event.platform,
-                platform_env_available: !!(event.platform?.env),
-                context_available: !!(event.platform?.context),
-                request_headers: Object.fromEntries([...new Headers(event.request.headers)])
-            };
-            
-            // Add a list of environment keys for debugging
-            if (event.platform?.env) {
-                diagnostics.env_keys = Object.keys(event.platform.env);
-            }
-            
-            if (event.platform?.env?.ASSETSBUCKET) {
-                try {
-                    // Log details about the R2 binding for debugging
-                    console.log('R2 Binding ASSETSBUCKET details:');
-                    console.log('Type:', typeof event.platform.env.ASSETSBUCKET);
-                    console.log('Properties:', Object.keys(event.platform.env.ASSETSBUCKET));
-                    
-                    // Try accessing a known method on R2 bucket
-                    const testMethods = [
-                        'get', 'head', 'put', 'delete', 
-                        'list', 'createMultipartUpload',
-                        'fetch'
-                    ];
-                    
-                    for (const method of testMethods) {
-                        // @ts-ignore - Bypass type checking for dynamic property access
-                        if (typeof event.platform.env.ASSETSBUCKET[method] === 'function') {
-                            console.log(`Method ${method} is available`);
-                        } else {
-                            console.log(`Method ${method} is NOT available`);
-                        }
-                    }
-                    
-                    // Simple test - just check if the R2 binding exists
-                    // Don't try to call any methods that might not be implemented
-                    diagnostics.r2_bucket_test = {
-                        success: true
-                    };
-                } catch (testError) {
-                    diagnostics.r2_bucket_test = {
-                        success: false,
-                        error: testError instanceof Error ? testError.message : String(testError)
-                    };
-                }
-            }
-            
-            return new Response(JSON.stringify(diagnostics, null, 2), {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-        } catch (error) {
-            return new Response(JSON.stringify({
-                error: 'Diagnostics error',
-                message: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-            }, null, 2), {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-        }
-    }
 
     // Handle image requests in a simplified way that directly accesses the bucket
     if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/')) {
@@ -265,5 +194,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
 
     // For all other requests, proceed normally
-    return resolve(event);
+    const response = await resolve(event);
+    return response;
 }; 

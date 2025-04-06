@@ -12,6 +12,6 @@ MY_R2_BUCKET = "aokframes-website-assets"
 
 # R2 bucket binding configuration with proper access
 [[r2_buckets]]
-binding = "ASSETS"
+binding = "ASSETSBUCKET"
 bucket_name = "aokframes-website-assets"
 preview_bucket_name = "aokframes-website-assets"

@@ -8,7 +8,7 @@ declare global {
 		// interface PageState {}
 		interface Platform {
 			env: {
-				ASSETS: R2Bucket;
+				ASSETSBUCKET: R2Bucket;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;

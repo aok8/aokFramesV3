@@ -13,7 +13,7 @@ export const GET = async (event) => {
     const diagnostics = {
       platform_available: !!platform,
       platform_env_available: !!platform?.env,
-      r2_binding_exists: !!platform?.env?.ASSETS,
+      r2_binding_exists: !!platform?.env?.ASSETSBUCKET,
       test_key: testKey,
       r2_object: null as any, // Using any here to avoid TS errors
       error: null as any,
@@ -34,9 +34,9 @@ export const GET = async (event) => {
       }
     };
     
-    // Check which methods are available on ASSETS binding
-    if (platform?.env?.ASSETS) {
-      const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(platform.env.ASSETS));
+    // Check which methods are available on ASSETSBUCKET binding
+    if (platform?.env?.ASSETSBUCKET) {
+      const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(platform.env.ASSETSBUCKET));
       diagnostics.methods_available = methods.reduce((acc: Record<string, boolean>, method) => {
         acc[method] = true;
         return acc;
@@ -44,12 +44,12 @@ export const GET = async (event) => {
     }
     
     // Attempt to access the R2 bucket if it exists
-    if (platform?.env?.ASSETS) {
+    if (platform?.env?.ASSETSBUCKET) {
       try {
         // Try to get the test object using the R2 API
         // This may fail with the RPC error but we try it anyway
         try {
-          const object = await platform.env.ASSETS.get(testKey);
+          const object = await platform.env.ASSETSBUCKET.get(testKey);
           
           if (object) {
             diagnostics.r2_object = {
@@ -79,7 +79,7 @@ export const GET = async (event) => {
         try {
           diagnostics.r2_fetch_test.attempted = true;
           // @ts-ignore - The fetch method is available in some Cloudflare deployments
-          const fetchResponse = await platform.env.ASSETS.fetch(new Request(`https://fake-host/${testKey}`));
+          const fetchResponse = await platform.env.ASSETSBUCKET.fetch(new Request(`https://fake-host/${testKey}`));
           diagnostics.r2_fetch_test.success = fetchResponse.ok;
           diagnostics.r2_fetch_test.headers = Object.fromEntries([...fetchResponse.headers.entries()]);
         } catch (fetchErr) {

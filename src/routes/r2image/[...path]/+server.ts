@@ -7,7 +7,7 @@ export const GET = async (event) => {
     console.log(`Attempting to serve R2 image: ${path}`);
     
     // Check if platform and R2 are available
-    if (!platform?.env?.ASSETS) {
+    if (!platform?.env?.ASSETSBUCKET) {
       console.error('R2 bucket binding not available');
       return new Response('R2 Configuration Error', { status: 500 });
     }

@@ -21,7 +21,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (pathname === '/api/r2-diagnostics') {
         try {
             const diagnostics: DiagnosticResult = {
-                r2_binding_exists: !!(event.platform?.env?.ASSETS),
+                r2_binding_exists: !!(event.platform?.env?.ASSETSBUCKET),
                 platform_available: !!event.platform,
                 platform_env_available: !!(event.platform?.env),
                 context_available: !!(event.platform?.context),
@@ -33,12 +33,12 @@ export const handle: Handle = async ({ event, resolve }) => {
                 diagnostics.env_keys = Object.keys(event.platform.env);
             }
             
-            if (event.platform?.env?.ASSETS) {
+            if (event.platform?.env?.ASSETSBUCKET) {
                 try {
                     // Log details about the R2 binding for debugging
-                    console.log('R2 Binding ASSETS details:');
-                    console.log('Type:', typeof event.platform.env.ASSETS);
-                    console.log('Properties:', Object.keys(event.platform.env.ASSETS));
+                    console.log('R2 Binding ASSETSBUCKET details:');
+                    console.log('Type:', typeof event.platform.env.ASSETSBUCKET);
+                    console.log('Properties:', Object.keys(event.platform.env.ASSETSBUCKET));
                     
                     // Try accessing a known method on R2 bucket
                     const testMethods = [
@@ -49,7 +49,7 @@ export const handle: Handle = async ({ event, resolve }) => {
                     
                     for (const method of testMethods) {
                         // @ts-ignore - Bypass type checking for dynamic property access
-                        if (typeof event.platform.env.ASSETS[method] === 'function') {
+                        if (typeof event.platform.env.ASSETSBUCKET[method] === 'function') {
                             console.log(`Method ${method} is available`);
                         } else {
                             console.log(`Method ${method} is NOT available`);
@@ -173,9 +173,9 @@ export const handle: Handle = async ({ event, resolve }) => {
             if (!response) {
                 console.error(`All public URL attempts failed for ${key}`, lastError);
                 
-                // Final fallback - try using the Cloudflare Worker ASSETS binding differently
+                // Final fallback - try using the Cloudflare Worker ASSETSBUCKET binding differently
                 try {
-                    if (event.platform.env.ASSETS && typeof event.platform.env.ASSETS === 'object') {
+                    if (event.platform.env.ASSETSBUCKET && typeof event.platform.env.ASSETSBUCKET === 'object') {
                         // If the R2 binding is present but methods aren't working
                         // This is a last-ditch effort
                         console.log("Attempting proxy fetch using default bucket host");

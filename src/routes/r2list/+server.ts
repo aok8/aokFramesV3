@@ -6,41 +6,50 @@ export const GET = async (event) => {
   const { platform, url } = event;
   
   try {
-    // Basic validation
-    if (!platform?.env?.ASSETS) {
-      return json({
-        error: 'R2 binding not available'
-      }, { status: 500 });
-    }
+    // Get optional prefix parameter
+    const prefix = url.searchParams.get('prefix') || '';
     
+    // Basic diagnostics about the environment
     const diagnostics = {
+      platform_available: !!platform,
+      platform_env_available: !!platform?.env,
+      r2_binding_exists: !!platform?.env?.ASSETSBUCKET,
+      prefix,
       bucket_contents: null as any,
-      error: null as string | null,
-      prefix: url.searchParams.get('prefix') || ''
+      error: null as any,
     };
     
-    // Attempt to list objects in the bucket
+    if (!platform?.env) {
+      diagnostics.error = 'Platform environment not available';
+      return json(diagnostics);
+    }
+    
+    if (!platform.env.ASSETSBUCKET) {
+      diagnostics.error = 'R2 binding not available';
+      return json(diagnostics);
+    }
+    
+    // Actually try to list the bucket contents
     try {
-      // Try using list() API
-      const listOptions: any = { 
-        limit: 1000
+      const options = {
+        limit: 1000,
+        prefix
       };
       
-      if (diagnostics.prefix) {
-        listOptions.prefix = diagnostics.prefix;
-      }
+      // Try using the R2 list API
+      const objects = await platform.env.ASSETSBUCKET.list(options);
       
-      // @ts-ignore - Expected type mismatch between Cloudflare types 
-      const listResult = await platform.env.ASSETS.list(listOptions);
-      
+      // Convert to a simpler format for the response
       diagnostics.bucket_contents = {
-        objects: listResult.objects.map((obj: any) => ({
+        objects: objects.objects.map(obj => ({
           key: obj.key,
           size: obj.size,
-          uploaded: obj.uploaded?.toISOString()
+          uploaded: obj.uploaded.toISOString(),
+          etag: obj.etag
         })),
-        truncated: listResult.truncated || false,
-        cursor: listResult.cursor || null
+        truncated: objects.truncated,
+        cursor: objects.cursor || null,
+        delimitedPrefixes: objects.delimitedPrefixes || []
       };
     } catch (listError) {
       // List API failed, try an alternative approach
@@ -49,7 +58,7 @@ export const GET = async (event) => {
       try {
         // Use custom API to list objects if supported
         // @ts-ignore - Custom API
-        const keys = await platform.env.ASSETS.getKeys({
+        const keys = await platform.env.ASSETSBUCKET.getKeys({
           prefix: diagnostics.prefix,
           limit: 1000
         });

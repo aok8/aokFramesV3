@@ -10,12 +10,16 @@ interface R2ListResponse {
   [key: string]: any;
 }
 
-export async function GET() {
+export async function GET({ platform }) {
   try {
+    if (!platform?.env?.ASSETSBUCKET) {
+      throw new Error('ASSETSBUCKET binding not found');
+    }
+
     // Get list of objects from R2 bucket
-    const objects = await (process.env.R2_BUCKET as any).list({
+    const objects = await platform.env.ASSETSBUCKET.list({
       prefix: 'portfolio/'
-    }) as R2ListResponse;
+    });
 
     // Filter for image files and map to required format
     const images = objects.objects

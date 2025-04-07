@@ -40,7 +40,9 @@ addEventListener('fetch', (event) => {
   async function handleImageRequest(event, imageKey) {
     try {
       console.log('Fetching image with key:', imageKey);
-      const object = await ASSETSBUCKET.get(imageKey);
+      // Try both ASSETSBUCKET and env.ASSETSBUCKET to ensure compatibility
+      const bucket = ASSETSBUCKET || env.ASSETSBUCKET;
+      const object = await bucket.get(imageKey);
   
       if (!object) {
         console.log('Image not found:', imageKey);
@@ -66,7 +68,9 @@ addEventListener('fetch', (event) => {
   async function handleBlogpostRequest(event, postKey) {
     try {
       console.log('Fetching blog post with key:', postKey);
-      const object = await ASSETSBUCKET.get(postKey);
+      // Try both ASSETSBUCKET and env.ASSETSBUCKET to ensure compatibility
+      const bucket = ASSETSBUCKET || env.ASSETSBUCKET;
+      const object = await bucket.get(postKey);
   
       if (!object) {
         console.log('Blog post not found:', postKey);
@@ -92,8 +96,11 @@ addEventListener('fetch', (event) => {
     try {
       console.log('Listing blog posts');
       
+      // Try both variable formats to ensure compatibility with different Cloudflare Workers environments
+      const bucket = ASSETSBUCKET || env.ASSETSBUCKET;
+      
       // List all objects with 'blog/posts/' prefix
-      const objects = await ASSETSBUCKET.list({
+      const objects = await bucket.list({
         prefix: 'blog/posts/'
       });
       
@@ -116,7 +123,7 @@ addEventListener('fetch', (event) => {
               const slug = filename.replace(/\.md$/i, '');
               
               // Get the actual markdown content
-              const fileObject = await ASSETSBUCKET.get(obj.key);
+              const fileObject = await bucket.get(obj.key);
               if (!fileObject) {
                 throw new Error(`File not found: ${obj.key}`);
               }
@@ -155,7 +162,7 @@ addEventListener('fetch', (event) => {
               
               // Check if a corresponding image exists
               const imageKey = `blog/images/${slug}.jpg`;
-              const imageExists = await ASSETSBUCKET.head(imageKey) !== null;
+              const imageExists = await bucket.head(imageKey) !== null;
               
               return {
                 id: slug,

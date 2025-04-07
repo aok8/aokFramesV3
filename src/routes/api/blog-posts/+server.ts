@@ -13,11 +13,21 @@ interface CloudflareBindings {
   };
 }
 
-interface Platform {
-  env?: CloudflareBindings;
-}
+export const GET = (async ({ platform, request }) => {
+  // Configure CORS headers to ensure the API can be accessed from the frontend
+  const headers = new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate'
+  });
 
-export const GET = (async ({ platform }) => {
+  // Handle OPTIONS request (preflight)
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers });
+  }
+
   try {
     // Log platform info to debug R2 bucket access issues
     console.log('Platform available:', !!platform);
@@ -38,7 +48,7 @@ export const GET = (async ({ platform }) => {
     
     if (!objects.objects || objects.objects.length === 0) {
       console.log('No blog posts found in the R2 bucket');
-      return json([]);
+      return new Response(JSON.stringify([]), { headers });
     }
 
     // Process each markdown file to extract blog post data
@@ -130,15 +140,21 @@ export const GET = (async ({ platform }) => {
       .sort((a: BlogPost, b: BlogPost) => new Date(b.published).getTime() - new Date(a.published).getTime());
 
     console.log('Returning valid posts count:', validPosts.length);
-    return json(validPosts);
+    
+    // Return JSON response with the appropriate headers
+    return new Response(JSON.stringify(validPosts), { headers });
+    
   } catch (error) {
     console.error('Error listing R2 blog posts:', error);
     // Return an error message that includes the error details for debugging
-    return new Response(`Error fetching blog posts: ${error instanceof Error ? error.message : String(error)}`, { 
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json'
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : String(error)
+      }), 
+      { 
+        status: 500,
+        headers
       }
-    });
+    );
   }
 }) satisfies RequestHandler; 

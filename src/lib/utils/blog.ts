@@ -96,9 +96,56 @@ const getDevBlogPosts = async (): Promise<BlogPost[]> => {
 // For production environment - fetch from R2 via API
 const getProdBlogPosts = async (): Promise<BlogPost[]> => {
   try {
-    const response = await fetch('/api/blog-posts');
-    if (!response.ok) throw new Error('Failed to fetch blog posts');
-    return await response.json();
+    console.log('Fetching blog posts from production API');
+    
+    // Try both /api/blog-posts (standard API endpoint) and directly using the worker path
+    const endpoints = [
+      '/api/blog-posts',
+      '/blog-posts'
+    ];
+    
+    let response = null;
+    let error = null;
+    
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Attempting to fetch from ${endpoint}`);
+        const fetchResponse = await fetch(endpoint, {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (fetchResponse.ok) {
+          response = fetchResponse;
+          console.log(`Successfully fetched from ${endpoint}`);
+          break;
+        } else {
+          console.log(`Failed to fetch from ${endpoint}: ${fetchResponse.status} ${fetchResponse.statusText}`);
+        }
+      } catch (e) {
+        error = e;
+        console.error(`Error fetching from ${endpoint}:`, e);
+      }
+    }
+    
+    if (!response) {
+      if (error) throw error;
+      throw new Error('All API endpoints failed');
+    }
+    
+    const data = await response.json();
+    console.log('Received blog posts data:', JSON.stringify(data).substring(0, 100) + '...');
+    
+    // If data is not an array, it might be an error response or invalid format
+    if (!Array.isArray(data)) {
+      console.error('Received invalid data format. Expected array but got:', typeof data);
+      return [];
+    }
+    
+    return data;
   } catch (error) {
     console.error('Error fetching blog posts:', error);
     return []; // In production, don't fallback to dev posts

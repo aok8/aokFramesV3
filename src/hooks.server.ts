@@ -1,4 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
+import { dev } from '$app/environment';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // Use a type for diagnostics
 interface DiagnosticResult {
@@ -13,6 +16,9 @@ interface DiagnosticResult {
     };
     env_keys?: string[];
 }
+
+// Always use local images in development mode
+const USE_LOCAL_IMAGES = dev;
 
 export const handle: Handle = async ({ event, resolve }) => {
     const pathname = event.url.pathname;
@@ -38,7 +44,13 @@ export const handle: Handle = async ({ event, resolve }) => {
                 return new Response('Not Found', { status: 404 });
             }
 
-            console.log(`Looking for R2 object with key: ${key}`);
+            console.log(`Development mode: ${dev}, Using local images: ${USE_LOCAL_IMAGES}`);
+            console.log(`Looking for ${USE_LOCAL_IMAGES ? 'local' : 'R2'} object with key: ${key}`);
+
+            // Use local images if in dev mode
+            if (USE_LOCAL_IMAGES) {
+                return await serveLocalImage(key);
+            }
 
             // Check if platform is available - this is our minimal requirement 
             if (!event.platform?.env?.ASSETSBUCKET) {
@@ -196,4 +208,114 @@ export const handle: Handle = async ({ event, resolve }) => {
     // For all other requests, proceed normally
     const response = await resolve(event);
     return response;
-}; 
+};
+
+// Helper function to serve local images during development
+async function serveLocalImage(key: string) {
+    try {
+        // Map the key to the corresponding local path
+        let localPath: string;
+        
+        if (key.startsWith('portfolio/')) {
+            // Map to src/images/Portfolio directory
+            localPath = path.join(process.cwd(), 'src', 'images', 'Portfolio', key.substring('portfolio/'.length));
+        } else if (key.startsWith('blog/')) {
+            // Map to src/content/blog/images directory
+            localPath = path.join(process.cwd(), 'src', 'content', 'blog', 'images', key.substring('blog/'.length));
+        } else if (key.startsWith('constants/')) {
+            // Map to public/images directory as fallback for constants
+            localPath = path.join(process.cwd(), 'public', 'images', key.substring('constants/'.length));
+        } else {
+            console.error(`Unknown key prefix: ${key}`);
+            return new Response(`Unknown key prefix: ${key}`, { status: 404 });
+        }
+
+        console.log(`Attempting to serve local file: ${localPath}`);
+        console.log(`Current working directory: ${process.cwd()}`);
+        
+        try {
+            // Check if the directory exists
+            const dir = path.dirname(localPath);
+            console.log(`Checking directory: ${dir}`);
+            await fs.access(dir);
+            
+            // Check if the file exists
+            console.log(`Checking file: ${localPath}`);
+            await fs.access(localPath);
+            
+            const fileBuffer = await fs.readFile(localPath);
+            console.log(`Successfully read file: ${localPath}`);
+            
+            // Set appropriate headers based on file extension
+            const headers = new Headers();
+            const fileExtension = key.split('.').pop()?.toLowerCase();
+            const contentTypes: Record<string, string> = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+                'svg': 'image/svg+xml',
+                'md': 'text/markdown'
+            };
+            
+            if (fileExtension && contentTypes[fileExtension]) {
+                headers.set('Content-Type', contentTypes[fileExtension]);
+            }
+            
+            headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+            headers.set('Pragma', 'no-cache');
+            headers.set('Expires', '0');
+            
+            return new Response(fileBuffer, { headers });
+        } catch (fileError) {
+            console.error(`Error reading local file: ${localPath}`, fileError);
+            
+            // Try alternate case for the filename (Windows is case-insensitive but Node.js is case-sensitive)
+            try {
+                const dir = path.dirname(localPath);
+                const basename = path.basename(localPath);
+                
+                console.log(`Listing directory contents: ${dir}`);
+                const files = await fs.readdir(dir);
+                console.log(`Found files: ${files.join(', ')}`);
+                
+                const matchingFile = files.find(f => f.toLowerCase() === basename.toLowerCase());
+                
+                if (matchingFile) {
+                    const correctedPath = path.join(dir, matchingFile);
+                    console.log(`Found file with different case: ${correctedPath}`);
+                    const fileBuffer = await fs.readFile(correctedPath);
+                    
+                    const headers = new Headers();
+                    const fileExtension = correctedPath.split('.').pop()?.toLowerCase();
+                    const contentTypes: Record<string, string> = {
+                        'jpg': 'image/jpeg',
+                        'jpeg': 'image/jpeg',
+                        'png': 'image/png',
+                        'gif': 'image/gif',
+                        'webp': 'image/webp',
+                        'svg': 'image/svg+xml',
+                        'md': 'text/markdown'
+                    };
+                    
+                    if (fileExtension && contentTypes[fileExtension]) {
+                        headers.set('Content-Type', contentTypes[fileExtension]);
+                    }
+                    
+                    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    
+                    return new Response(fileBuffer, { headers });
+                }
+            } catch (dirError) {
+                console.error(`Error reading directory: ${path.dirname(localPath)}`, dirError);
+            }
+            
+            return new Response(`Local file not found: ${key}`, { status: 404 });
+        }
+    } catch (error) {
+        console.error('Error serving local image:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return new Response(`Error serving local image: ${errorMessage}`, { status: 500 });
+    }
+} 

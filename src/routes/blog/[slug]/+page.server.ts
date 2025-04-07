@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
-import { loadBlogPost } from '$lib/server/blog.js';
+import { getBlogPost } from '$lib/utils/blog.js';
 
 interface Params {
   slug: string;
@@ -8,7 +8,7 @@ interface Params {
 
 export const load = (async ({ params }: { params: Params }) => {
   try {
-    const post = loadBlogPost(params.slug);
+    const post = await getBlogPost(params.slug);
     
     if (!params.slug || !post) {
       throw error(404, {

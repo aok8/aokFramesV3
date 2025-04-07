@@ -18,26 +18,7 @@ export default defineConfig({
 					source: resolve(__dirname, 'workers', 'r2-image-worker.js'),
 				});
 			},
-		},
-		{
-			name: 'markdown',
-			transform(code, id) {
-				if (!id.endsWith('.md?raw')) return null;
-				
-				// Remove the ?raw suffix for processing
-				const actualId = id.slice(0, -4);
-				if (!actualId.endsWith('.md')) return null;
-
-				// Read the markdown file
-				const fs = require('fs');
-				const content = fs.readFileSync(actualId, 'utf-8');
-				
-				return {
-					code: `export default ${JSON.stringify(content)};`,
-					map: null
-				};
-			}
-		},
+		}
 	],
 	// Configure for Cloudflare Workers environment
 	build: {
@@ -56,8 +37,11 @@ export default defineConfig({
 			allow: [
 				'src/images',
 				'src/content/blog/images',
+				'src/content/blog/posts',
 				'public/images'
 			]
 		}
-	}
+	},
+	// Mark markdown files as assets to avoid JS parsing
+	assetsInclude: ['**/*.md']
 });

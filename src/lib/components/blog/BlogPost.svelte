@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BlogPost } from '$lib/types/blog.js';
   import { marked } from 'marked';
+  import { dev } from '$app/environment';
 
   export let post: BlogPost;
   export let isPreview = false;
@@ -9,17 +10,41 @@
     gfm: true,
     breaks: true
   });
+
+  // Handle image errors for R2 by using local fallbacks
+  let imageError = false;
+
+  // Convert post.image path to a fallback path if needed
+  $: imagePath = post.image || '';
+  $: imageFallbackPath = dev
+    ? imagePath  // In dev, we're already using local paths
+    : imagePath?.replace('/directr2/blog/images/', '/src/content/blog/images/');
 </script>
 
 {#if isPreview}
   <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:-translate-y-1 transition-transform duration-200 border border-gray-100">
     {#if post.image}
       <a href="/blog/{post.id}" class="block">
-        <img
-          src={post.image}
-          alt={post.title}
-          class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
-        />
+        {#if !imageError}
+          <img
+            src={imagePath}
+            alt={post.title}
+            class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
+            on:error={() => {
+              console.log('Blog image failed to load, trying fallback:', imagePath);
+              imageError = true;
+            }}
+          />
+        {:else}
+          <img
+            src={imageFallbackPath}
+            alt={post.title}
+            class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
+            on:error={() => {
+              console.error('Both image paths failed for blog post:', post.id);
+            }}
+          />
+        {/if}
       </a>
     {/if}
     <div class="p-6">
@@ -71,11 +96,26 @@
     </header>
 
     {#if post.image}
-      <img
-        src={post.image}
-        alt={post.title}
-        class="w-full h-[400px] object-cover rounded-lg mb-8"
-      />
+      {#if !imageError}
+        <img
+          src={imagePath}
+          alt={post.title}
+          class="w-full h-[400px] object-cover rounded-lg mb-8"
+          on:error={() => {
+            console.log('Blog image failed to load, trying fallback:', imagePath);
+            imageError = true;
+          }}
+        />
+      {:else}
+        <img
+          src={imageFallbackPath}
+          alt={post.title}
+          class="w-full h-[400px] object-cover rounded-lg mb-8"
+          on:error={() => {
+            console.error('Both image paths failed for blog post:', post.id);
+          }}
+        />
+      {/if}
     {/if}
 
     <div class="prose prose-lg prose-headings:font-sans prose-headings:font-semibold prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 prose-pre:p-4 prose-pre:rounded-lg">

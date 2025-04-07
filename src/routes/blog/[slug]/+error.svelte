@@ -1,8 +1,6 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
-
-  export let data;
 </script>
 
 <Navbar />

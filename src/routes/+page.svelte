@@ -6,4 +6,5 @@
 </script>
 
 <Cover on:coverScrolledAway={() => mainContent.handleCoverScrolledAway()} />
+
 <MainContent bind:this={mainContent} />

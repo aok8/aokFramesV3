@@ -29,6 +29,21 @@ npm run dev -- --open
 
 Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
 
+### Local Image Development Mode
+
+By default, `npm run dev` uses local image folders instead of making Cloudflare R2 calls. This allows you to make design changes and view them locally without needing to connect to the Cloudflare bucket.
+
+The system looks for images in these local folders:
+- Portfolio images: `src/images/Portfolio/`
+- Blog images: `src/content/blog/images/`
+- Constants: `public/images/`
+
+If you need to test with the actual Cloudflare R2 connections, use:
+
+```bash
+npm run dev:prod
+```
+
 ## Building
 
 To build your library:

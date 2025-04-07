@@ -30,5 +30,15 @@ export default defineConfig({
 	// Handle special Cloudflare globals
 	define: {
 		'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+	},
+	// Add static file handling for development
+	server: {
+		fs: {
+			allow: [
+				'src/images',
+				'src/content/blog/images',
+				'public/images'
+			]
+		}
 	}
 });

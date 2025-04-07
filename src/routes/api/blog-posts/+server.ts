@@ -3,17 +3,11 @@ import type { RequestHandler } from './$types.js';
 import matter from 'gray-matter';
 import type { BlogPost } from '$lib/types/blog.js';
 
-interface R2Object {
-  key: string;
-  size: number;
-  etag: string;
-  httpEtag: string;
-  uploaded: string;
-}
+// Note: we don't define R2Object interface to avoid conflicts with built-in types
 
 interface CloudflareBindings {
   ASSETSBUCKET: {
-    list: (options: { prefix: string }) => Promise<{ objects: R2Object[] }>;
+    list: (options: { prefix: string }) => Promise<{ objects: any[] }>;
     get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
     head: (key: string) => Promise<any | null>;
   };
@@ -23,23 +17,38 @@ interface Platform {
   env?: CloudflareBindings;
 }
 
-export const GET: RequestHandler = async ({ platform }: { platform: Platform }) => {
+export const GET = (async ({ platform }) => {
   try {
+    // Log platform info to debug R2 bucket access issues
+    console.log('Platform available:', !!platform);
+    console.log('Platform env available:', !!(platform?.env));
+    console.log('Platform ASSETSBUCKET available:', !!(platform?.env?.ASSETSBUCKET));
+    
     if (!platform?.env?.ASSETSBUCKET) {
       throw new Error('ASSETSBUCKET binding not found');
     }
 
     // Get list of objects from R2 bucket with 'blog/posts/' prefix
+    console.log('Attempting to list objects with prefix: blog/posts/');
     const objects = await platform.env.ASSETSBUCKET.list({
       prefix: 'blog/posts/'
     });
 
+    console.log('R2 list response received. Objects count:', objects.objects?.length || 0);
+    
+    if (!objects.objects || objects.objects.length === 0) {
+      console.log('No blog posts found in the R2 bucket');
+      return json([]);
+    }
+
     // Process each markdown file to extract blog post data
     const posts = await Promise.all(
       objects.objects
-        .filter((obj: R2Object) => obj.key.toLowerCase().endsWith('.md'))
-        .map(async (obj: R2Object) => {
+        .filter(obj => obj.key.toLowerCase().endsWith('.md'))
+        .map(async (obj) => {
           try {
+            console.log('Processing post with key:', obj.key);
+            
             // Get the slug from the filename (without extension)
             const filename = obj.key.split('/').pop() || '';
             const slug = filename.replace(/\.md$/i, '');
@@ -87,7 +96,16 @@ export const GET: RequestHandler = async ({ platform }: { platform: Platform }) 
             
             // Check if a corresponding image exists in blog/images
             const imageKey = `blog/images/${slug}.jpg`;
+            console.log('Checking for image with key:', imageKey);
             const imageExists = (await platform.env.ASSETSBUCKET.head(imageKey)) !== null;
+            console.log('Image exists:', imageExists);
+            
+            // Convert the uploaded date string to a proper date string if needed
+            const uploadedDate = typeof obj.uploaded === 'string' 
+              ? obj.uploaded 
+              : obj.uploaded instanceof Date 
+                ? obj.uploaded.toISOString() 
+                : new Date().toISOString();
             
             return {
               id: slug,
@@ -95,7 +113,7 @@ export const GET: RequestHandler = async ({ platform }: { platform: Platform }) 
               summary,
               content: markdownContent,
               author: data.author || 'AOK',
-              published: data.published || new Date(obj.uploaded).toISOString().split('T')[0],
+              published: data.published || uploadedDate.split('T')[0],
               label: data.label || 'Photography',
               image: imageExists ? `/directr2/${imageKey}` : undefined
             } as BlogPost;
@@ -111,9 +129,16 @@ export const GET: RequestHandler = async ({ platform }: { platform: Platform }) 
       .filter((post): post is BlogPost => post !== null)
       .sort((a: BlogPost, b: BlogPost) => new Date(b.published).getTime() - new Date(a.published).getTime());
 
+    console.log('Returning valid posts count:', validPosts.length);
     return json(validPosts);
   } catch (error) {
     console.error('Error listing R2 blog posts:', error);
-    return new Response('Error fetching blog posts', { status: 500 });
+    // Return an error message that includes the error details for debugging
+    return new Response(`Error fetching blog posts: ${error instanceof Error ? error.message : String(error)}`, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
-} 
+}) satisfies RequestHandler; 

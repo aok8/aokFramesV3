@@ -1,7 +1,8 @@
 <script lang="ts">
   import { fade, scale } from 'svelte/transition';
   import { theme } from '../../../theme/theme.js';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
 
   export let open = false;
   export let onClose: () => void;
@@ -10,24 +11,32 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
-      onClose();
+      handleClose();
     }
   }
 
+  function handleClose() {
+    if (browser) {
+      document.body.style.overflow = '';
+    }
+    onClose();
+  }
+
   onMount(() => {
-    document.addEventListener('keydown', handleKeydown);
-    return () => {
-      document.removeEventListener('keydown', handleKeydown);
-      if (typeof document !== 'undefined') {
-        document.body.style.overflow = '';
-      }
-    };
+    if (browser) {
+      document.addEventListener('keydown', handleKeydown);
+    }
   });
 
-  $: if (open) {
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = 'hidden';
+  onDestroy(() => {
+    if (browser) {
+      document.removeEventListener('keydown', handleKeydown);
+      document.body.style.overflow = '';
     }
+  });
+
+  $: if (open && browser) {
+    document.body.style.overflow = 'hidden';
     // Focus the close button when modal opens
     setTimeout(() => closeButton?.focus(), 0);
   }
@@ -37,6 +46,7 @@
   <div 
     class="modal-backdrop"
     role="presentation"
+    on:click|self={handleClose}
     transition:fade={{ duration: 200 }}
   >
     <div
@@ -50,7 +60,7 @@
       <button 
         bind:this={closeButton}
         class="close-button" 
-        on:click={onClose}
+        on:click={handleClose}
         aria-label="Close modal"
       >×</button>
       <div class="modal-content" id="modal-title">
@@ -76,37 +86,59 @@
 
   .modal-container {
     background: var(--bg-color);
-    padding: 20px;
+    padding: 2rem;
     border-radius: 8px;
     position: relative;
     max-width: 90%;
     max-height: 90vh;
-    overflow: auto;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-button {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 1rem;
+    right: 0.5rem;
     background: none;
     border: none;
     font-size: 24px;
     cursor: pointer;
-    color: inherit;
-    padding: 5px 10px;
-    border-radius: 4px;
+    color: #999;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+    z-index: 1;
   }
 
   .close-button:hover {
-    background: rgba(0, 0, 0, 0.1);
+    color: #333;
   }
 
   .close-button:focus {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
+    outline: none;
   }
 
   .modal-content {
-    margin-top: 20px;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    height: fit-content;
+  }
+
+  .modal-content :global(img) {
+    display: block;
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    height: auto;
   }
 </style> 

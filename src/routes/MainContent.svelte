@@ -2,10 +2,9 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { theme } from '../theme/theme.js';
-  import { Button } from "$lib/components/ui/button";
-  import { Footer } from "$lib/components/ui";
-  import { Navbar } from "$lib/components/ui";
-  import Modal from "$lib/components/ui/modal.svelte";
+  import { Button } from '$lib/components/ui/button/index.js';
+  import { Footer, Navbar, Modal } from '$lib/components/ui/index.js';
+  import { getPortfolioImages } from '$lib/utils/images.js';
 
   let isSticky = true;
   let isScrollingPaused = false;
@@ -15,13 +14,37 @@
   let observer: IntersectionObserver;
   let selectedPhoto: string | null = null;
   let photoModalOpen = false;
+  let portfolioImages: { url: string; fallback: string }[] = [];
   
-  // Get all images from the Portfolio directory
-  const portfolioImages = import.meta.glob('/src/images/Portfolio/*', { eager: true });
-  const imageUrls = Object.entries(portfolioImages).map(([path]) => {
-    // Convert the full path to a URL path (remove /static prefix)
-    return path;//.replace('/src/images/Portfolio', '');
-  });
+  // Constants for background and profile image with fallbacks
+  const bgImage = '/directr2/constants/bg.jpg'; // Direct R2 as primary now
+  const fallbackBgImage = '/images/constants/bg.jpg'; // Local fallback
+  const profileImage = '/directr2/constants/Profile_Pic.jpg'; // Direct R2 as primary
+  const fallbackProfileImage = '/images/constants/Profile_Pic.jpg'; // Local fallback
+  
+  // Image error handling
+  let bgImageError = false;
+  let profileImageError = false;
+  
+  // Portfolio item image errors tracking
+  const imageErrors = Array(portfolioImages.length).fill(false);
+  const imageFallbackErrors = Array(portfolioImages.length).fill(false);
+
+  // Load status reporting
+  let imagesLoaded = 0;
+  let totalImages = portfolioImages.length + 2; // +2 for bg and profile
+  
+  // Additional function to get cloudflare-specific public URL format if needed
+  function getCloudflarePublicUrl(key: string): string {
+    // Format for r2 usually includes account ID
+    return `/directr2/${key}`;
+  }
+  
+  // Function to handle an image load success
+  function onImageLoad() {
+    imagesLoaded++;
+    console.log(`Loaded ${imagesLoaded}/${totalImages} images`);
+  }
 
   function resetState() {
     isSticky = true;
@@ -87,18 +110,26 @@
   }
 
   onMount(() => {
-    if (typeof window !== 'undefined') {
-      // Force scroll to top
-      window.scrollTo(0, 0);
-      
-      // Reset all state
-      resetState();
-      
-      // Initialize observer after a small delay to ensure DOM is ready
-      setTimeout(() => {
-        initializeObserver();
-      }, 100);
-    }
+    const loadImages = async () => {
+      if (typeof window !== 'undefined') {
+        // Force scroll to top
+        window.scrollTo(0, 0);
+        
+        // Reset all state
+        resetState();
+        
+        // Load portfolio images
+        portfolioImages = await getPortfolioImages();
+        totalImages = portfolioImages.length + 2;
+        
+        // Initialize observer after a small delay to ensure DOM is ready
+        setTimeout(() => {
+          initializeObserver();
+        }, 100);
+      }
+    };
+
+    loadImages();
 
     return () => {
       if (observer) {
@@ -115,7 +146,26 @@
 
 <div class="content" bind:this={contentElement}>
     <Navbar />
-    <img src="/images/bg.jpg" alt="Night sky with stars" class="full-size-image" />
+    {#if !bgImageError}
+      <img 
+        src={bgImage} 
+        alt="Night sky with stars" 
+        class="full-size-image" 
+        on:error={() => {
+          console.log('Background image failed to load, trying fallback');
+          bgImageError = true;
+        }}
+      />
+    {:else}
+      <img 
+        src={fallbackBgImage} 
+        alt="Night sky with stars" 
+        class="full-size-image" 
+        on:error={() => {
+          console.error('Both background image paths failed');
+        }}
+      />
+    {/if}
     {#if showText}
         <div class="text" transition:fade>
           Growth through experience
@@ -130,6 +180,9 @@
           src={selectedPhoto} 
           alt="Selected portfolio work" 
           class="modal-photo"
+          on:error={(e) => {
+            console.error(`Failed to load image: ${selectedPhoto}`);
+          }}
         />
       {/if}
     </Modal>
@@ -139,27 +192,48 @@
     style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
 >
     <div class="photo-grid">
-        {#each imageUrls as imageUrl, i}
+        {#each portfolioImages as image, i}
             <div class="grid-item">
                 <button 
                   class="image-button"
                   on:click={() => {
-                    selectedPhoto = imageUrl;
+                    // For modal view, select the URL that hasn't errored first, fallback second
+                    selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
                     photoModalOpen = true;
                   }}
                   on:keydown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                      selectedPhoto = imageUrl;
+                      // For modal view, select the URL that hasn't errored first, fallback second
+                      selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
                       photoModalOpen = true;
                     }
                   }}
                 >
-                  <img 
-                    src={imageUrl} 
-                    alt="Portfolio work" 
-                    class="grid-photo" 
-                    loading="lazy"
-                  />
+                  {#if !imageErrors[i]}
+                    <img 
+                      src={image.url} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.log(`Image failed to load, trying fallback: ${image.url}`);
+                        imageErrors[i] = true;
+                      }}
+                    />
+                  {:else if !imageFallbackErrors[i]}
+                    <img 
+                      src={image.fallback} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.error(`Both image paths failed: ${image.url}`);
+                        imageFallbackErrors[i] = true;
+                      }}
+                    />
+                  {:else}
+                    <div class="error-placeholder">Image unavailable</div>
+                  {/if}
                 </button>
             </div>
         {/each}
@@ -167,7 +241,26 @@
 
     <div class="about-section">
         <div class="about-content">
-            <img src="/images/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
+            {#if !profileImageError}
+              <img 
+                src={profileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.log('Profile image failed to load, trying fallback');
+                  profileImageError = true;
+                }}
+              />
+            {:else}
+              <img 
+                src={fallbackProfileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.error('Both profile image paths failed');
+                }}
+              />
+            {/if}
             <div class="about-text">
                 <h2>About Me</h2>
                 <p>I'm a Seattle based photographer who shoots both film and digital. I have a passion for capturing moments and telling stories through images as well as trying to continuously improve while experiencing life to the fullest.</p>
@@ -327,5 +420,16 @@
         .about-content{
           gap: 0.5rem;
         }
+    }
+
+    .error-placeholder {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background-color: rgba(0, 0, 0, 0.1);
+        color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
     }
 </style>

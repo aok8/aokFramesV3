@@ -1,53 +1,69 @@
 <script lang="ts">
   import { fade, scale } from 'svelte/transition';
   import { theme } from '../../../theme/theme.js';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
 
   export let open = false;
   export let onClose: () => void;
 
-  $: if (open) {
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = 'hidden';
-    }
-  } else {
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = '';
+  let closeButton: HTMLButtonElement;
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      handleClose();
     }
   }
 
+  function handleClose() {
+    if (browser) {
+      document.body.style.overflow = '';
+    }
+    onClose();
+  }
+
   onMount(() => {
-    return () => {
-      if (typeof document !== 'undefined') {
-        document.body.style.overflow = '';
-      }
-    };
+    if (browser) {
+      document.addEventListener('keydown', handleKeydown);
+    }
   });
+
+  onDestroy(() => {
+    if (browser) {
+      document.removeEventListener('keydown', handleKeydown);
+      document.body.style.overflow = '';
+    }
+  });
+
+  $: if (open && browser) {
+    document.body.style.overflow = 'hidden';
+    // Focus the close button when modal opens
+    setTimeout(() => closeButton?.focus(), 0);
+  }
 </script>
 
 {#if open}
   <div 
     class="modal-backdrop"
-    on:click={() => onClose()}
-    on:keydown={(e) => e.key === 'Escape' && onClose()}
     role="presentation"
+    on:click|self={handleClose}
     transition:fade={{ duration: 200 }}
   >
-    <div 
+    <div
       class="modal-container"
-      on:click|stopPropagation
       role="dialog"
       aria-modal="true"
-      aria-label="Image viewer"
+      aria-labelledby="modal-title"
       transition:scale={{ duration: 200, start: 0.95 }}
       style="--bg-color: {theme.text.primary};"
     >
       <button 
+        bind:this={closeButton}
         class="close-button" 
-        on:click={() => onClose()}
+        on:click={handleClose}
         aria-label="Close modal"
       >×</button>
-      <div class="modal-content">
+      <div class="modal-content" id="modal-title">
         <slot />
       </div>
     </div>
@@ -59,59 +75,70 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.75);
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10;
+    z-index: 1000;
   }
 
   .modal-container {
-    background-color: var(--bg-color);
-    padding: 3rem 3rem 3rem;
+    background: var(--bg-color);
+    padding: 2rem;
     border-radius: 8px;
     position: relative;
-    width: 95vw;
-    max-width: 1200px;
+    max-width: 90%;
     max-height: 90vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .modal-content {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-button {
     position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
+    top: 1rem;
+    right: 0.5rem;
     background: none;
     border: none;
-    color: white;
-    font-size: 2rem;
+    font-size: 24px;
     cursor: pointer;
-    padding: 0.5rem;
-    line-height: 1;
-    z-index: 10;
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
+    color: #999;
+    padding: 0;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: color 0.2s ease;
+    z-index: 1;
   }
 
   .close-button:hover {
-    color: black;
+    color: #333;
+  }
+
+  .close-button:focus {
+    outline: none;
+  }
+
+  .modal-content {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    height: fit-content;
+  }
+
+  .modal-content :global(img) {
+    display: block;
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    height: auto;
   }
 </style> 

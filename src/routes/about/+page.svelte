@@ -2,6 +2,9 @@
   import { theme } from '../../theme/theme.js';
   import { Footer } from "$lib/components/ui";
   import { Navbar } from "$lib/components/ui";
+  const profileImage = '/directr2/constants/Profile_Pic.jpg';
+  const fallbackProfileImage = '/images/constants/Profile_Pic.jpg';
+  let profileImageError = false;
 </script>
 
 <div class="about-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
@@ -10,7 +13,26 @@
     textColor={theme.background.light}
   />
   <div class="about-content">
-    <img src="/images/Profile_Pic.jpg" alt="Profile" class="profile-photo" />
+    {#if !profileImageError}
+      <img 
+        src={profileImage} 
+        alt="Profile" 
+        class="profile-photo" 
+        on:error={() => {
+          console.log('Profile image failed to load, trying fallback');
+          profileImageError = true;
+        }}
+      />
+    {:else}
+      <img 
+        src={fallbackProfileImage} 
+        alt="Profile" 
+        class="profile-photo"
+        on:error={() => {
+          console.error('Both profile image paths failed');
+        }}
+      />
+    {/if}
     <div class="text-content">
       <h1>About Me</h1>
       <p>

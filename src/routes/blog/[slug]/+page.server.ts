@@ -22,6 +22,12 @@ interface Params {
 }
 
 export const load: PageServerLoad = async ({ parent, params, platform, url }) => {
+  console.log(`-------- Blog Post Server Load Start --------`);
+  console.log(`Raw slug from params: "${params.slug}"`);
+  console.log(`Current URL: ${url.pathname}`);
+  console.log(`Platform object present: ${!!platform}`);
+  console.log(`R2 bucket binding present: ${!!platform?.env?.ASSETSBUCKET}`);
+  
   // Log detailed information about the request
   console.log(`Blog post server: Request for slug "${params.slug}" at URL: ${url.pathname}`);
   console.log('Platform available:', !!platform);
@@ -29,6 +35,7 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
   
   const slug = params.slug;
   const decodedSlug = decodeURIComponent(slug);
+  console.log(`Decoded slug: "${decodedSlug}"`);
   
   // Set up an array to track all attempted methods for loading the post
   const attemptedMethods: string[] = [];
@@ -182,6 +189,7 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
   }
   
   // If we got here, all methods failed
+  console.error(`-------- Blog Post Server Load FAILED --------`);
   console.error(`All methods failed to load post with slug "${decodedSlug}"`);
   console.error('Attempted methods:', attemptedMethods.join(', '));
   console.error('Error messages:', errorMessages);

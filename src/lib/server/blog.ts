@@ -40,7 +40,7 @@ interface FileSystemError extends Error {
 // Load all blog posts
 export async function loadBlogPosts(platform?: Platform): Promise<BlogPost[]> {
   try {
-    console.log('loadBlogPosts called with platform:', platform ? 'present' : 'missing');
+    console.log('loadBlogPosts called. Platform:', platform ? 'present' : 'missing');
     
     if (dev) {
       // Development mode - use filesystem with async operations
@@ -63,68 +63,79 @@ export async function loadBlogPosts(platform?: Platform): Promise<BlogPost[]> {
         .sort((a: BlogPost, b: BlogPost) => new Date(b.published).getTime() - new Date(a.published).getTime());
     } else {
       // Production mode - use R2
-      console.log('Production mode: checking R2 bucket...');
+      console.log('loadBlogPosts: Production mode. Checking R2 bucket...');
       
       if (!platform?.env?.ASSETSBUCKET) {
-        console.error('ASSETSBUCKET binding not available in loadBlogPosts');
+        console.error('loadBlogPosts: ASSETSBUCKET binding not available!');
         throw new Error('ASSETSBUCKET binding not found');
       }
       
-      console.log('R2 bucket found, listing objects...');
+      console.log('loadBlogPosts: R2 bucket binding present. Attempting list...');
+      let objects;
       try {
-        const objects = await platform.env.ASSETSBUCKET.list({
-          prefix: 'blog/posts/'
-        });
-        
-        console.log('R2 list successful, object count:', objects.objects.length);
-        
-        if (objects.objects.length === 0) {
-          console.log('No blog post objects found in R2');
-          return [];
-        }
-        
-        // Log some basic info about the posts we found
-        console.log('First few post keys:', 
-          objects.objects.slice(0, 3).map(obj => obj.key));
-        
-        const posts = await Promise.all(
-          objects.objects
-            .filter((obj: R2Object) => obj.key.toLowerCase().endsWith('.md'))
-            .map(async (obj: R2Object) => {
-              const slug = obj.key.replace(/^blog\/posts\//, '').replace(/\.md$/i, '');
-              console.log('Processing post with slug:', slug);
-              return await loadBlogPost(slug, platform);
-            })
-        );
-
-        const validPosts = posts
-          .filter((post: BlogPost | null): post is BlogPost => post !== null)
-          .sort((a: BlogPost, b: BlogPost) => 
-            new Date(b.published).getTime() - new Date(a.published).getTime());
-          
-        console.log(`Loaded ${validPosts.length} valid posts from R2`);
-        return validPosts;
-      } catch (r2Error) {
-        console.error('Error listing objects from R2:', r2Error);
-        throw r2Error;
+        const listOptions = { prefix: 'blog/posts/' };
+        console.log('loadBlogPosts: Calling R2 list with options:', listOptions);
+        objects = await platform.env.ASSETSBUCKET.list(listOptions);
+        console.log('loadBlogPosts: R2 list call successful.');
+      } catch (r2ListError) {
+        console.error('loadBlogPosts: R2 list call FAILED!', r2ListError);
+        throw r2ListError; // Re-throw after logging
       }
+      
+      console.log('loadBlogPosts: R2 list result object count:', objects?.objects?.length ?? 0);
+      
+      if (!objects || !objects.objects || objects.objects.length === 0) {
+        console.log('loadBlogPosts: No blog post objects found in R2.');
+        return [];
+      }
+      
+      // Log some basic info about the posts we found
+      console.log('loadBlogPosts: First few post keys:', 
+        objects.objects.slice(0, 3).map(obj => obj.key));
+      
+      const posts = await Promise.all(
+        objects.objects
+          .filter((obj: R2Object) => obj.key.toLowerCase().endsWith('.md'))
+          .map(async (obj: R2Object) => {
+            const slug = obj.key.replace(/^blog\/posts\//, '').replace(/\.md$/i, '');
+            console.log(`loadBlogPosts: Processing slug "${slug}" by calling loadBlogPost`);
+            // Add try-catch around individual post loading to prevent one failure from stopping all
+            try {
+              const post = await loadBlogPost(slug, platform);
+              if (!post) {
+                console.warn(`loadBlogPosts: loadBlogPost returned null for slug "${slug}"`);
+              }
+              return post;
+            } catch (singlePostError) {
+              console.error(`loadBlogPosts: Error loading individual post with slug "${slug}":`, singlePostError);
+              return null; // Return null for failed posts
+            }
+          })
+      );
+
+      const validPosts = posts
+        .filter((post: BlogPost | null): post is BlogPost => post !== null)
+        .sort((a: BlogPost, b: BlogPost) => 
+          new Date(b.published).getTime() - new Date(a.published).getTime());
+          
+      console.log(`loadBlogPosts: Finished. Loaded ${validPosts.length} valid posts from R2`);
+      return validPosts;
     }
   } catch (error) {
-    console.error('Error loading blog posts:', error);
+    console.error('loadBlogPosts: Top-level error:', error);
     console.error('Stack trace:', error instanceof Error ? error.stack : '');
-    return [];
+    return []; // Return empty array on error
   }
 }
 
 // Load a single blog post by slug
 export async function loadBlogPost(slug: string, platform?: Platform): Promise<BlogPost | null> {
-  console.log('Loading blog post with slug:', slug);
-  console.log('Development mode:', dev);
-  console.log('Posts directory:', POSTS_DIR);
+  console.log(`loadBlogPost: Loading post with slug: "${slug}". Dev mode: ${dev}`);
   
   try {
     let fileContent: string;
     let imageExists = false;
+    const exactSlug = slug; // Assume the passed slug has the correct case initially
 
     if (dev) {
       // Development mode - use filesystem with async operations
@@ -166,21 +177,51 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       }
     } else {
       // Production mode - use R2
+      console.log(`loadBlogPost: Production mode for slug "${exactSlug}". Checking R2 bucket...`);
       if (!platform?.env?.ASSETSBUCKET) {
+        console.error(`loadBlogPost: ASSETSBUCKET binding not available for slug "${exactSlug}"!`);
         throw new Error('ASSETSBUCKET binding not found');
       }
-
-      const postObject = await platform.env.ASSETSBUCKET.get(`blog/posts/${slug}.md`);
+      console.log(`loadBlogPost: R2 bucket binding present for slug "${exactSlug}".`);
+      
+      const r2Key = `blog/posts/${exactSlug}.md`;
+      console.log(`loadBlogPost: Attempting R2 get for key: "${r2Key}"`);
+      let postObject;
+      try {
+        postObject = await platform.env.ASSETSBUCKET.get(r2Key);
+        console.log(`loadBlogPost: R2 get call successful for key "${r2Key}". Object exists: ${!!postObject}`);
+      } catch (r2GetError) {
+        console.error(`loadBlogPost: R2 get call FAILED for key "${r2Key}"!`, r2GetError);
+        throw r2GetError; // Re-throw
+      }
+      
       if (!postObject) {
-        console.error(`Blog post not found: ${slug}`);
+        console.warn(`loadBlogPost: R2 get returned null (Not Found) for key "${r2Key}"`);
         return null;
       }
-      fileContent = await postObject.text();
-      console.log('R2 file content first 100 chars:', fileContent.substring(0, 100));
-
+      
+      console.log(`loadBlogPost: Attempting to read text content for key "${r2Key}"`);
+      try {
+        fileContent = await postObject.text();
+        console.log(`loadBlogPost: Successfully read text content for key "${r2Key}"`);
+      } catch (textError) {
+        console.error(`loadBlogPost: Failed to read text content for key "${r2Key}"!`, textError);
+        throw textError;
+      }
+      
       // Check if image exists
-      const imageObject = await platform.env.ASSETSBUCKET.head(`blog/images/${slug}.jpg`);
-      imageExists = imageObject !== null;
+      const imageKey = `blog/images/${exactSlug}.jpg`;
+      console.log(`loadBlogPost: Attempting R2 head for image key: "${imageKey}"`);
+      let imageObject;
+      try {
+        imageObject = await platform.env.ASSETSBUCKET.head(imageKey);
+        console.log(`loadBlogPost: R2 head call successful for image key "${imageKey}". Object exists: ${!!imageObject}`);
+        imageExists = imageObject !== null;
+      } catch (r2HeadError) {
+        // Log head errors but don't fail the whole post load
+        console.warn(`loadBlogPost: R2 head call FAILED for image key "${imageKey}". Assuming image doesn't exist. Error:`, r2HeadError);
+        imageExists = false;
+      }
     }
 
     // Remove BOM if present
@@ -237,21 +278,23 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     const tags = data.tags || data.label || 'Photography';
     console.log('Extracted tags:', tags);
     
+    // IMPORTANT: Use the exactSlug derived from the filename for the post ID
+    // This was previously just `slug`, ensure it reflects the case from storage
     const post = {
-      id: slug,
+      id: exactSlug, // Use the case-preserved slug
       title,
       content: markdownContent,
       summary,
       author: data.author || 'AOK',
       published: data.published || new Date().toISOString().split('T')[0],
       label: tags,
-      image: imageExists ? (dev ? `/src/content/blog/images/${slug}.jpg` : `/directr2/blog/images/${slug}.jpg`) : undefined
+      image: imageExists ? (dev ? `/src/content/blog/images/${exactSlug}.jpg` : `/directr2/blog/images/${exactSlug}.jpg`) : undefined
     };
     
-    console.log('Successfully created blog post object:', post.id);
+    console.log(`loadBlogPost: Successfully created blog post object for id: ${post.id}`);
     return post;
   } catch (error) {
-    console.error(`Error loading blog post ${slug}:`, error);
+    console.error(`loadBlogPost: Top-level error for slug "${slug}":`, error);
     console.error('Stack trace:', error instanceof Error ? error.stack : '');
     return null;
   }

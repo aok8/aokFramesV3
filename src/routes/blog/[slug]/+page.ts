@@ -43,6 +43,10 @@ function parseFrontmatter(content: string) {
 }
 
 export const load: PageLoad = async ({ data, params, fetch }) => {
+  console.log(`-------- Blog Post Page Load Start --------`);
+  console.log(`Raw slug from params: "${params.slug}"`);
+  
+  try { // Wrap entire function body in try...catch
     const { slug } = params;
     const decodedSlug = decodeURIComponent(slug);
     
@@ -328,6 +332,16 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         console.error('Error loading all posts:', e);
         throw error(404, 'Blog post not found');
     }
+
+  } catch (e) {
+    console.error('-------- Blog Post Page Load CRASHED --------');
+    console.error('An unexpected error occurred in the page load function:', e);
+    // Log params for context
+    console.error('Params were:', params);
+    console.error('Data was:', data);
+    // Re-throw a generic 404 to avoid exposing internal errors
+    throw error(404, 'Blog post not found due to an internal error');
+  }
 };
 
 // Helper function to update sessionStorage with a post

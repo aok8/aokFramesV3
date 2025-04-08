@@ -1,6 +1,43 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.js';
-import matter from 'gray-matter';
+
+// Simple frontmatter parser for browser
+function parseFrontmatter(content: string) {
+  const lines = content.split('\n');
+  const frontmatter: Record<string, string> = {};
+  let inFrontmatter = false;
+  let markdownContent = '';
+  let frontmatterLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '---') {
+      if (!inFrontmatter) {
+        inFrontmatter = true;
+        continue;
+      } else {
+        inFrontmatter = false;
+        markdownContent = lines.slice(i + 1).join('\n');
+        break;
+      }
+    }
+    if (inFrontmatter) {
+      frontmatterLines.push(line);
+    }
+  }
+
+  // Parse frontmatter lines
+  for (const line of frontmatterLines) {
+    const [key, ...valueParts] = line.split(':');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join(':').trim();
+      // Remove quotes if present
+      frontmatter[key.trim()] = value.replace(/^['"](.*)['"]$/, '$1');
+    }
+  }
+
+  return { data: frontmatter, content: markdownContent };
+}
 
 export const load: PageLoad = async ({ params, fetch }) => {
     const { slug } = params;
@@ -26,7 +63,6 @@ export const load: PageLoad = async ({ params, fetch }) => {
         }
         
         // If API fails, try direct R2 fetch
-        // Use the same path structure as the blog list
         const key = `blog/posts/${slug}.md`;
         const response = await fetch(`/directr2/${key}`);
         if (!response.ok) {
@@ -38,8 +74,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
         console.log('Successfully loaded markdown from R2');
         
         // Parse frontmatter and content
-        const { data, content: markdownContent } = matter(text);
-        console.log('Parsed frontmatter:', data);
+        const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
+        console.log('Parsed frontmatter:', frontmatter);
         
         // Extract title from first h1
         const titleMatch = markdownContent.match(/^#\s+(.*)/m);
@@ -55,9 +91,9 @@ export const load: PageLoad = async ({ params, fetch }) => {
             title,
             content: markdownContent,
             summary: '', // Summary not needed for full post view
-            author: data.author || 'AOK',
-            published: data.published || new Date().toISOString().split('T')[0],
-            label: data.tags || data.label || 'Photography',
+            author: frontmatter.author || 'AOK',
+            published: frontmatter.published || new Date().toISOString().split('T')[0],
+            label: frontmatter.tags || frontmatter.label || 'Photography',
             image: imageExists ? `/directr2/${imageKey}` : undefined
         };
         

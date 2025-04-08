@@ -7,7 +7,44 @@
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
-  import matter from 'gray-matter';
+
+  // Simple frontmatter parser for browser
+  function parseFrontmatter(content: string) {
+    const lines = content.split('\n');
+    const frontmatter: Record<string, string> = {};
+    let inFrontmatter = false;
+    let markdownContent = '';
+    let frontmatterLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim() === '---') {
+        if (!inFrontmatter) {
+          inFrontmatter = true;
+          continue;
+        } else {
+          inFrontmatter = false;
+          markdownContent = lines.slice(i + 1).join('\n');
+          break;
+        }
+      }
+      if (inFrontmatter) {
+        frontmatterLines.push(line);
+      }
+    }
+
+    // Parse frontmatter lines
+    for (const line of frontmatterLines) {
+      const [key, ...valueParts] = line.split(':');
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join(':').trim();
+        // Remove quotes if present
+        frontmatter[key.trim()] = value.replace(/^['"](.*)['"]$/, '$1');
+      }
+    }
+
+    return { data: frontmatter, content: markdownContent };
+  }
 
   export let data: PageData;
   
@@ -51,8 +88,8 @@
                 console.log(`Successfully loaded ${slug} directly`);
                 
                 // Parse frontmatter and content
-                const { data, content: markdownContent } = matter(text);
-                console.log('Parsed frontmatter:', data);
+                const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
+                console.log('Parsed frontmatter:', frontmatter);
                 
                 // Extract title from first h1
                 const titleMatch = markdownContent.match(/^#\s+(.*)/m);
@@ -83,7 +120,7 @@
                 const summary = summaryLines.join(' ') || 'No summary available';
                 
                 // Get tags from frontmatter
-                const tags = data.tags || data.label || 'Photography';
+                const tags = frontmatter.tags || frontmatter.label || 'Photography';
                 console.log('Extracted tags:', tags);
                 
                 // Simplified post object
@@ -91,9 +128,9 @@
                   id: slug,
                   title,
                   summary,
-                  content: text,
-                  author: data.author || 'AOK',
-                  published: data.published || new Date().toISOString().split('T')[0],
+                  content: markdownContent,
+                  author: frontmatter.author || 'AOK',
+                  published: frontmatter.published || new Date().toISOString().split('T')[0],
                   label: tags,
                   image: `/directr2/blog/images/${slug}.jpg`
                 });
@@ -162,17 +199,6 @@
           <p class="text-gray-600 mb-6">
             There was an issue loading blog posts. This could be because:
           </p>
-          <ul class="list-disc text-left max-w-md mx-auto mb-8 text-gray-600">
-            <li class="mb-2">The R2 bucket connection is not configured correctly</li>
-            <li class="mb-2">There are no blog posts in the R2 bucket</li>
-            <li class="mb-2">The format or location of blog posts has changed</li>
-          </ul>
-          <div class="bg-gray-100 p-4 rounded-lg max-w-2xl mx-auto text-left">
-            <p class="font-medium mb-2 text-gray-700">Technical Details:</p>
-            <p class="text-sm text-gray-600 font-mono overflow-auto">
-              Check the browser console for detailed error logs.
-            </p>
-          </div>
         </div>
       {/if}
     </div>

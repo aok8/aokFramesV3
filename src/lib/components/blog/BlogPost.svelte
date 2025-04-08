@@ -20,8 +20,9 @@
   // Log post ID for debugging 
   console.log('Creating blog post link for post ID:', post.id);
 
-  // Debug link URL
-  $: blogPostUrl = `/blog/${post.id}`;
+  // Generate link with proper encoding to preserve case and handle special chars
+  $: encodedPostId = encodeURIComponent(post.id);
+  $: blogPostUrl = `/blog/${encodedPostId}`;
   $: console.log('Blog post link URL:', blogPostUrl);
 </script>
 

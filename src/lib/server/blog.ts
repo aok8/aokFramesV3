@@ -173,19 +173,23 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     const lines = markdownContent.split('\n');
     let summaryLines = [];
     let inSummary = false;
+    let hasContent = false;
     
     for (const line of lines) {
       if (!inSummary && line.trim() === '') continue;
-      if (line.startsWith('##')) break;
-      if (line.startsWith('#')) continue;
+      if (line.startsWith('##') || line.startsWith('#')) {
+        if (hasContent) break; // Only break if we've found content
+        continue;
+      }
       inSummary = true;
       if (line.trim() !== '') {
         summaryLines.push(line.trim());
+        hasContent = true;
       }
     }
     
-    const summary = summaryLines.join(' ');
-    console.log('Extracted summary:', summary.substring(0, 100) + '...');
+    const summary = hasContent ? summaryLines.join(' ') : '';
+    console.log('Extracted summary:', summary ? summary.substring(0, 100) + '...' : 'No summary found');
     
     const post = {
       id: slug,
@@ -194,7 +198,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       summary,
       author: data.author || 'AOK',
       published: data.published || new Date().toISOString().split('T')[0],
-      label: data.label || 'Photography',
+      label: data.label || data.tags || 'Photography', // Add data.tags as fallback
       image: imageExists ? (dev ? `/src/content/blog/images/${slug}.jpg` : `/directr2/blog/images/${slug}.jpg`) : undefined
     };
     

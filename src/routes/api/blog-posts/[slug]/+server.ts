@@ -1,25 +1,22 @@
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { loadBlogPost } from '$lib/server/blog.js';
-import { dev } from '$app/environment';
-import matter from 'gray-matter';
 
 interface Platform {
   env?: {
     ASSETSBUCKET?: {
-      list: (options: { prefix: string }) => Promise<{ objects: any[] }>;
+      list: (options: { prefix: string }) => Promise<{ objects: R2Object[] }>;
       get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
       head: (key: string) => Promise<unknown | null>;
     };
   };
 }
 
-interface RequestParams {
-  slug: string;
+interface R2Object {
+  key: string;
 }
 
-export const GET: RequestHandler = async ({ params, platform, request }: { params: RequestParams; platform: unknown; request: Request }) => {
-  // Configure CORS headers
+export const GET: RequestHandler = async ({ params, platform, request }) => {
   const headers = new Headers({
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -28,18 +25,12 @@ export const GET: RequestHandler = async ({ params, platform, request }: { param
     'Cache-Control': 'no-cache, no-store, must-revalidate'
   });
 
-  // Handle OPTIONS request
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { headers });
-  }
-
   try {
-    const slug = params.slug;
-    console.log('Loading blog post with slug:', slug);
-    const post = await loadBlogPost(slug, platform as Platform | undefined);
+    console.log('Loading blog post with slug:', params.slug);
+    const post = await loadBlogPost(params.slug, platform as Platform);
 
     if (!post) {
-      console.error('Blog post not found:', slug);
+      console.error('Blog post not found:', params.slug);
       return new Response('Post not found', { 
         status: 404,
         headers
@@ -56,6 +47,7 @@ export const GET: RequestHandler = async ({ params, platform, request }: { param
   }
 };
 
+// Handle CORS preflight requests
 export const OPTIONS: RequestHandler = async () => {
   return new Response(null, {
     headers: {

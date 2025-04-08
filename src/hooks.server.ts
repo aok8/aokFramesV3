@@ -34,7 +34,24 @@ export const handle: Handle = async ({ event, resolve }) => {
             } else if (pathname.startsWith('/images/constants/')) {
                 key = 'constants/' + pathname.substring('/images/constants/'.length);
             } else if (pathname.startsWith('/images/blog/')) {
-                key = 'blog/' + pathname.substring('/images/blog/'.length);
+                // --- MODIFIED KEY GENERATION LOGIC --- 
+                const requestedFile = pathname.substring('/images/blog/'.length);
+                const parts = requestedFile.split('/');
+
+                // Check if the request looks like a direct slug reference, e.g., /images/blog/slug.jpg
+                if (parts.length === 1 && requestedFile.endsWith('.jpg')) { 
+                    const slug = requestedFile.replace('.jpg', '');
+                    // Assume this conventional request means "get the header image for this slug"
+                    // Force the key to point to 'header.jpg' within that slug's assumed directory
+                    key = `blog/${slug}/header.jpg`; 
+                    console.log(`[Hook] Mapped conventional request ${pathname} to key ${key}`);
+                } else {
+                    // Otherwise, assume the path is relative within the 'blog' namespace
+                    // e.g., /images/blog/night-photo/mamiya6.jpg -> blog/night-photo/mamiya6.jpg
+                    key = 'blog/' + requestedFile;
+                     console.log(`[Hook] Mapped direct blog image request ${pathname} to key ${key}`);
+                }
+                // --- END MODIFIED KEY GENERATION LOGIC ---
             } else if (pathname.startsWith('/constants/')) {
                 key = 'constants/' + pathname.substring('/constants/'.length);
             } else {
@@ -140,7 +157,9 @@ function getLocalPath(key: string): string | null {
     if (key.startsWith('portfolio/')) {
         return `/src/images/Portfolio/${key.substring('portfolio/'.length)}`;
     } else if (key.startsWith('blog/')) {
-        return `/src/content/blog/images/${key.substring('blog/'.length)}`;
+        const blogPath = key.substring('blog/'.length); // Extract path part, e.g., "night-photo/header.jpg"
+        // Construct path relative to the 'posts' directory
+        return `/src/content/blog/posts/${blogPath}`;
     } else if (key.startsWith('constants/')) {
         return `/public/images/${key.substring('constants/'.length)}`;
     }

@@ -37,7 +37,7 @@ async function handleRequest(request, env, pathname) {
 
 async function handleBlogStatusRequest(request, env) {
   try {
-    const r2Bucket = env.R2_BLOG_BUCKET || env.R2_BUCKET;
+    const r2Bucket = env.R2_BLOG_BUCKET || env.R2_BUCKET || env.ASSETSBUCKET;
     
     if (!r2Bucket) {
       return new Response(JSON.stringify({
@@ -54,20 +54,81 @@ async function handleBlogStatusRequest(request, env) {
       });
     }
     
+    // First list top-level directories to determine structure
+    const topLevelList = await r2Bucket.list({
+      delimiter: '/',
+    });
+    
+    // Extract paths from the list for directory detection
+    const topLevelPaths = topLevelList.delimitedPrefixes || [];
+    console.log('Available top-level directories:', topLevelPaths);
+    
     // Check bucket access
     const bucketExists = await r2Bucket.head('test-access');
     
-    // List blog posts with 'blog/posts/' prefix
-    const blogPostsListing = await r2Bucket.list({
-      prefix: 'blog/posts/',
+    // Determine prefixes based on bucket structure
+    let postPrefix = 'blog/posts/';
+    let imagePrefix = 'blog/images/';
+    
+    // If 'blog/' isn't found but 'posts/' is, adjust prefix
+    if (!topLevelPaths.includes('blog/') && 
+        topLevelPaths.includes('posts/')) {
+      postPrefix = 'posts/';
+      imagePrefix = 'images/';
+      console.log('Using alternate structure with posts/ and images/ prefixes');
+    }
+    
+    // List blog posts with detected prefix
+    let blogPostsListing = await r2Bucket.list({
+      prefix: postPrefix,
       delimiter: '/',
     });
     
-    // List blog images with 'blog/images/' prefix
-    const blogImagesListing = await r2Bucket.list({
-      prefix: 'blog/images/',
+    // If no posts found, try alternate prefix
+    if (!blogPostsListing.objects || blogPostsListing.objects.length === 0) {
+      const altPostPrefix = postPrefix === 'blog/posts/' ? 'posts/' : 'blog/posts/';
+      console.log(`No blog posts found with ${postPrefix}, trying ${altPostPrefix}`);
+      
+      blogPostsListing = await r2Bucket.list({
+        prefix: altPostPrefix,
+        delimiter: '/',
+      });
+      
+      if (blogPostsListing.objects && blogPostsListing.objects.length > 0) {
+        postPrefix = altPostPrefix;
+        imagePrefix = altPostPrefix === 'blog/posts/' ? 'blog/images/' : 'images/';
+      }
+    }
+    
+    // List blog images with detected prefix
+    let blogImagesListing = await r2Bucket.list({
+      prefix: imagePrefix,
       delimiter: '/',
     });
+    
+    // If no images found, try alternate prefix
+    if (!blogImagesListing.objects || blogImagesListing.objects.length === 0) {
+      const altImagePrefix = imagePrefix === 'blog/images/' ? 'images/' : 'blog/images/';
+      console.log(`No blog images found with ${imagePrefix}, trying ${altImagePrefix}`);
+      
+      blogImagesListing = await r2Bucket.list({
+        prefix: altImagePrefix,
+        delimiter: '/',
+      });
+      
+      if (blogImagesListing.objects && blogImagesListing.objects.length > 0) {
+        imagePrefix = altImagePrefix;
+      }
+    }
+    
+    // Also check for images at the root level if none were found
+    if (!blogImagesListing.objects || blogImagesListing.objects.length === 0) {
+      console.log('No images found in standard locations, checking root level');
+      blogImagesListing = await r2Bucket.list({
+        delimiter: '/',
+        include: ['*.jpg', '*.jpeg', '*.png', '*.gif']
+      });
+    }
     
     // Match posts to images for diagnostic purposes
     const postsWithImages = [];
@@ -96,6 +157,11 @@ async function handleBlogStatusRequest(request, env) {
     const responseData = {
       status: 'ok',
       bucketAccess: !!bucketExists ? 'accessible' : 'inaccessible',
+      structure: {
+        topLevelDirectories: topLevelPaths,
+        postPrefix: postPrefix,
+        imagePrefix: imagePrefix
+      },
       blogPosts: {
         count: blogPostsListing.objects.length,
         items: blogPostsListing.objects.map(obj => ({
@@ -174,10 +240,51 @@ async function handleBlogImage(request, env, pathname) {
     keyPath = pathname.replace('/directr2/blog/images/', '');
   }
   
-  const object = await env.R2_BUCKET.get(`blog/images/${keyPath}`);
-
+  // Try alternative paths if the standard one fails
+  let object = await env.R2_BUCKET.get(`blog/images/${keyPath}`);
+  
+  // If not found with standard path, try non-prefixed path
   if (!object) {
-    return new Response('Blog image not found', { status: 404 });
+    console.log(`Blog image not found at blog/images/${keyPath}, trying different paths`);
+    
+    // Try without 'blog/' prefix
+    object = await env.R2_BUCKET.get(`images/${keyPath}`);
+  }
+  
+  // If still not found, try listing objects to see available paths
+  if (!object) {
+    console.log(`Image still not found, listing objects with similar paths for diagnosis`);
+    // List objects from bucket to see what's available
+    const listed = await env.R2_BUCKET.list({
+      prefix: 'blog/',
+      delimiter: '/',
+      limit: 10
+    });
+    
+    // Also try without 'blog/' prefix
+    const listedAlt = await env.R2_BUCKET.list({
+      prefix: 'images/',
+      delimiter: '/',
+      limit: 10
+    });
+    
+    console.log('Available paths with blog/ prefix:', listed.objects.map(o => o.key));
+    console.log('Available paths with images/ prefix:', listedAlt.objects.map(o => o.key));
+    
+    return new Response(JSON.stringify({
+      error: 'Blog image not found',
+      requestedPath: keyPath,
+      availablePaths: {
+        withBlogPrefix: listed.objects.map(o => o.key),
+        withImagesPrefix: listedAlt.objects.map(o => o.key)
+      }
+    }), { 
+      status: 404,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
   }
 
   const headers = new Headers();
@@ -204,22 +311,83 @@ async function handleBlogPostsRequest(request, env) {
   }
 
   try {
-    const r2Bucket = env.R2_BLOG_BUCKET || env.R2_BUCKET;
+    const r2Bucket = env.R2_BLOG_BUCKET || env.R2_BUCKET || env.ASSETSBUCKET;
     
-    // List objects with prefix 'blog/posts/'
-    const listed = await r2Bucket.list({
-      prefix: 'blog/posts/',
-      delimiter: '/',
-    });
-
-    if (!listed || !listed.objects || listed.objects.length === 0) {
-      return new Response(JSON.stringify([]), {
+    if (!r2Bucket) {
+      console.error('No R2 bucket binding found - tried R2_BLOG_BUCKET, R2_BUCKET, and ASSETSBUCKET');
+      return new Response(JSON.stringify({
+        error: 'R2 bucket binding not found'
+      }), {
+        status: 500,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
         }
       });
     }
+    
+    console.log('Blog posts endpoint: Listing available directories to determine structure');
+    // First list top-level directories to determine structure
+    const topLevelList = await r2Bucket.list({
+      delimiter: '/',
+    });
+    
+    // Extract paths from the list for directory detection
+    const topLevelPaths = topLevelList.delimitedPrefixes || [];
+    console.log('Available top-level directories:', topLevelPaths);
+    
+    // Try different possible prefixes based on detected structure
+    let prefix = 'blog/posts/';
+    let imagePrefix = 'blog/images/';
+    
+    // If 'blog/' isn't found but 'posts/' is, adjust prefix
+    if (!topLevelPaths.includes('blog/') && 
+        topLevelPaths.includes('posts/')) {
+      prefix = 'posts/';
+      imagePrefix = 'images/';
+      console.log('Using alternate structure with posts/ and images/ prefixes');
+    }
+    
+    // List objects with the determined prefix
+    const listed = await r2Bucket.list({
+      prefix: prefix,
+      delimiter: '/',
+    });
+    
+    if (!listed || !listed.objects || listed.objects.length === 0) {
+      console.log(`No objects found with prefix: ${prefix}. Trying alternate prefix`);
+      
+      // Try alternate prefix
+      const altPrefix = prefix === 'blog/posts/' ? 'posts/' : 'blog/posts/';
+      const altListed = await r2Bucket.list({
+        prefix: altPrefix,
+        delimiter: '/',
+      });
+      
+      if (!altListed || !altListed.objects || altListed.objects.length === 0) {
+        console.log(`No objects found with alternate prefix: ${altPrefix}`);
+        return new Response(JSON.stringify({
+          error: 'No blog posts found',
+          prefix: prefix,
+          altPrefix: altPrefix,
+          availablePrefixes: topLevelList.delimitedPrefixes
+        }), {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          }
+        });
+      }
+      
+      // Use alternate if successful
+      prefix = altPrefix;
+      imagePrefix = altPrefix === 'blog/posts/' ? 'blog/images/' : 'images/';
+      console.log(`Using alternate prefix: ${prefix} with image prefix: ${imagePrefix}`);
+      listed.objects = altListed.objects;
+    }
+    
+    console.log(`Found ${listed.objects.length} blog posts with prefix: ${prefix}`);
 
     const blogPosts = await Promise.all(
       listed.objects.map(async (object) => {
@@ -269,9 +437,21 @@ async function handleBlogPostsRequest(request, env) {
             }
           }
           
-          // Check if a matching image exists
-          const imageKey = `blog/images/${slug}.jpg`;
-          const imageExists = await r2Bucket.head(imageKey);
+          // Check if a matching image exists with multiple potential paths
+          const imageKey = `${imagePrefix}${slug}.jpg`;
+          let imageExists = await r2Bucket.head(imageKey);
+          
+          // If not found, try alternate image path
+          let finalImagePath = `/directr2/${imageKey}`;
+          if (!imageExists) {
+            const altImageKey = imagePrefix === 'blog/images/' ? `images/${slug}.jpg` : `blog/images/${slug}.jpg`;
+            imageExists = await r2Bucket.head(altImageKey);
+            if (imageExists) {
+              finalImagePath = `/directr2/${altImageKey}`;
+            } else {
+              finalImagePath = undefined;
+            }
+          }
           
           return {
             id: slug,
@@ -281,7 +461,7 @@ async function handleBlogPostsRequest(request, env) {
             author: matter.author || 'AOK',
             published: matter.published || new Date().toISOString().split('T')[0],
             label: matter.label || 'Photography',
-            image: imageExists ? `/directr2/blog/images/${slug}.jpg` : undefined
+            image: finalImagePath
           };
         } catch (error) {
           console.error(`Error processing blog post ${object.key}:`, error);

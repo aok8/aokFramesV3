@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BlogPost } from '$lib/types/blog.js';
   import { marked } from 'marked';
+  import { onMount } from 'svelte';
 
   export let post: BlogPost;
   export let isPreview = false;
@@ -24,10 +25,26 @@
   $: encodedPostId = encodeURIComponent(post.id);
   $: blogPostUrl = `/blog/${encodedPostId}`;
   $: console.log('Blog post link URL:', blogPostUrl);
+  
+  // Add more detailed logging for image paths
+  $: console.log('Image path for post:', imagePath);
+  $: console.log('Image fallback path for post:', imageFallbackPath);
+
+  onMount(() => {
+    // Log when component mounts to track lifecycle
+    console.log(`BlogPost component mounted for post: ${post.id}`);
+    
+    // Make the post ID available in a custom attribute for debugging
+    document.querySelectorAll(`[data-post-id="${post.id}"]`).forEach(el => {
+      // Set extra debugging attributes
+      el.setAttribute('data-post-url', blogPostUrl);
+      el.setAttribute('data-image-path', imagePath || 'no-image');
+    });
+  });
 </script>
 
 {#if isPreview}
-  <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:-translate-y-1 transition-transform duration-200 border border-gray-100">
+  <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:-translate-y-1 transition-transform duration-200 border border-gray-100" data-post-id={post.id}>
     {#if post.image}
       <a href={blogPostUrl} class="block">
         {#if !imageError}
@@ -36,7 +53,7 @@
             alt={post.title}
             class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
             on:error={() => {
-              console.log('Blog image failed to load, trying fallback:', imagePath);
+              console.log(`Blog image failed to load, trying fallback: ${imagePath}`);
               imageError = true;
             }}
           />
@@ -46,7 +63,7 @@
             alt={post.title}
             class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
             on:error={() => {
-              console.error('Both image paths failed for blog post:', post.id);
+              console.error(`Both image paths failed for blog post: ${post.id}`);
             }}
           />
         {/if}

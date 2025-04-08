@@ -46,8 +46,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
     try {
         console.log('Attempting to load blog post:', slug);
         
-        // Try checking blog status first to determine the correct path
-        console.log('Checking blog status');
+        // Try to fetch blog status first
         const statusRes = await fetch('/api/blog-status', {
             headers: {
                 'Accept': 'application/json',
@@ -62,22 +61,19 @@ export const load: PageLoad = async ({ params, fetch }) => {
         
         const statusData = await statusRes.json();
         console.log('Blog R2 status:', statusData);
-        console.log('Blog posts in R2:', JSON.stringify(statusData.blogPosts?.items, null, 2));
         
-        // Check if we're in development mode (no ASSETSBUCKET)
-        if (statusData.status === 'error' && statusData.message === 'ASSETSBUCKET binding not found') {
-            console.log('Development mode detected, using filesystem path');
-            // In development mode, use the filesystem path
-            const devPath = `/src/content/blog/posts/${slug}.md`;
-            console.log('Attempting to fetch from:', devPath);
+        // In development mode, use the local filesystem path
+        if (dev) {
+            const postPath = `/src/content/blog/posts/${slug}.md`;
+            console.log('Using development path:', postPath);
             
-            const devResponse = await fetch(devPath);
-            if (!devResponse.ok) {
-                console.error('Failed to load from filesystem');
+            const response = await fetch(postPath);
+            if (!response.ok) {
+                console.error('Failed to load post from filesystem');
                 throw error(404, 'Blog post not found');
             }
             
-            const text = await devResponse.text();
+            const text = await response.text();
             console.log('Successfully loaded markdown from filesystem');
             
             // Parse frontmatter and content
@@ -104,11 +100,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
                 image: imageExists ? imageKey : undefined
             };
             
-            console.log('Successfully created blog post from filesystem:', post.title);
+            console.log('Successfully created blog post:', post.title);
             return { post };
         }
         
-        // In production/cloud mode, find the post in the blog status
+        // In production mode, find the post in the blog status
         const postItem = statusData.blogPosts?.items?.find((item: any) => {
             const filename = item.key.split('/').pop() || '';
             const itemSlug = filename.replace(/\.md$/i, '');
@@ -121,8 +117,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
             throw error(404, 'Blog post not found');
         }
         
-        // Use the exact key from the listing for direct fetch
-        console.log('Found post in R2 listing, using key:', postItem.key);
+        // Direct fetch from R2 using the exact key from the listing
         const response = await fetch(`/directr2/${postItem.key}`);
         if (!response.ok) {
             console.error('Failed to load post directly from R2:', response.status);
@@ -140,9 +135,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
         const titleMatch = markdownContent.match(/^#\s+(.*)/m);
         const title = titleMatch ? titleMatch[1] : slug;
         
-        // Check if image exists using the same key pattern as the post
-        const imageKey = postItem.key.replace('/posts/', '/images/').replace('.md', '.jpg');
-        console.log('Checking for image at:', imageKey);
+        // Check if image exists
+        const imageKey = `blog/images/${slug}.jpg`;
         const imageResponse = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
         const imageExists = imageResponse.ok;
         

@@ -23,9 +23,15 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
   console.log('DirectR2 request for path:', params.path);
 
   try {
+    // Check R2 availability
     if (!platform?.env?.ASSETSBUCKET) {
       console.error('ASSETSBUCKET binding not found for directr2 request');
-      return new Response('R2 bucket not available', { status: 500 });
+      return new Response('R2 bucket not available', { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store'
+        }
+      });
     }
     
     const bucket = platform.env.ASSETSBUCKET;
@@ -36,18 +42,27 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
     // Set CORS headers to allow access from the frontend
     const headers = new Headers({
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
-      'Cache-Control': 'public, max-age=3600' // Cache for an hour
+      'Cache-Control': 'public, max-age=86400' // Cache for a day in browser
     });
     
+    // Handle CORS preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers });
+    }
+    
+    // Handle HEAD requests to check if a file exists
     if (request.method === 'HEAD') {
       console.log('HEAD request for path:', path);
       try {
         const headResult = await bucket.head(path);
         if (headResult === null) {
           console.log('HEAD request - file not found:', path);
-          return new Response('Not found', { status: 404, headers });
+          return new Response(null, { 
+            status: 404,
+            headers 
+          });
         }
         console.log('HEAD request - file exists:', path);
         return new Response(null, { 
@@ -56,7 +71,13 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
         });
       } catch (error) {
         console.error('Error handling HEAD request:', error);
-        return new Response('Error checking file', { status: 500, headers });
+        return new Response(null, { 
+          status: 500, 
+          headers: new Headers({
+            ...Object.fromEntries(headers.entries()),
+            'Cache-Control': 'no-store'
+          })
+        });
       }
     }
 
@@ -66,7 +87,10 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
       
       if (obj === null) {
         console.error('File not found in R2:', path);
-        return new Response('Not found', { status: 404, headers });
+        return new Response('Not found', { 
+          status: 404, 
+          headers 
+        });
       }
       
       // Extract content type based on file extension
@@ -86,11 +110,22 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
       });
     } catch (error) {
       console.error('Error fetching from R2:', error);
-      return new Response('Error fetching file', { status: 500, headers });
+      return new Response('Error fetching file', { 
+        status: 500, 
+        headers: new Headers({
+          ...Object.fromEntries(headers.entries()),
+          'Cache-Control': 'no-store'
+        })
+      });
     }
   } catch (error) {
     console.error('General error in directr2 handler:', error);
-    return new Response('Server error', { status: 500 });
+    return new Response('Server error', { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store'
+      }
+    });
   }
 };
 

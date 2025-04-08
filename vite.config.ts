@@ -18,7 +18,7 @@ export default defineConfig({
 					source: resolve(__dirname, 'workers', 'r2-image-worker.js'),
 				});
 			},
-		},
+		}
 	],
 	// Configure for Cloudflare Workers environment
 	build: {
@@ -37,8 +37,11 @@ export default defineConfig({
 			allow: [
 				'src/images',
 				'src/content/blog/images',
+				'src/content/blog/posts',
 				'public/images'
 			]
 		}
-	}
+	},
+	// Mark markdown files as assets to avoid JS parsing
+	assetsInclude: ['**/*.md']
 });

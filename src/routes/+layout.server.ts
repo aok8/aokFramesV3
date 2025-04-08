@@ -5,8 +5,9 @@ export const load: LayoutServerLoad = async ({ platform }) => {
     const hasBucketBinding = !!(platform?.env?.ASSETSBUCKET);
     
     // For debugging during development/deployment
-    console.log('R2 bucket binding status:', hasBucketBinding ? 'Available' : 'Not available');
+    console.log('Root layout: R2 bucket binding status:', hasBucketBinding ? 'Available' : 'Not available');
     
+    // Return R2 availability status for all routes
     return {
         r2Available: hasBucketBinding
     };

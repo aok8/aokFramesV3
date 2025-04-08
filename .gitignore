@@ -27,7 +27,7 @@ vite.config.ts.timestamp-*
 /docs
 
 # Images
-/src/images/Portfolio
+src/images/Portfolio
 .cloudflare
 
-/src/content
+src/content/

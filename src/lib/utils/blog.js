@@ -1,0 +1,1 @@
+// Update getProdBlogPosts to use the direct path format we know works in production 

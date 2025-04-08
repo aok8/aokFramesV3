@@ -1,5 +1,28 @@
 import type { LayoutServerLoad } from './$types.js';
-import { loadBlogPosts, loadBlogPost } from '$lib/server/blog.js';
+// import { loadBlogPosts } from '$lib/server/blog.js'; // Comment out original import
+
+export const load: LayoutServerLoad = async ({ platform, url }) => {
+    console.log('-------- Blog Layout Server Load Start (Simplified) --------');
+    console.log('URL:', url.pathname);
+    
+    const r2Available = !!platform?.env?.ASSETSBUCKET;
+    console.log('Layout: R2 available:', r2Available);
+    
+    // Temporarily skip loading posts here to isolate issues
+    // Let the page-specific loads handle fetching for now
+    console.log('Layout: Skipping post loading, returning empty array.');
+    
+    return {
+        posts: [], // Return empty array
+        r2Available,
+        // Indicate that the layout load itself didn't fail, but didn't load posts
+        layoutStatus: 'skipped-post-load' 
+    };
+};
+
+/*
+// Original layout load code commented out
+import { loadBlogPosts } from '$lib/server/blog.js';
 
 export const load: LayoutServerLoad = async ({ platform, url, fetch }) => {
     console.log('Blog +layout.server.ts loading, URL:', url.pathname);
@@ -52,4 +75,5 @@ export const load: LayoutServerLoad = async ({ platform, url, fetch }) => {
             error: error instanceof Error ? error.message : 'Unknown error loading blog posts'
         };
     }
-}; 
+};
+*/ 

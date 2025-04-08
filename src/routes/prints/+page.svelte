@@ -25,6 +25,15 @@
         For professional inquiries, collaborations, or to commission a unique custom print, please feel free to contact me at <a href="mailto:aokframes@gmail.com">aokframes@gmail.com</a>. I look forward to hearing from you!
       </p>
     </div>
+    <div class="section">
+      <h1>Featured work</h1>
+      <p>
+        Currently featured works are:
+      </p>
+      <ul>
+        <li><a href="https://www.ephemere.tokyo/publications/p/anarchy2">Ephemere Anarchy2</a></li>
+      </ul>
+    </div>
   </div>
   <Footer />
 </div>
@@ -59,6 +68,12 @@
 
   p {
     font-size: 1.2rem; /* Adjust size as needed */
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  h1 {
+    font-size: 2rem;
     line-height: 1.6;
     margin: 0;
   }

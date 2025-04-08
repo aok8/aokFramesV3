@@ -3,6 +3,7 @@ import type { PageLoad } from './$types.js';
 import { dev } from '$app/environment';
 import { get } from 'svelte/store';
 import { posts } from '$lib/stores/blog.js';
+import type { BlogPost } from '$lib/types/blog.js'; // Import BlogPost type
 
 // Simple frontmatter parser for browser
 function parseFrontmatter(content: string) {
@@ -45,17 +46,82 @@ function parseFrontmatter(content: string) {
 export const load: PageLoad = async ({ data, params, fetch }) => {
   console.log(`-------- Blog Post Page Load Start --------`);
   console.log(`Raw slug from params: "${params.slug}"`);
+  console.log(`Development mode: ${dev}`);
   
+  // Define the expected return type for the function
+  type LoadResult = { post: BlogPost } | { error: any; status: number }; 
+
   try { // Wrap entire function body in try...catch
     const { slug } = params;
     const decodedSlug = decodeURIComponent(slug);
     
     console.log(`Page load running for blog post with slug: "${decodedSlug}", data present:`, !!data);
     
-    // If we have post data from the server, use it
-    if (data && data.post) {
-        console.log('Post data available from server:', data.post.title);
-        return { post: data.post };
+    // --- Development Mode Logic --- 
+    if (dev) {
+        console.log('Running in development mode, attempting local file fetch...');
+        try {
+            const postPath = `/src/content/blog/posts/${decodedSlug}.md`;
+            console.log(`Fetching post from dev path: ${postPath}`);
+            const response = await fetch(postPath);
+            
+            if (!response.ok) {
+                console.error(`Failed to fetch post in dev mode: ${response.status} ${response.statusText} for ${postPath}`);
+                // Don't throw error yet, allow fallback to other methods if needed
+                // (Though typically in dev, if the file isn't there, it's a 404)
+                throw error(404, `Blog post file not found at ${postPath}`); 
+            }
+            
+            const text = await response.text();
+            const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
+            
+            // Extract title from first h1
+            const titleMatch = markdownContent.match(/^#\s+(.*)/m);
+            const title = titleMatch ? titleMatch[1] : decodedSlug;
+            
+            // Check if image exists
+            const imageKey = `/src/content/blog/images/${decodedSlug}.jpg`;
+            let imageExists = false;
+            try {
+                const imageResponse = await fetch(imageKey, { method: 'HEAD' });
+                imageExists = imageResponse.ok;
+                console.log(`Dev image check for ${imageKey}: ${imageExists}`);
+            } catch (imgErr) {
+                console.warn(`Dev image check failed for ${imageKey}:`, imgErr);
+            }
+            
+            const post = {
+                id: decodedSlug, // Use the decoded slug from URL in dev
+                title,
+                content: markdownContent,
+                summary: 'Summary needs extraction in dev mode...', // Add summary extraction if needed
+                author: frontmatter.author || 'AOK',
+                published: frontmatter.published || new Date().toISOString().split('T')[0],
+                label: frontmatter.tags || frontmatter.label || 'Photography',
+                image: imageExists ? imageKey : undefined
+            };
+            
+            console.log('Successfully created blog post from filesystem:', post.title);
+            return { post };
+            
+        } catch (devError) {
+             console.error('Error during development mode post loading:', devError);
+             // Explicitly throw 404 if dev loading fails
+             throw error(404, 'Blog post not found in development environment');
+        }
+    }
+    // --- End Development Mode Logic ---
+    
+    // --- Production Mode Logic --- 
+    console.log('Running in production mode, proceeding with cloud logic...');
+    
+    // The type annotation on `data` should handle potential undefined `post`
+    // SvelteKit types data based on corresponding server load, which is now removed.
+    // Explicitly check `data` and `data.post` existence.
+    const serverPost = (data as any)?.post as BlogPost | undefined;
+    if (serverPost) {
+        console.log('Post data available from server (unexpectedly?):', serverPost.title);
+        return { post: serverPost };
     }
     
     console.log('Post data not available from server, checking client sources...');
@@ -339,9 +405,14 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
     // Log params for context
     console.error('Params were:', params);
     console.error('Data was:', data);
-    // Re-throw a generic 404 to avoid exposing internal errors
+    // Ensure the thrown error matches expected types if possible, 
+    // but SvelteKit handles re-thrown errors
     throw error(404, 'Blog post not found due to an internal error');
   }
+  
+  // Add a final return/throw if somehow execution reaches here (shouldn't happen)
+  console.error('Execution reached end of load function unexpectedly');
+  throw error(500, 'Load function completed without returning data');
 };
 
 // Helper function to update sessionStorage with a post

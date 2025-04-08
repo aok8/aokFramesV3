@@ -1,12 +1,21 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
-  import BlogPost from '$lib/components/blog/BlogPost.svelte';
+  import BlogPostComponent from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
   import { theme } from '../../theme/theme.js';
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
+  import { dev } from '$app/environment';
+
+  // Define expected Layout data shape directly here
+  type ExpectedLayoutData = {
+    posts: BlogPostType[];
+    r2Available: boolean;
+    error?: string;
+    layoutStatus?: 'skipped-post-load' | 'loaded' | 'api-fallback' | 'error';
+  };
 
   // Simple frontmatter parser for browser
   function parseFrontmatter(content: string) {
@@ -46,45 +55,27 @@
     return { data: frontmatter, content: markdownContent };
   }
 
-  export let data: PageData;
+  export let data: PageData & ExpectedLayoutData;
   
-  let isLoading = true;
+  let isLoading = false;
   let loadError = false;
-  let directlyLoadedPosts: BlogPostType[] = [];
+  let loadedPostsFromClient: BlogPostType[] = [];
   
   // Log blog data for debugging
-  console.log('Blog page data:', data);
-  console.log('Blog posts from server:', data.posts);
+  console.log('Blog page data from layout:', data);
+  console.log('Blog posts from layout:', data.posts);
+  console.log('Layout status:', data.layoutStatus);
   
   onMount(async () => {
-    isLoading = true;
+    // Access layoutStatus directly - now typed
+    const layoutSkipped = data.layoutStatus === 'skipped-post-load';
     
-    // First check if we have posts in sessionStorage
-    try {
-      const storedPosts = sessionStorage.getItem('blogPosts');
-      if (storedPosts) {
-        const parsedPosts = JSON.parse(storedPosts);
-        console.log('Found stored posts in sessionStorage:', parsedPosts.length);
-        
-        if (parsedPosts.length > 0) {
-          directlyLoadedPosts = parsedPosts;
-          console.log('Using posts from sessionStorage');
-          posts.set(parsedPosts);
-          
-          // We still load fresh data in the background
-          isLoading = false;
-        }
-      }
-    } catch (storageError) {
-      console.error('Error retrieving posts from sessionStorage:', storageError);
-    }
-    
-    try {
-      // If server-side posts are empty, try to fetch posts from the client-side
-      if (data.posts.length === 0) {
-        console.log('No posts from server, attempting client-side fetch');
-        
-        // Try to fetch blog status
+    // Only attempt client-side fetch if layout explicitly skipped
+    // OR if we are in production and server posts are empty
+    if (layoutSkipped || (!dev && data.posts.length === 0)) {
+      console.log('Attempting client-side R2 fetch (layout skipped or prod fallback)');
+      isLoading = true;
+      try {
         const statusRes = await fetch('/api/blog-status', {
           headers: {
             'Accept': 'application/json',
@@ -96,10 +87,9 @@
           const statusData = await statusRes.json();
           console.log('Blog R2 status:', statusData);
           
-          // If we have blog posts in the bucket, load them directly
           if (statusData.blogPosts?.items?.length > 0) {
-            console.log('Server-side fetch failed, attempting client-side direct fetch');
-            const loadedPosts = [];
+            console.log('Attempting client-side direct fetch from R2');
+            const loadedPosts: BlogPostType[] = [];
             
             for (const item of statusData.blogPosts.items) {
               try {
@@ -174,57 +164,69 @@
             }
             
             if (loadedPosts.length > 0) {
-              console.log('Directly loaded posts:', loadedPosts);
-              directlyLoadedPosts = loadedPosts;
-              
-              // Immediately update the store with the loaded posts
-              // This ensures the posts are available for all components
+              console.log('Directly loaded posts from R2:', loadedPosts);
+              loadedPostsFromClient = loadedPosts;
               posts.set(loadedPosts);
               
-              // Also dispatch a custom event for any components listening
-              // This helps notify other components that posts are ready
-              window.dispatchEvent(new CustomEvent('postsLoaded', { 
-                detail: { posts: loadedPosts } 
-              }));
-              
-              // Store loaded posts in sessionStorage to persist across page navigations
+              // Store in sessionStorage
               try {
                 sessionStorage.setItem('blogPosts', JSON.stringify(loadedPosts));
-                console.log('Stored loaded posts in sessionStorage');
+                console.log('Stored R2 loaded posts in sessionStorage');
               } catch (storageError) {
-                console.error('Error storing posts in sessionStorage:', storageError);
+                console.error('Error storing R2 posts in sessionStorage:', storageError);
               }
+            } else {
+              // If R2 fetch yielded no posts, potentially set an error state
+              loadError = true;
+              console.error('Client-side R2 fetch completed but found 0 valid posts.');
             }
+          } else {
+             loadError = true;
+             console.error('Blog R2 status has no post items.');
           }
+        } else {
+           loadError = true;
+           console.error(`Client fetch for /api/blog-status failed: ${statusRes.status}`);
         }
-      } else if (data.posts.length > 0) {
-        // If we have server posts, use them and store them in session storage
-        console.log('Using server posts:', data.posts.length);
-        
-        try {
-          sessionStorage.setItem('blogPosts', JSON.stringify(data.posts));
-          console.log('Stored server posts in sessionStorage');
-        } catch (storageError) {
-          console.error('Error storing server posts in sessionStorage:', storageError);
-        }
+      } catch (error) {
+        console.error('Error during client-side R2 fetch:', error);
+        loadError = true;
       }
-    } catch (error) {
-      console.error('Error fetching blog status:', error);
-      loadError = true;
+      isLoading = false;
     }
     
-    isLoading = false;
-  });
-  
-  $: {
-    console.log('Setting posts:', data.posts);
+    // Handle initial population from layout data
     if (data.posts?.length > 0) {
+      console.log('Populating store from layout data');
       posts.set(data.posts);
-    } else if (directlyLoadedPosts.length > 0) {
-      console.log('Setting directly loaded posts to store');
-      posts.set(directlyLoadedPosts);
+      // Optionally store layout posts in sessionStorage if not already there
+      if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('blogPosts')) {
+         try {
+            sessionStorage.setItem('blogPosts', JSON.stringify(data.posts));
+            console.log('Stored layout posts in sessionStorage');
+          } catch (storageError) {
+             console.error('Error storing layout posts in sessionStorage:', storageError);
+          }
+      }
+    } else if (!layoutSkipped) {
+      // If layout didn't skip but posts are empty, check session storage as fallback
+      console.log('Layout provided no posts, checking sessionStorage');
+       if (typeof sessionStorage !== 'undefined') {
+          try {
+            const storedPostsJson = sessionStorage.getItem('blogPosts');
+            if (storedPostsJson) {
+              const storedPosts = JSON.parse(storedPostsJson);
+              if (storedPosts.length > 0) {
+                  console.log('Restoring posts from sessionStorage');
+                  posts.set(storedPosts);
+              }
+            }
+          } catch (e) {
+            console.error('Error reading from sessionStorage', e);
+          }
+       }
     }
-  }
+  });
 </script>
 
 <div class="blog-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
@@ -249,23 +251,14 @@
         </div>
       {:else if $posts && $posts.length > 0}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {#each $posts as post}
-            <BlogPost {post} isPreview={true} />
+          {#each $posts as post (post.id)}
+            <BlogPostComponent {post} isPreview={true} />
           {/each}
         </div>
-      {:else if directlyLoadedPosts.length > 0}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {#each directlyLoadedPosts as post}
-            <BlogPost {post} isPreview={true} />
-          {/each}
-        </div>
+      {:else if loadError}
+        <p class="text-red-600 text-center py-10">Failed to load blog posts.</p>
       {:else}
-        <div class="py-12 text-center">
-          <h3 class="text-2xl font-medium text-gray-900 mb-4">No Blog Posts Found</h3>
-          <p class="text-gray-600 mb-6">
-            There was an issue loading blog posts. This could be because:
-          </p>
-        </div>
+        <p class="text-gray-600 text-center py-10">No blog posts available yet.</p>
       {/if}
     </div>
   </main>

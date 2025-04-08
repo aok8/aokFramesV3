@@ -1,79 +1,78 @@
 import type { LayoutServerLoad } from './$types.js';
-// import { loadBlogPosts } from '$lib/server/blog.js'; // Comment out original import
+import { loadBlogPosts } from '$lib/server/blog.js'; // Restore original import
+import type { BlogPost } from '$lib/types/blog.js'; // Import BlogPost type
 
-export const load: LayoutServerLoad = async ({ platform, url }) => {
-    console.log('-------- Blog Layout Server Load Start (Simplified) --------');
+// Define the type for the layout data
+export type BlogLayoutData = {
+  posts: BlogPost[];
+  r2Available: boolean;
+  error?: string;
+  layoutStatus?: 'skipped-post-load' | 'loaded' | 'api-fallback' | 'error'; // Add optional status
+};
+
+// Restore the original load function
+export const load: LayoutServerLoad = async ({ platform, url, fetch }): Promise<BlogLayoutData> => {
+    console.log('-------- Blog Layout Server Load Start (Restored) --------');
     console.log('URL:', url.pathname);
     
     const r2Available = !!platform?.env?.ASSETSBUCKET;
     console.log('Layout: R2 available:', r2Available);
     
-    // Temporarily skip loading posts here to isolate issues
-    // Let the page-specific loads handle fetching for now
-    console.log('Layout: Skipping post loading, returning empty array.');
-    
-    return {
-        posts: [], // Return empty array
-        r2Available,
-        // Indicate that the layout load itself didn't fail, but didn't load posts
-        layoutStatus: 'skipped-post-load' 
-    };
-};
-
-/*
-// Original layout load code commented out
-import { loadBlogPosts } from '$lib/server/blog.js';
-
-export const load: LayoutServerLoad = async ({ platform, url, fetch }) => {
-    console.log('Blog +layout.server.ts loading, URL:', url.pathname);
-    
-    const r2Available = !!platform?.env?.ASSETSBUCKET;
-    console.log('R2 available in layout:', r2Available);
-    
     try {
-        // First attempt: load posts using server-side functionality
+        // First attempt: load posts using server-side functionality (filesystem in dev)
+        console.log('Layout: Attempting loadBlogPosts...');
         const posts = await loadBlogPosts(platform);
-        console.log(`Loaded ${posts.length} posts in layout server`);
+        console.log(`Layout: Loaded ${posts.length} posts via loadBlogPosts`);
         
         if (posts && posts.length > 0) {
             return {
                 posts,
-                r2Available
+                r2Available,
+                layoutStatus: 'loaded' // Indicate success
             };
         }
 
-        // Second attempt: try fetching posts via API
-        console.log('Falling back to API fetch in layout server');
+        // Second attempt (Fallback): try fetching posts via API (less ideal for layout)
+        console.warn('Layout: loadBlogPosts returned 0 posts. Falling back to API fetch...');
         const response = await fetch('/api/blog-posts');
         
         if (response.ok) {
             const apiPosts = await response.json();
-            console.log(`API returned ${apiPosts.length} posts in layout server`);
+            console.log(`Layout: API returned ${apiPosts.length} posts`);
             
             if (apiPosts && apiPosts.length > 0) {
                 return {
                     posts: apiPosts,
-                    r2Available
+                    r2Available,
+                    layoutStatus: 'api-fallback' // Indicate API fallback used
                 };
             }
         } else {
-            console.error(`API fetch failed with status ${response.status} in layout server`);
+            console.error(`Layout: API fetch failed with status ${response.status}`);
         }
 
         // Both attempts failed
-        console.error('Failed to load posts in both ways');
+        console.error('Layout: Failed to load posts via loadBlogPosts and API.');
         return {
             posts: [],
             r2Available,
-            error: 'Failed to load blog posts'
+            error: 'Failed to load blog posts',
+            layoutStatus: 'error' // Indicate error
         };
     } catch (error: unknown) {
-        console.error('Error in blog layout load:', error);
+        console.error('Layout: Error during layout load:', error);
         return {
             posts: [],
             r2Available,
-            error: error instanceof Error ? error.message : 'Unknown error loading blog posts'
+            error: error instanceof Error ? error.message : 'Unknown error loading blog posts',
+            layoutStatus: 'error' // Indicate error
         };
     }
+};
+
+/*
+// Simplified layout code commented out
+export const load: LayoutServerLoad = async ({ platform, url }) => {
+    // ... simplified logic ...
 };
 */ 

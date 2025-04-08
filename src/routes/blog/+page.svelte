@@ -59,9 +59,28 @@
   onMount(async () => {
     isLoading = true;
     
+    // First check if we have posts in sessionStorage
     try {
-      // If server-side posts are empty but we're not in development mode,
-      // try to fetch posts from the client-side
+      const storedPosts = sessionStorage.getItem('blogPosts');
+      if (storedPosts) {
+        const parsedPosts = JSON.parse(storedPosts);
+        console.log('Found stored posts in sessionStorage:', parsedPosts.length);
+        
+        if (parsedPosts.length > 0) {
+          directlyLoadedPosts = parsedPosts;
+          console.log('Using posts from sessionStorage');
+          posts.set(parsedPosts);
+          
+          // We still load fresh data in the background
+          isLoading = false;
+        }
+      }
+    } catch (storageError) {
+      console.error('Error retrieving posts from sessionStorage:', storageError);
+    }
+    
+    try {
+      // If server-side posts are empty, try to fetch posts from the client-side
       if (data.posts.length === 0) {
         console.log('No posts from server, attempting client-side fetch');
         
@@ -178,29 +197,23 @@
             }
           }
         }
+      } else if (data.posts.length > 0) {
+        // If we have server posts, use them and store them in session storage
+        console.log('Using server posts:', data.posts.length);
+        
+        try {
+          sessionStorage.setItem('blogPosts', JSON.stringify(data.posts));
+          console.log('Stored server posts in sessionStorage');
+        } catch (storageError) {
+          console.error('Error storing server posts in sessionStorage:', storageError);
+        }
       }
     } catch (error) {
       console.error('Error fetching blog status:', error);
+      loadError = true;
     }
     
     isLoading = false;
-  });
-  
-  // Also try to restore posts from sessionStorage on mount
-  onMount(() => {
-    if (directlyLoadedPosts.length === 0 && data.posts.length === 0) {
-      try {
-        const storedPosts = sessionStorage.getItem('blogPosts');
-        if (storedPosts) {
-          const parsedPosts = JSON.parse(storedPosts);
-          console.log('Restored posts from sessionStorage:', parsedPosts.length);
-          directlyLoadedPosts = parsedPosts;
-          posts.set(parsedPosts);
-        }
-      } catch (storageError) {
-        console.error('Error retrieving posts from sessionStorage:', storageError);
-      }
-    }
   });
   
   $: {

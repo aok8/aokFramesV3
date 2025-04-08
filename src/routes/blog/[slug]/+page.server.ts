@@ -1,37 +1,5 @@
 import type { PageServerLoad } from './$types.js';
 import { error } from '@sveltejs/kit';
-
-// Temporarily simplified load function for debugging
-export const load: PageServerLoad = async ({ params }) => {
-  console.log(`-------- Blog Post Server Load Start (Simplified) --------`);
-  console.log(`Raw slug from params: "${params.slug}"`);
-  
-  try {
-    // Just return a dummy post object to test if the function can run and return
-    const dummyPost = {
-      id: params.slug, // Use the slug directly
-      title: `Dummy Post: ${params.slug}`,
-      content: 'This is dummy content loaded from the simplified server function.',
-      summary: 'Dummy summary.',
-      author: 'Debugger',
-      published: new Date().toISOString().split('T')[0],
-      label: 'Debugging',
-      image: undefined
-    };
-    
-    console.log(`Simplified server load returning dummy post for slug: ${params.slug}`);
-    return { post: dummyPost, method: 'simplified-server-dummy' };
-    
-  } catch (e) {
-    console.error('-------- Simplified Server Load CRASHED --------');
-    console.error('Error in simplified server load:', e);
-    throw error(500, 'Simplified server load failed');
-  }
-}; 
-
-/*
-// Original code commented out for debugging
-
 import { loadBlogPost } from '$lib/server/blog.js';
 import { dev } from '$app/environment';
 
@@ -49,10 +17,7 @@ interface R2Object {
   key: string;
 }
 
-interface Params {
-  slug: string;
-}
-
+// Restore the original load function with detailed logging
 export const load: PageServerLoad = async ({ parent, params, platform, url }) => {
   console.log(`-------- Blog Post Server Load Start --------`);
   console.log(`Raw slug from params: "${params.slug}"`);
@@ -235,6 +200,4 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
     attemptedMethods: string[];
     errorMessages: string[];
   });
-}
-
-*/ 
+}; 

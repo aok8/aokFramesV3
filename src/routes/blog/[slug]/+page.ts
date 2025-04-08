@@ -75,7 +75,44 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         }
     }
     
-    console.log('Post not found in store, attempting direct fetch...');
+    // Check sessionStorage for posts (client-side only)
+    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+        try {
+            console.log('Checking sessionStorage for cached posts');
+            const cachedPostsJson = sessionStorage.getItem('blogPosts');
+            
+            if (cachedPostsJson) {
+                const cachedPosts = JSON.parse(cachedPostsJson);
+                console.log(`SessionStorage has ${cachedPosts.length} cached posts`);
+                
+                if (cachedPosts && cachedPosts.length > 0) {
+                    // Log all cached post IDs for debugging
+                    console.log('All cached post IDs:', cachedPosts.map((p: { id: string }) => p.id));
+                    
+                    // Try to find the post in the cached posts
+                    // First try exact match
+                    const cachedPost = cachedPosts.find((p: { id: string }) => p.id === decodedSlug) ||
+                                      cachedPosts.find((p: { id: string }) => p.id.toLowerCase() === decodedSlug.toLowerCase());
+                    
+                    if (cachedPost) {
+                        console.log('Post found in sessionStorage:', cachedPost.title);
+                        
+                        // Update the store with all cached posts if the store is empty
+                        if (storedPosts.length === 0) {
+                            console.log('Updating empty store with all cached posts');
+                            posts.set(cachedPosts);
+                        }
+                        
+                        return { post: cachedPost };
+                    }
+                }
+            }
+        } catch (storageError) {
+            console.error('Error accessing sessionStorage:', storageError);
+        }
+    }
+    
+    console.log('Post not found in store or sessionStorage, attempting direct fetch...');
     
     // As a last resort, try to fetch the blog status and find the post
     try {

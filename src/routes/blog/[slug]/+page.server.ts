@@ -27,22 +27,24 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
   console.log('Platform available:', !!platform);
   console.log('R2 bucket available:', !!(platform?.env?.ASSETSBUCKET));
   
+  const slug = params.slug;
+  const decodedSlug = decodeURIComponent(slug);
+  
   // First check if we can find the post in the parent data
   try {
     const parentData = await parent();
     console.log(`Parent data available with ${parentData.posts?.length || 0} posts`);
     
-    const slug = params.slug;
     const posts = parentData.posts || [];
     
     if (posts && posts.length > 0) {
       // Try to find the post in the already loaded posts
       // First try exact match
-      let post = posts.find(p => p.id === slug);
+      let post = posts.find((p: { id: string }) => p.id === decodedSlug);
       
       // If no exact match, try case-insensitive
       if (!post) {
-        post = posts.find(p => p.id.toLowerCase() === slug.toLowerCase());
+        post = posts.find((p: { id: string }) => p.id.toLowerCase() === decodedSlug.toLowerCase());
       }
       
       if (post) {
@@ -50,7 +52,7 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
         return { post };
       }
       
-      console.log(`Post with slug "${slug}" not found in parent data`);
+      console.log(`Post with slug "${decodedSlug}" not found in parent data`);
     } else {
       console.log('No posts available in parent data, will try direct loading');
     }
@@ -75,25 +77,20 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
     }
     
     // Try to load the blog post directly
-    const slug = params.slug;
-    console.log(`Loading blog post with slug "${slug}" directly`);
+    console.log(`Loading blog post with slug "${decodedSlug}" directly`);
     
-    const post = await loadBlogPost(slug, platform);
+    const post = await loadBlogPost(decodedSlug, platform);
     
-    if (!post) {
-      console.error(`Post with slug "${slug}" not found during direct load`);
-      throw error(404, 'Blog post not found');
+    if (post) {
+      console.log(`Successfully loaded post "${post.title}" directly`);
+      return { post };
     }
     
-    console.log(`Successfully loaded post "${post.title}" directly`);
-    return { post };
-  } catch (e) {
-    console.error('Error during direct blog post loading:', e);
-    
     // Try the special case for exact filename matching
+    console.log('Post not found with exact slug, attempting to find by listing all posts');
     if (!dev && platform?.env?.ASSETSBUCKET) {
       try {
-        console.log('Attempting special case: listing all blog posts to find exact match');
+        console.log('Listing all blog posts to find exact match');
         const objects = await platform.env.ASSETSBUCKET.list({
           prefix: 'blog/posts/'
         });
@@ -101,12 +98,19 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
         if (objects.objects && objects.objects.length > 0) {
           console.log(`Found ${objects.objects.length} blog post files in R2`);
           
+          // Log all filenames for debugging
+          const allFilenames = objects.objects.map((obj: R2Object) => {
+            const filename = obj.key.split('/').pop() || '';
+            return filename.replace(/\.md$/i, '');
+          });
+          console.log('All post slugs in R2:', allFilenames);
+          
           // Find any file that might match our slug (case insensitive)
-          const slug = params.slug;
-          const matchingObject = objects.objects.find(obj => {
+          const matchingObject = objects.objects.find((obj: R2Object) => {
             const filename = obj.key.split('/').pop() || '';
             const fileSlug = filename.replace(/\.md$/i, '');
-            return fileSlug.toLowerCase() === slug.toLowerCase();
+            console.log(`Comparing: "${fileSlug.toLowerCase()}" to "${decodedSlug.toLowerCase()}"`);
+            return fileSlug.toLowerCase() === decodedSlug.toLowerCase();
           });
           
           if (matchingObject) {
@@ -116,6 +120,8 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
             const filename = matchingObject.key.split('/').pop() || '';
             const exactSlug = filename.replace(/\.md$/i, '');
             
+            console.log(`Using exact slug from R2: ${exactSlug}`);
+            
             // Try to load with the exact slug
             const post = await loadBlogPost(exactSlug, platform);
             
@@ -124,7 +130,7 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
               return { post };
             }
           } else {
-            console.log(`No matching file found for slug "${slug}"`);
+            console.log(`No matching file found for slug "${decodedSlug}"`);
           }
         }
       } catch (listError) {
@@ -132,7 +138,10 @@ export const load: PageServerLoad = async ({ parent, params, platform, url }) =>
       }
     }
     
-    // If all else fails, throw a 404
+    console.error(`Post with slug "${decodedSlug}" not found during direct load`);
+    throw error(404, 'Blog post not found');
+  } catch (e) {
+    console.error('Error during direct blog post loading:', e);
     throw error(404, 'Blog post not found');
   }
 }; 

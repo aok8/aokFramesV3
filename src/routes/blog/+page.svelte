@@ -80,6 +80,8 @@
           // If we have blog posts in the bucket, load them directly
           if (statusData.blogPosts?.items?.length > 0) {
             console.log('Server-side fetch failed, attempting client-side direct fetch');
+            const loadedPosts = [];
+            
             for (const item of statusData.blogPosts.items) {
               try {
                 const key = item.key;
@@ -136,7 +138,7 @@
                   console.log('Using exact slug from R2:', exactSlug);
                   
                   // Simplified post object
-                  directlyLoadedPosts.push({
+                  loadedPosts.push({
                     id: exactSlug, // Preserve the original case from R2
                     title,
                     summary,
@@ -152,9 +154,27 @@
               }
             }
             
-            if (directlyLoadedPosts.length > 0) {
-              console.log('Directly loaded posts:', directlyLoadedPosts);
-              posts.set(directlyLoadedPosts);
+            if (loadedPosts.length > 0) {
+              console.log('Directly loaded posts:', loadedPosts);
+              directlyLoadedPosts = loadedPosts;
+              
+              // Immediately update the store with the loaded posts
+              // This ensures the posts are available for all components
+              posts.set(loadedPosts);
+              
+              // Also dispatch a custom event for any components listening
+              // This helps notify other components that posts are ready
+              window.dispatchEvent(new CustomEvent('postsLoaded', { 
+                detail: { posts: loadedPosts } 
+              }));
+              
+              // Store loaded posts in sessionStorage to persist across page navigations
+              try {
+                sessionStorage.setItem('blogPosts', JSON.stringify(loadedPosts));
+                console.log('Stored loaded posts in sessionStorage');
+              } catch (storageError) {
+                console.error('Error storing posts in sessionStorage:', storageError);
+              }
             }
           }
         }
@@ -164,6 +184,23 @@
     }
     
     isLoading = false;
+  });
+  
+  // Also try to restore posts from sessionStorage on mount
+  onMount(() => {
+    if (directlyLoadedPosts.length === 0 && data.posts.length === 0) {
+      try {
+        const storedPosts = sessionStorage.getItem('blogPosts');
+        if (storedPosts) {
+          const parsedPosts = JSON.parse(storedPosts);
+          console.log('Restored posts from sessionStorage:', parsedPosts.length);
+          directlyLoadedPosts = parsedPosts;
+          posts.set(parsedPosts);
+        }
+      } catch (storageError) {
+        console.error('Error retrieving posts from sessionStorage:', storageError);
+      }
+    }
   });
   
   $: {

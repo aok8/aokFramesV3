@@ -1,19 +1,14 @@
 import { dev } from '$app/environment';
-import type { BlogPost } from '../types/blog.js';
 import matter from 'gray-matter';
 import fs from 'fs';
 import path from 'path';
-
-interface BlogPostWithImage extends BlogPost {
-  localImagePath?: string;
-}
 
 // Constants for file paths
 const POSTS_DIR = 'src/content/blog/posts';
 const IMAGES_DIR = 'src/content/blog/images';
 
 // For development environment - load posts from local filesystem
-async function getDevBlogPosts(): Promise<BlogPost[]> {
+export async function getDevBlogPosts() {
   try {
     // Read directory contents using fs instead of fetch
     const files = fs.readdirSync(POSTS_DIR);
@@ -77,13 +72,13 @@ async function getDevBlogPosts(): Promise<BlogPost[]> {
             published: data.published || new Date().toISOString().split('T')[0],
             label: data.label || 'Photography',
             image: imageExists ? `/src/content/blog/images/${imageFileName}` : undefined
-          } as BlogPost;
+          };
         } catch (error) {
           console.error(`Error processing dev blog post ${file}:`, error);
           return null;
         }
       })
-      .filter((post): post is BlogPost => post !== null);
+      .filter(post => post !== null);
     
     // Sort by published date (newest first)
     return posts.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
@@ -94,7 +89,7 @@ async function getDevBlogPosts(): Promise<BlogPost[]> {
 }
 
 // For production environment - fetch from R2 via API
-async function getProdBlogPosts(): Promise<BlogPost[]> {
+export async function getProdBlogPosts() {
   try {
     console.log('Fetching blog posts from production API');
     
@@ -112,7 +107,7 @@ async function getProdBlogPosts(): Promise<BlogPost[]> {
         console.log('Blog status data:', statusData);
         
         if (statusData.blogPosts?.items?.length > 0) {
-          const posts: BlogPost[] = [];
+          const posts = [];
           
           // Process each blog post from status data
           for (const item of statusData.blogPosts.items) {
@@ -236,7 +231,7 @@ async function getProdBlogPosts(): Promise<BlogPost[]> {
 }
 
 // Main function to get blog posts based on environment
-async function getBlogPosts(): Promise<BlogPost[]> {
+export async function getBlogPosts() {
   if (dev) {
     return getDevBlogPosts();
   }
@@ -244,10 +239,7 @@ async function getBlogPosts(): Promise<BlogPost[]> {
 }
 
 // Get a specific blog post by slug
-async function getBlogPost(slug: string): Promise<BlogPost | null> {
+export async function getBlogPost(slug) {
   const posts = await getBlogPosts();
   return posts.find(post => post.id === slug) || null;
-}
-
-// Export the public functions
-export { getBlogPosts, getBlogPost }; 
+} 

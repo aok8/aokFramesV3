@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
-import { getBlogPost } from '$lib/utils/blog.js';
+import { getBlogPost } from '$lib/utils/blogUtils.js';
 
 interface Params {
   slug: string;

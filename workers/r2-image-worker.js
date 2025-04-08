@@ -37,16 +37,12 @@ async function handleRequest(request, env, pathname) {
 
 async function handleBlogStatusRequest(request, env) {
   try {
-    console.log('Blog status endpoint called, checking environment');
-    console.log('Environment keys available:', Object.keys(env));
-    
-    const r2Bucket = env.ASSETSBUCKET || env.R2_BUCKET || env.R2_BLOG_BUCKET;
+    const r2Bucket = env.R2_BLOG_BUCKET || env.R2_BUCKET || env.ASSETSBUCKET;
     
     if (!r2Bucket) {
       return new Response(JSON.stringify({
         status: 'error',
-        message: 'R2 bucket environment variable not configured',
-        availableKeys: Object.keys(env)
+        message: 'R2 bucket environment variable not configured'
       }), {
         status: 500,
         headers: {
@@ -58,14 +54,7 @@ async function handleBlogStatusRequest(request, env) {
       });
     }
     
-    // First get ALL objects to see what's actually in the bucket
-    const allObjects = await r2Bucket.list({
-      limit: 100, // Increased limit to see more objects
-    });
-    
-    console.log('ALL objects in bucket:', allObjects.objects.map(o => o.key));
-    
-    // Directory listing with delimiter to see the structure
+    // First list top-level directories to determine structure
     const topLevelList = await r2Bucket.list({
       delimiter: '/',
     });
@@ -77,102 +66,71 @@ async function handleBlogStatusRequest(request, env) {
     // Check bucket access
     const bucketExists = await r2Bucket.head('test-access');
     
-    // Try manually checking for the patterns used in portfolio images that are working
-    console.log('Checking for portfolio content (to compare with working pattern)');
-    const portfolioList = await r2Bucket.list({
-      prefix: 'portfolio/',
+    // Determine prefixes based on bucket structure
+    let postPrefix = 'blog/posts/';
+    let imagePrefix = 'blog/images/';
+    
+    // If 'blog/' isn't found but 'posts/' is, adjust prefix
+    if (!topLevelPaths.includes('blog/') && 
+        topLevelPaths.includes('posts/')) {
+      postPrefix = 'posts/';
+      imagePrefix = 'images/';
+      console.log('Using alternate structure with posts/ and images/ prefixes');
+    }
+    
+    // List blog posts with detected prefix
+    let blogPostsListing = await r2Bucket.list({
+      prefix: postPrefix,
+      delimiter: '/',
     });
-    console.log('Portfolio objects:', portfolioList.objects.map(o => o.key));
     
-    // Try ALL the possible places where blog posts might be
-    const possiblePostPrefixes = [
-      'blog/posts/', 
-      'posts/', 
-      'blog/', 
-      ''  // Root level
-    ];
-    
-    // Try ALL the possible places where blog images might be
-    const possibleImagePrefixes = [
-      'blog/images/',
-      'images/',
-      '', // Root level
-    ];
-    
-    // Store the results for each prefix
-    const prefixResults = {};
-    
-    // Check post prefixes
-    for (const prefix of possiblePostPrefixes) {
-      const listed = await r2Bucket.list({
-        prefix: prefix,
-      });
+    // If no posts found, try alternate prefix
+    if (!blogPostsListing.objects || blogPostsListing.objects.length === 0) {
+      const altPostPrefix = postPrefix === 'blog/posts/' ? 'posts/' : 'blog/posts/';
+      console.log(`No blog posts found with ${postPrefix}, trying ${altPostPrefix}`);
       
-      // Filter to just markdown files
-      const markdownFiles = listed.objects.filter(o => o.key.endsWith('.md'));
-      
-      prefixResults[prefix] = {
-        totalObjects: listed.objects.length,
-        markdownFiles: markdownFiles.length,
-        sampleKeys: listed.objects.slice(0, 5).map(o => o.key)
-      };
-    }
-    
-    // Check image prefixes
-    for (const prefix of possibleImagePrefixes) {
-      const listed = await r2Bucket.list({
-        prefix: prefix,
-      });
-      
-      // Filter to image files
-      const imageFiles = listed.objects.filter(o => 
-        o.key.endsWith('.jpg') || 
-        o.key.endsWith('.png') || 
-        o.key.endsWith('.jpeg'));
-      
-      prefixResults[prefix] = {
-        ...prefixResults[prefix] || {},
-        totalObjects: listed.objects.length,
-        imageFiles: imageFiles.length,
-        sampleKeys: listed.objects.slice(0, 5).map(o => o.key)
-      };
-    }
-    
-    // Determine which prefixes actually contain content
-    const postPrefix = possiblePostPrefixes.find(prefix => 
-      prefixResults[prefix]?.markdownFiles > 0) || null;
-    
-    const imagePrefix = possibleImagePrefixes.find(prefix => 
-      prefixResults[prefix]?.imageFiles > 0) || null;
-    
-    console.log(`Most likely post prefix: ${postPrefix}, image prefix: ${imagePrefix}`);
-    
-    // Get post and image listings from the most likely locations
-    let blogPostsListing = { objects: [] };
-    let blogImagesListing = { objects: [] };
-    
-    if (postPrefix !== null) {
       blogPostsListing = await r2Bucket.list({
-        prefix: postPrefix,
+        prefix: altPostPrefix,
+        delimiter: '/',
       });
       
-      // Filter to just markdown files
-      blogPostsListing.objects = blogPostsListing.objects.filter(o => o.key.endsWith('.md'));
+      if (blogPostsListing.objects && blogPostsListing.objects.length > 0) {
+        postPrefix = altPostPrefix;
+        imagePrefix = altPostPrefix === 'blog/posts/' ? 'blog/images/' : 'images/';
+      }
     }
     
-    if (imagePrefix !== null) {
+    // List blog images with detected prefix
+    let blogImagesListing = await r2Bucket.list({
+      prefix: imagePrefix,
+      delimiter: '/',
+    });
+    
+    // If no images found, try alternate prefix
+    if (!blogImagesListing.objects || blogImagesListing.objects.length === 0) {
+      const altImagePrefix = imagePrefix === 'blog/images/' ? 'images/' : 'blog/images/';
+      console.log(`No blog images found with ${imagePrefix}, trying ${altImagePrefix}`);
+      
       blogImagesListing = await r2Bucket.list({
-        prefix: imagePrefix,
+        prefix: altImagePrefix,
+        delimiter: '/',
       });
       
-      // Filter to just image files
-      blogImagesListing.objects = blogImagesListing.objects.filter(o => 
-        o.key.endsWith('.jpg') || 
-        o.key.endsWith('.png') || 
-        o.key.endsWith('.jpeg'));
+      if (blogImagesListing.objects && blogImagesListing.objects.length > 0) {
+        imagePrefix = altImagePrefix;
+      }
     }
     
-    // Match posts to images
+    // Also check for images at the root level if none were found
+    if (!blogImagesListing.objects || blogImagesListing.objects.length === 0) {
+      console.log('No images found in standard locations, checking root level');
+      blogImagesListing = await r2Bucket.list({
+        delimiter: '/',
+        include: ['*.jpg', '*.jpeg', '*.png', '*.gif']
+      });
+    }
+    
+    // Match posts to images for diagnostic purposes
     const postsWithImages = [];
     const posts = blogPostsListing.objects.map(obj => {
       const key = obj.key;
@@ -195,20 +153,14 @@ async function handleBlogStatusRequest(request, env) {
       }
     }
     
-    // Create comprehensive diagnostic info
+    // Create response with diagnostic info
     const responseData = {
       status: 'ok',
       bucketAccess: !!bucketExists ? 'accessible' : 'inaccessible',
-      environment: {
-        availableKeys: Object.keys(env),
-      },
       structure: {
         topLevelDirectories: topLevelPaths,
-        allObjectsCount: allObjects.objects.length,
-        sampleObjects: allObjects.objects.slice(0, 10).map(o => o.key),
-        prefixAnalysis: prefixResults,
-        detectedPostPrefix: postPrefix,
-        detectedImagePrefix: imagePrefix
+        postPrefix: postPrefix,
+        imagePrefix: imagePrefix
       },
       blogPosts: {
         count: blogPostsListing.objects.length,
@@ -229,10 +181,7 @@ async function handleBlogStatusRequest(request, env) {
       matching: {
         postsWithImages,
         count: postsWithImages.length
-      },
-      imageAccessUrl: imagePrefix !== null && blogImagesListing.objects.length > 0 ? 
-        `/directr2/${blogImagesListing.objects[0].key}` : 
-        'No images found'
+      }
     };
     
     return new Response(JSON.stringify(responseData, null, 2), {
@@ -264,182 +213,89 @@ async function handleBlogStatusRequest(request, env) {
 }
 
 async function handlePortfolioImage(request, env, pathname) {
-  try {
-    // Handle portfolio images
-    const keyPath = pathname.replace('/images/portfolio/', '');
-    console.log(`Fetching portfolio image: ${keyPath}`);
-    
-    // Use consistent bucket access order
-    const r2Bucket = env.ASSETSBUCKET || env.R2_BUCKET || env.R2_BLOG_BUCKET;
-    
-    if (!r2Bucket) {
-      console.error('No R2 bucket binding found for portfolio image:', keyPath);
-      return new Response('R2 bucket not found', { status: 500 });
-    }
-    
-    // First try with portfolio/ prefix - this is how images are referenced in MainContent.svelte
-    let object = await r2Bucket.get(`portfolio/${keyPath}`);
-    
-    // If not found, try without the portfolio/ prefix
-    if (!object) {
-      console.log(`Image not found at portfolio/${keyPath}, trying direct path`);
-      object = await r2Bucket.get(keyPath);
-    }
+  // Handle portfolio images
+  const keyPath = pathname.replace('/images/portfolio/', '');
+  const object = await env.R2_BUCKET.get(`portfolio/${keyPath}`);
 
-    if (!object) {
-      console.log(`Portfolio image not found: ${keyPath}`);
-      return new Response('Portfolio image not found', { status: 404 });
-    }
-
-    console.log(`Successfully fetched portfolio image: ${keyPath}`);
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set('etag', object.httpEtag);
-    headers.set('Cache-Control', 'public, max-age=31536000');
-    headers.set('Access-Control-Allow-Origin', '*');
-    
-    return new Response(object.body, {
-      headers,
-    });
-  } catch (error) {
-    console.error(`Error fetching portfolio image ${pathname}:`, error);
-    return new Response(`Error fetching image: ${error.message}`, { 
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      }
-    });
+  if (!object) {
+    return new Response('Portfolio image not found', { status: 404 });
   }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('Cache-Control', 'public, max-age=31536000');
+  
+  return new Response(object.body, {
+    headers,
+  });
 }
 
 async function handleBlogImage(request, env, pathname) {
-  try {
-    // Handle blog images (supports both URL formats)
-    let keyPath;
-    if (pathname.startsWith('/images/blog/images/')) {
-      keyPath = pathname.replace('/images/blog/images/', '');
-    } else {
-      keyPath = pathname.replace('/directr2/blog/images/', '');
-    }
+  // Handle blog images (supports both URL formats)
+  let keyPath;
+  if (pathname.startsWith('/images/blog/images/')) {
+    keyPath = pathname.replace('/images/blog/images/', '');
+  } else {
+    keyPath = pathname.replace('/directr2/blog/images/', '');
+  }
+  
+  // Try alternative paths if the standard one fails
+  let object = await env.R2_BUCKET.get(`blog/images/${keyPath}`);
+  
+  // If not found with standard path, try non-prefixed path
+  if (!object) {
+    console.log(`Blog image not found at blog/images/${keyPath}, trying different paths`);
     
-    console.log(`Fetching blog image: ${keyPath}`);
-    
-    // Use consistent bucket access order - exactly matching the portfolio handler
-    const r2Bucket = env.ASSETSBUCKET || env.R2_BUCKET || env.R2_BLOG_BUCKET;
-    
-    if (!r2Bucket) {
-      console.error('No R2 bucket binding found for blog image:', keyPath);
-      return new Response('R2 bucket not found', { status: 500 });
-    }
-    
-    // Try multiple paths for the image
-    let object = null;
-    
-    // Try the paths in order (from most likely to least likely)
-    const possiblePaths = [
-      `blog/images/${keyPath}`,
-      `images/${keyPath}`,
-      keyPath, // Root level
-    ];
-    
-    for (const path of possiblePaths) {
-      console.log(`Trying to fetch image from path: ${path}`);
-      object = await r2Bucket.get(path);
-      if (object) {
-        console.log(`Successfully found image at: ${path}`);
-        break;
-      }
-    }
-    
-    // If still not found, try listing objects to see available paths
-    if (!object) {
-      console.log(`Image not found for key: ${keyPath}, listing similar objects for diagnosis`);
-      
-      // List all images with a similar name pattern
-      const listed = await r2Bucket.list({
-        prefix: '', // Search the whole bucket
-        limit: 50
-      });
-      
-      // Filter to find anything that might match this image
-      const possibleMatches = listed.objects
-        .filter(o => 
-          o.key.endsWith('.jpg') || 
-          o.key.endsWith('.png') || 
-          o.key.endsWith('.jpeg'))
-        .filter(o => {
-          const filename = o.key.split('/').pop();
-          return filename.includes(keyPath.split('/').pop().replace(/\.(jpg|jpeg|png)$/, ''));
-        });
-        
-      console.log('Possible matching images:', possibleMatches.map(o => o.key));
-      
-      if (possibleMatches.length > 0) {
-        // Try the first match
-        object = await r2Bucket.get(possibleMatches[0].key);
-        console.log(`Trying best match: ${possibleMatches[0].key}`);
-      }
-    }
-    
-    if (!object) {
-      console.log(`Blog image still not found: ${keyPath}`);
-      // List objects from bucket to see what's available
-      const blogImages = await r2Bucket.list({
-        prefix: 'blog/images/',
-        delimiter: '/',
-        limit: 10
-      });
-      
-      // Also try without 'blog/' prefix
-      const imagesOnly = await r2Bucket.list({
-        prefix: 'images/',
-        delimiter: '/',
-        limit: 10
-      });
-      
-      return new Response(JSON.stringify({
-        error: 'Blog image not found',
-        requestedPath: keyPath,
-        requestedUrl: pathname,
-        triedPaths: possiblePaths,
-        availablePaths: {
-          withBlogPrefix: blogImages.objects.map(o => o.key),
-          withImagesPrefix: imagesOnly.objects.map(o => o.key)
-        }
-      }), { 
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-
-    console.log(`Successfully fetched blog image: ${keyPath}`);
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set('etag', object.httpEtag);
-    headers.set('Cache-Control', 'public, max-age=31536000');
-    headers.set('Access-Control-Allow-Origin', '*');
-    
-    return new Response(object.body, {
-      headers,
+    // Try without 'blog/' prefix
+    object = await env.R2_BUCKET.get(`images/${keyPath}`);
+  }
+  
+  // If still not found, try listing objects to see available paths
+  if (!object) {
+    console.log(`Image still not found, listing objects with similar paths for diagnosis`);
+    // List objects from bucket to see what's available
+    const listed = await env.R2_BUCKET.list({
+      prefix: 'blog/',
+      delimiter: '/',
+      limit: 10
     });
-  } catch (error) {
-    console.error(`Error fetching blog image ${pathname}:`, error);
+    
+    // Also try without 'blog/' prefix
+    const listedAlt = await env.R2_BUCKET.list({
+      prefix: 'images/',
+      delimiter: '/',
+      limit: 10
+    });
+    
+    console.log('Available paths with blog/ prefix:', listed.objects.map(o => o.key));
+    console.log('Available paths with images/ prefix:', listedAlt.objects.map(o => o.key));
+    
     return new Response(JSON.stringify({
-      error: 'Error fetching blog image',
-      message: error.message,
-      stack: error.stack,
-      pathname: pathname
+      error: 'Blog image not found',
+      requestedPath: keyPath,
+      availablePaths: {
+        withBlogPrefix: listed.objects.map(o => o.key),
+        withImagesPrefix: listedAlt.objects.map(o => o.key)
+      }
     }), { 
-      status: 500,
+      status: 404,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       }
     });
   }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('Cache-Control', 'public, max-age=31536000');
+  headers.set('Access-Control-Allow-Origin', '*');
+  
+  return new Response(object.body, {
+    headers,
+  });
 }
 
 async function handleBlogPostsRequest(request, env) {
@@ -455,9 +311,12 @@ async function handleBlogPostsRequest(request, env) {
   }
 
   try {
+    console.log('Blog posts endpoint called, using the confirmed working direct access pattern');
+    
     // Log all environment variables to see what's available
     console.log('Environment keys available:', Object.keys(env));
     
+    // Use the same bucket access order that works for images
     const r2Bucket = env.ASSETSBUCKET || env.R2_BUCKET || env.R2_BLOG_BUCKET;
     
     if (!r2Bucket) {
@@ -474,95 +333,28 @@ async function handleBlogPostsRequest(request, env) {
       });
     }
     
-    console.log('Blog posts endpoint: Showing all R2 bucket contents for diagnosis');
-    
-    // First get ALL objects to see what's actually in the bucket
+    // First, list all objects in the bucket to see what's available (limited to 100)
     const allObjects = await r2Bucket.list({
-      limit: 100, // Increased limit to see more objects
+      limit: 100,
     });
     
-    console.log('ALL objects in bucket:', allObjects.objects.map(o => o.key));
+    console.log('All objects in bucket:', allObjects.objects.map(o => o.key));
     
-    // Directory listing with delimiter to see the structure
-    const topLevelList = await r2Bucket.list({
-      delimiter: '/',
+    // Now specifically look for markdown files in blog/posts/ which we know exists
+    const blogPostsList = await r2Bucket.list({
+      prefix: 'blog/posts/',
     });
     
-    // Extract paths from the list for directory detection
-    const topLevelPaths = topLevelList.delimitedPrefixes || [];
-    console.log('Available top-level directories:', topLevelPaths);
+    console.log('Blog posts found:', blogPostsList.objects.map(o => o.key));
     
-    // Try manually checking for the patterns used in portfolio images that are working
-    console.log('Checking for portfolio content (to compare with working pattern)');
-    const portfolioList = await r2Bucket.list({
-      prefix: 'portfolio/',
-    });
-    console.log('Portfolio objects:', portfolioList.objects.map(o => o.key));
+    // Filter to just markdown files
+    const markdownFiles = blogPostsList.objects.filter(o => o.key.endsWith('.md'));
     
-    // Try different possible prefixes based on detected structure
-    let prefix = 'blog/posts/';
-    let imagePrefix = 'blog/images/';
-    
-    // If 'blog/' isn't found, try with just 'posts/' directly (no prefix)
-    if (!topLevelPaths.includes('blog/')) {
-      if (topLevelPaths.includes('posts/')) {
-        prefix = 'posts/';
-        imagePrefix = 'images/';
-      } else {
-        // Last resort - try with no prefixes at all, directly at root level
-        prefix = '';
-        imagePrefix = '';
-      }
-      console.log(`Changed path structure: posts=${prefix}, images=${imagePrefix}`);
-    }
-    
-    // Try ALL the possible places where blog posts might be
-    const possiblePrefixes = [
-      'blog/posts/', 
-      'posts/', 
-      'blog/', 
-      ''  // Root level
-    ];
-    
-    let listed = { objects: [] };
-    let usedPrefix = null;
-    
-    // Try each prefix until we find objects
-    for (const testPrefix of possiblePrefixes) {
-      console.log(`Looking for blog posts with prefix: "${testPrefix}"`);
-      const testListed = await r2Bucket.list({
-        prefix: testPrefix,
-      });
-      
-      if (testListed.objects && testListed.objects.length > 0) {
-        console.log(`Found ${testListed.objects.length} objects with prefix "${testPrefix}"`);
-        console.log('First few keys:', testListed.objects.slice(0, 5).map(o => o.key));
-        
-        // Filter to just markdown files to identify blog posts
-        const markdownFiles = testListed.objects.filter(o => o.key.endsWith('.md'));
-        if (markdownFiles.length > 0) {
-          console.log(`Found ${markdownFiles.length} markdown files with prefix "${testPrefix}"`);
-          listed = { 
-            objects: markdownFiles 
-          };
-          usedPrefix = testPrefix;
-          break;
-        } else {
-          console.log(`No markdown files found with prefix "${testPrefix}"`);
-        }
-      } else {
-        console.log(`No objects found with prefix "${testPrefix}"`);
-      }
-    }
-    
-    if (!listed.objects || listed.objects.length === 0) {
-      console.log('No blog posts (markdown files) found in any location');
+    if (markdownFiles.length === 0) {
+      console.log('No markdown files found in blog/posts/');
       return new Response(JSON.stringify({
         error: 'No blog posts found',
-        checkedPrefixes: possiblePrefixes,
-        availableTopLevel: topLevelPaths,
-        allObjectsCount: allObjects.objects.length,
-        sampleObjects: allObjects.objects.slice(0, 10).map(o => o.key)
+        availableFiles: blogPostsList.objects.map(o => o.key),
       }), {
         status: 404,
         headers: {
@@ -572,73 +364,24 @@ async function handleBlogPostsRequest(request, env) {
       });
     }
     
-    console.log(`Found ${listed.objects.length} blog posts with prefix: ${usedPrefix}`);
-
-    // Determine image prefix based on what we found
-    if (usedPrefix === 'blog/posts/') {
-      imagePrefix = 'blog/images/';
-    } else if (usedPrefix === 'posts/') {
-      imagePrefix = 'images/';
-    } else if (usedPrefix === '') {
-      imagePrefix = '';
-    }
+    console.log(`Found ${markdownFiles.length} markdown files to process`);
     
-    // Also check where images actually are
-    const possibleImagePrefixes = [
-      'blog/images/',
-      'images/',
-      '',
-    ];
-    
-    let foundImagePrefix = null;
-    
-    // Find where images are stored
-    for (const imgPrefix of possibleImagePrefixes) {
-      const imgTest = await r2Bucket.list({
-        prefix: imgPrefix,
-        delimiter: '/',
-      });
-      
-      const imgFiles = imgTest.objects.filter(o => 
-        o.key.endsWith('.jpg') || 
-        o.key.endsWith('.png') || 
-        o.key.endsWith('.jpeg'));
-        
-      if (imgFiles.length > 0) {
-        console.log(`Found ${imgFiles.length} images with prefix "${imgPrefix}"`);
-        foundImagePrefix = imgPrefix;
-        break;
-      }
-    }
-    
-    if (foundImagePrefix) {
-      console.log(`Using image prefix: ${foundImagePrefix}`);
-      imagePrefix = foundImagePrefix;
-    }
-
+    // Process each markdown file to extract blog post data
     const blogPosts = await Promise.all(
-      listed.objects.map(async (object) => {
+      markdownFiles.map(async (object) => {
         try {
-          if (!object.key || !object.key.endsWith('.md')) {
-            console.log('Skipping non-markdown file:', object.key);
-            return null;
-          }
-
-          console.log(`Processing blog post: ${object.key}`);
-          // Get the markdown content
-          const obj = await r2Bucket.get(object.key);
-          if (!obj) {
-            console.log('Could not read file:', object.key);
-            return null;
-          }
-
-          const content = await obj.text();
+          console.log(`Processing ${object.key}`);
           
-          // Parse the markdown file
-          const matter = parseFrontMatter(content);
+          // Get the file content using direct access, since we know this works
+          const content = await fetchMarkdownContent(r2Bucket, object.key);
+          if (!content) {
+            console.log(`Could not read content for ${object.key}`);
+            return null;
+          }
+          
+          // Extract slug from the filename
           const filename = object.key.split('/').pop();
           const slug = filename.replace(/\.md$/, '');
-          
           console.log(`Extracted slug: ${slug}`);
           
           // Extract title from first h1 or use slug
@@ -667,49 +410,45 @@ async function handleBlogPostsRequest(request, env) {
             }
           }
           
-          // Try multiple image patterns - using the exact pattern that works for direct image access
-          // This is key - ensure we use the same pattern that works for direct image access
+          // Extract frontmatter data
+          const matter = parseFrontMatter(content);
           
-          // First possibility - direct match with imagePrefix
-          const imageKey = `${imagePrefix}${slug}.jpg`;
-          console.log(`Checking for image at: ${imageKey}`);
+          // Check for a matching image using the pattern that works for images
+          // First try with blog/images prefix (most likely)
+          const imageKey = `blog/images/${slug}.jpg`;
           let imageExists = await r2Bucket.head(imageKey);
+          let imagePath = null;
           
-          let finalImagePath = null;
           if (imageExists) {
-            // Use exact same format as working portfolio images
-            finalImagePath = `/directr2/${imageKey}`;
-            console.log(`Found image at: ${imageKey}, path: ${finalImagePath}`);
+            // Use the working /directr2/ format that we know works for images
+            imagePath = `/directr2/${imageKey}`;
+            console.log(`Found matching image at ${imageKey}`);
           } else {
-            // Try with blog/ prefix if not already using it
-            const altImageKey = !imagePrefix.startsWith('blog/') ? `blog/images/${slug}.jpg` : `images/${slug}.jpg`;
-            console.log(`Trying alternate image path: ${altImageKey}`);
-            imageExists = await r2Bucket.head(altImageKey);
+            // Try alternate locations
+            const alternateKeys = [
+              `images/${slug}.jpg`,
+              `${slug}.jpg` // root level
+            ];
             
-            if (imageExists) {
-              finalImagePath = `/directr2/${altImageKey}`;
-              console.log(`Found image at alternate path: ${altImageKey}, path: ${finalImagePath}`);
-            } else {
-              console.log(`No matching image found for: ${slug}`);
-              // Try third option - root level
-              const rootImageKey = `${slug}.jpg`;
-              imageExists = await r2Bucket.head(rootImageKey);
+            for (const altKey of alternateKeys) {
+              imageExists = await r2Bucket.head(altKey);
               if (imageExists) {
-                finalImagePath = `/directr2/${rootImageKey}`;
-                console.log(`Found image at root level: ${rootImageKey}, path: ${finalImagePath}`);
+                imagePath = `/directr2/${altKey}`;
+                console.log(`Found image at alternate location: ${altKey}`);
+                break;
               }
             }
           }
           
           return {
             id: slug,
-            title: title,
-            summary: summary.trim(),
+            title: title || slug,
+            summary: summary.trim() || 'No summary available',
             content: content,
             author: matter.author || 'AOK',
             published: matter.published || new Date().toISOString().split('T')[0],
             label: matter.label || 'Photography',
-            image: finalImagePath
+            image: imagePath
           };
         } catch (error) {
           console.error(`Error processing blog post ${object.key}:`, error);
@@ -723,7 +462,7 @@ async function handleBlogPostsRequest(request, env) {
       .filter(post => post !== null)
       .sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
     
-    console.log(`Returning ${validPosts.length} valid posts`);
+    console.log(`Successfully processed ${validPosts.length} valid blog posts`);
     
     return new Response(JSON.stringify(validPosts), {
       headers: {
@@ -750,6 +489,35 @@ async function handleBlogPostsRequest(request, env) {
         'Access-Control-Allow-Headers': 'Content-Type',
       }
     });
+  }
+}
+
+// Helper function to fetch markdown content using multiple methods
+async function fetchMarkdownContent(bucket, key) {
+  try {
+    // First try direct bucket access
+    const obj = await bucket.get(key);
+    if (obj) {
+      return await obj.text();
+    }
+    
+    // If that fails, try raw fetch (this might not work in the worker context)
+    try {
+      const directPath = `/directr2/${key}`;
+      console.log(`Trying direct fetch from ${directPath}`);
+      const response = await fetch(directPath);
+      if (response.ok) {
+        return await response.text();
+      }
+    } catch (fetchError) {
+      console.log('Direct fetch failed:', fetchError);
+    }
+    
+    console.error(`Failed to fetch content for ${key} using multiple methods`);
+    return null;
+  } catch (error) {
+    console.error(`Error fetching markdown content for ${key}:`, error);
+    return null;
   }
 }
 

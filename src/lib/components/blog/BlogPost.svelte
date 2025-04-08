@@ -16,12 +16,15 @@
   // Convert post.image path to a fallback path if needed
   $: imagePath = post.image || '';
   $: imageFallbackPath = imagePath?.replace('/directr2/blog/images/', '/src/content/blog/images/');
+
+  // Log post ID for debugging 
+  console.log('Creating blog post link for post ID:', post.id);
 </script>
 
 {#if isPreview}
   <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:-translate-y-1 transition-transform duration-200 border border-gray-100">
     {#if post.image}
-      <a href="/blog/{post.id}" class="block">
+      <a href="/blog/{encodeURIComponent(post.id)}" class="block">
         {#if !imageError}
           <img
             src={imagePath}
@@ -59,7 +62,7 @@
       </div>
       <h2 class="text-xl font-semibold mb-3">
         <a
-          href="/blog/{post.id}"
+          href="/blog/{encodeURIComponent(post.id)}"
           class="text-gray-900 hover:text-gray-700 transition-colors"
         >
           {post.title}

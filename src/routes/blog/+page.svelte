@@ -123,16 +123,20 @@
                 const tags = frontmatter.tags || frontmatter.label || 'Photography';
                 console.log('Extracted tags:', tags);
                 
+                // Extract the clean filename (without extension) for the slug
+                // This should match exactly how it's used in the URL from the BlogPost component
+                const cleanSlug = slug.replace(/\.md$/i, '');
+                
                 // Simplified post object
                 directlyLoadedPosts.push({
-                  id: slug,
+                  id: cleanSlug,
                   title,
                   summary,
                   content: markdownContent,
                   author: frontmatter.author || 'AOK',
                   published: frontmatter.published || new Date().toISOString().split('T')[0],
                   label: tags,
-                  image: `/directr2/blog/images/${slug}.jpg`
+                  image: `/directr2/blog/images/${cleanSlug}.jpg`
                 });
               }
             } catch (e) {

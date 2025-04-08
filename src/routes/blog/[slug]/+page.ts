@@ -47,20 +47,24 @@ export const load: PageLoad = async ({ params, fetch }) => {
     const decodedSlug = decodeURIComponent(slug);
     
     try {
+        console.log('=============================================');
         console.log('Attempting to load blog post with slug:', decodedSlug);
         
         // First check if the post is already in the store
         const storedPosts = get(posts);
         console.log('Posts in store:', storedPosts.length);
         
-        const storedPost = storedPosts.find(p => 
-            p.id.toLowerCase() === decodedSlug.toLowerCase() || 
-            p.id.toLowerCase() === slug.toLowerCase()
-        );
-        
-        if (storedPost) {
-            console.log('Found post in store:', storedPost.title);
-            return { post: storedPost };
+        if (storedPosts.length > 0) {
+            console.log('Store post IDs:', storedPosts.map(p => p.id));
+            
+            // Try case-sensitive first, then try case-insensitive for file extensions
+            const storedPost = storedPosts.find(p => p.id === decodedSlug) ||
+                              storedPosts.find(p => p.id.toLowerCase() === decodedSlug.toLowerCase());
+            
+            if (storedPost) {
+                console.log('Found post in store:', storedPost.title);
+                return { post: storedPost };
+            }
         }
         
         // Try to fetch blog status first
@@ -77,7 +81,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
         }
         
         const statusData = await statusRes.json();
-        console.log('Blog R2 status:', statusData);
+        console.log('Blog R2 status available:', !!statusData);
+        console.log('R2 blog posts count:', statusData?.blogPosts?.items?.length || 0);
         
         // In development mode, use the local filesystem path
         if (dev) {
@@ -123,7 +128,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
         
         // In production mode, find the post in the blog status
         console.log('Searching for post in R2 listing with slug:', decodedSlug);
-        let postItem = null;
+        
+        if (!statusData?.blogPosts?.items) {
+            console.error('No blog posts available in R2 status response');
+            throw error(404, 'Blog post not found');
+        }
         
         // Log all available slugs for debugging
         interface SlugInfo {
@@ -132,7 +141,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
             normalizedSlug: string;
         }
 
-        const availableSlugs: SlugInfo[] = statusData.blogPosts?.items?.map((item: any) => {
+        // Get all available blog post items with metadata
+        const availableSlugs: SlugInfo[] = statusData.blogPosts.items.map((item: any) => {
             const filename = item.key.split('/').pop() || '';
             const itemSlug = filename.replace(/\.md$/i, '');
             return {
@@ -142,21 +152,39 @@ export const load: PageLoad = async ({ params, fetch }) => {
             };
         });
 
+        console.log('Available slug keys:', availableSlugs.map((i: SlugInfo) => i.key));
         console.log('Available slugs:', availableSlugs.map((i: SlugInfo) => i.slug));
+        
         const normalizeSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
         const normalizedDecodedSlug = normalizeSlug(decodedSlug);
         console.log('Normalized searched slug:', normalizedDecodedSlug);
         
-        // First try exact match
-        postItem = statusData.blogPosts?.items?.find((item: any) => {
+        // Try different matching strategies
+        
+        // 1. First try exact case match
+        let postItem = statusData.blogPosts.items.find((item: any) => {
             const filename = item.key.split('/').pop() || '';
             const itemSlug = filename.replace(/\.md$/i, '');
-            return itemSlug.toLowerCase() === decodedSlug.toLowerCase();
+            const exactMatch = itemSlug === decodedSlug;
+            if (exactMatch) console.log('Found exact case match for:', itemSlug);
+            return exactMatch;
         });
         
-        // If no exact match, try normalized comparison (remove special chars, spaces, etc)
+        // 2. If no exact match, try case-insensitive match
         if (!postItem) {
-            console.log('No exact match found, trying normalized comparison');
+            console.log('No exact case match found, trying case-insensitive comparison');
+            postItem = statusData.blogPosts.items.find((item: any) => {
+                const filename = item.key.split('/').pop() || '';
+                const itemSlug = filename.replace(/\.md$/i, '');
+                const caseInsensitiveMatch = itemSlug.toLowerCase() === decodedSlug.toLowerCase();
+                if (caseInsensitiveMatch) console.log('Found case-insensitive match for:', itemSlug);
+                return caseInsensitiveMatch;
+            });
+        }
+        
+        // 3. If still no match, try normalized comparison (remove special chars, spaces, etc)
+        if (!postItem) {
+            console.log('No case-insensitive match found, trying normalized comparison');
             
             // Find the normalized match
             const matchedSlugInfo = availableSlugs.find((item: SlugInfo) => 
@@ -165,13 +193,30 @@ export const load: PageLoad = async ({ params, fetch }) => {
             
             if (matchedSlugInfo) {
                 console.log('Found post with normalized slug comparison:', matchedSlugInfo.slug);
-                postItem = statusData.blogPosts?.items?.find((item: any) => 
+                postItem = statusData.blogPosts.items.find((item: any) => 
                     item.key === matchedSlugInfo.key
                 );
             }
         }
         
-        // If still no match, try a more permissive fuzzy match
+        // 4. Special case: check if we need to handle capitalization differently
+        // Some files might be named "NightPhoto.md" but requested as "nightphoto"
+        if (!postItem) {
+            console.log('Trying special case for capitalization variations');
+            
+            // Try all capitalization variations directly from available slugs
+            for (const slugInfo of availableSlugs) {
+                if (slugInfo.slug.toLowerCase() === decodedSlug.toLowerCase()) {
+                    console.log('Found capitalization variation match:', slugInfo.slug);
+                    postItem = statusData.blogPosts.items.find((item: any) => 
+                        item.key === slugInfo.key
+                    );
+                    break;
+                }
+            }
+        }
+        
+        // 5. If still no match, try a more permissive fuzzy match as last resort
         if (!postItem && availableSlugs.length > 0) {
             console.log('No exact or normalized match found, trying fuzzy match');
             
@@ -190,7 +235,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
                     [...normalizedDecodedSlug].filter(c => bestMatch.normalizedSlug.includes(c)).length / normalizedDecodedSlug.length > 0.5) {
                     
                     console.log('Using fuzzy match:', bestMatch.slug);
-                    postItem = statusData.blogPosts?.items?.find((item: any) => 
+                    postItem = statusData.blogPosts.items.find((item: any) => 
                         item.key === bestMatch.key
                     );
                 }
@@ -211,7 +256,10 @@ export const load: PageLoad = async ({ params, fetch }) => {
         }
         
         const text = await response.text();
-        console.log('Successfully loaded markdown from R2');
+        console.log('Successfully loaded markdown from R2, length:', text.length);
+        if (text.length > 0) {
+            console.log('First 100 chars:', text.substring(0, 100));
+        }
         
         // Parse frontmatter and content
         const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
@@ -231,7 +279,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
         const imageExists = imageResponse.ok;
         
         const post = {
-            id: decodedSlug, // Use the URL slug for consistency
+            id: itemSlug, // Use the EXACT slug from R2 for consistency with the store
             title,
             content: markdownContent,
             summary: '', // Summary not needed for full post view
@@ -242,6 +290,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
         };
         
         console.log('Successfully created blog post from R2:', post.title);
+        console.log('Post ID for storage/linking:', post.id);
+        console.log('=============================================');
         return { post };
     } catch (e) {
         console.error('Error loading blog post:', e);

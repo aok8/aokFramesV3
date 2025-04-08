@@ -123,20 +123,23 @@
                 const tags = frontmatter.tags || frontmatter.label || 'Photography';
                 console.log('Extracted tags:', tags);
                 
-                // Extract the clean filename (without extension) for the slug
-                // This should match exactly how it's used in the URL from the BlogPost component
-                const cleanSlug = slug.replace(/\.md$/i, '');
+                // IMPORTANT: Preserve the exact slug from the filename in R2
+                // Do not modify case or apply any transformations
+                // This must match exactly how files are stored in R2
+                const filename = key.split('/').pop() || '';
+                const exactSlug = filename.replace(/\.md$/i, '');
+                console.log('Using exact slug from R2:', exactSlug);
                 
                 // Simplified post object
                 directlyLoadedPosts.push({
-                  id: cleanSlug,
+                  id: exactSlug, // Preserve the original case from R2
                   title,
                   summary,
                   content: markdownContent,
                   author: frontmatter.author || 'AOK',
                   published: frontmatter.published || new Date().toISOString().split('T')[0],
                   label: tags,
-                  image: `/directr2/blog/images/${cleanSlug}.jpg`
+                  image: `/directr2/blog/images/${exactSlug}.jpg`
                 });
               }
             } catch (e) {

@@ -1,30 +1,55 @@
 import type { LayoutServerLoad } from './$types.js';
-import { loadBlogPosts } from '$lib/server/blog.js';
+import { loadBlogPosts, loadBlogPost } from '$lib/server/blog.js';
 
-export const load: LayoutServerLoad = async ({ platform, url }) => {
-    // Log the current URL for debugging
-    console.log(`Blog layout server load executing for URL: ${url.pathname}`);
+export const load: LayoutServerLoad = async ({ platform, url, fetch }) => {
+    console.log('Blog +layout.server.ts loading, URL:', url.pathname);
+    
+    const r2Available = !!platform?.env?.ASSETSBUCKET;
+    console.log('R2 available in layout:', r2Available);
     
     try {
-        // Load all blog posts for any route under /blog/*
-        // This makes the posts available for both the blog list page
-        // and individual blog post pages
-        console.log('Blog layout attempting to load posts...');
-        
+        // First attempt: load posts using server-side functionality
         const posts = await loadBlogPosts(platform);
-        console.log(`Blog layout server loaded ${posts.length} blog posts`);
+        console.log(`Loaded ${posts.length} posts in layout server`);
         
-        // Return the blog posts for use in all blog routes
-        return {
-            posts,
-            postsLoadedAt: new Date().toISOString() // Add a timestamp for debugging
-        };
-    } catch (error) {
-        console.error('Error in blog layout server load:', error);
-        // Return empty posts array to prevent errors in child routes
+        if (posts && posts.length > 0) {
+            return {
+                posts,
+                r2Available
+            };
+        }
+
+        // Second attempt: try fetching posts via API
+        console.log('Falling back to API fetch in layout server');
+        const response = await fetch('/api/blog-posts');
+        
+        if (response.ok) {
+            const apiPosts = await response.json();
+            console.log(`API returned ${apiPosts.length} posts in layout server`);
+            
+            if (apiPosts && apiPosts.length > 0) {
+                return {
+                    posts: apiPosts,
+                    r2Available
+                };
+            }
+        } else {
+            console.error(`API fetch failed with status ${response.status} in layout server`);
+        }
+
+        // Both attempts failed
+        console.error('Failed to load posts in both ways');
         return {
             posts: [],
+            r2Available,
             error: 'Failed to load blog posts'
+        };
+    } catch (error: unknown) {
+        console.error('Error in blog layout load:', error);
+        return {
+            posts: [],
+            r2Available,
+            error: error instanceof Error ? error.message : 'Unknown error loading blog posts'
         };
     }
 }; 

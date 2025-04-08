@@ -43,7 +43,10 @@ function parseFrontmatter(content: string) {
 }
 
 export const load: PageLoad = async ({ data, params, fetch }) => {
-    console.log('Page load running for blog post, data present:', !!data);
+    const { slug } = params;
+    const decodedSlug = decodeURIComponent(slug);
+    
+    console.log(`Page load running for blog post with slug: "${decodedSlug}", data present:`, !!data);
     
     // If we have post data from the server, use it
     if (data && data.post) {
@@ -55,14 +58,16 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
     
     // Check the store for the post
     const storedPosts = get(posts);
+    console.log(`Store has ${storedPosts.length} posts`);
+    
     if (storedPosts && storedPosts.length > 0) {
-        const { slug } = params;
-        const decodedSlug = decodeURIComponent(slug);
+        // Log all post IDs for debugging
+        console.log('All post IDs in store:', storedPosts.map(p => p.id));
         
         // Try to find the post in the store
-        // First try case-sensitive match
+        // First try exact match
         const storedPost = storedPosts.find(p => p.id === decodedSlug) ||
-                          storedPosts.find(p => p.id.toLowerCase() === decodedSlug.toLowerCase());
+                           storedPosts.find(p => p.id.toLowerCase() === decodedSlug.toLowerCase());
         
         if (storedPost) {
             console.log('Post found in store:', storedPost.title);
@@ -74,9 +79,6 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
     
     // As a last resort, try to fetch the blog status and find the post
     try {
-        const { slug } = params;
-        const decodedSlug = decodeURIComponent(slug);
-        
         // Fetch the blog status to get the list of available posts
         const statusRes = await fetch('/api/blog-status', {
             headers: {
@@ -86,19 +88,28 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         });
         
         if (!statusRes.ok) {
-            console.error('Failed to fetch blog status');
+            console.error(`Failed to fetch blog status: ${statusRes.status}`);
             throw error(404, 'Blog post not found');
         }
         
         const statusData = await statusRes.json();
-        console.log('Blog status fetched for direct post load');
+        console.log('Blog status API returned successful response');
+        
+        if (statusData.blogPosts?.items) {
+            console.log(`Blog status contains ${statusData.blogPosts.items.length} posts`);
+            // Log some post keys for debugging
+            const samplePostKeys = statusData.blogPosts.items.slice(0, 3).map((item: { key: string }) => item.key);
+            console.log('Sample post keys:', samplePostKeys);
+        }
         
         // In development mode, use local filesystem
         if (dev) {
             // Development mode logic
             const postPath = `/src/content/blog/posts/${decodedSlug}.md`;
+            console.log(`Fetching from dev path: ${postPath}`);
             const response = await fetch(postPath);
             if (!response.ok) {
+                console.error(`Failed to fetch post in dev mode: ${response.status}`);
                 throw error(404, 'Blog post not found');
             }
             
@@ -136,10 +147,21 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         }
         
         // Find the post that matches our slug (case insensitive)
+        console.log(`Looking for post matching slug: "${decodedSlug}" in R2 listing`);
+        
+        // Log all filenames for debugging
+        const allFilenames = statusData.blogPosts.items.map((item: { key: string }) => {
+            const filename = item.key.split('/').pop() || '';
+            return filename.replace(/\.md$/i, '');
+        });
+        console.log('All post slugs in R2:', allFilenames);
+        
         let matchedPost = null;
         for (const post of statusData.blogPosts.items) {
             const filename = post.key.split('/').pop() || '';
             const filenameWithoutExt = filename.replace(/\.md$/i, '');
+            
+            console.log(`Comparing: "${filenameWithoutExt.toLowerCase()}" to "${decodedSlug.toLowerCase()}"`);
             
             if (filenameWithoutExt.toLowerCase() === decodedSlug.toLowerCase()) {
                 console.log('Found direct match for post:', post.key);
@@ -149,14 +171,15 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         }
         
         if (!matchedPost) {
-            console.error('No matching post found in R2 listing');
+            console.error(`No matching post found in R2 listing for slug "${decodedSlug}"`);
             throw error(404, 'Blog post not found');
         }
         
         // Fetch the post content directly from R2
+        console.log(`Fetching post content from R2: ${matchedPost.key}`);
         const postResponse = await fetch(`/directr2/${matchedPost.key}`);
         if (!postResponse.ok) {
-            console.error('Failed to fetch post content from R2');
+            console.error(`Failed to fetch post content from R2: ${postResponse.status}`);
             throw error(404, 'Blog post not found');
         }
         
@@ -178,6 +201,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         try {
             const imageResponse = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
             imageExists = imageResponse.ok;
+            console.log(`Image exists for post: ${imageExists}`);
         } catch (e) {
             console.error('Error checking for image:', e);
             imageExists = false;
@@ -195,17 +219,19 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             image: imageExists ? `/directr2/${imageKey}` : undefined
         };
         
-        console.log('Successfully created blog post from direct R2 fetch:', post.title);
+        console.log(`Successfully created blog post from direct R2 fetch: "${post.title}" with ID "${post.id}"`);
         
         // Update the store with this post
         const currentPosts = get(posts);
         if (currentPosts.length > 0) {
             // Only add if not already in the store
             if (!currentPosts.some(p => p.id === post.id)) {
+                console.log(`Adding post "${post.id}" to existing store with ${currentPosts.length} posts`);
                 posts.set([...currentPosts, post]);
             }
         } else {
             // Initialize the store with just this post
+            console.log(`Initializing store with post "${post.id}"`);
             posts.set([post]);
         }
         

@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { BlogPost } from '$lib/types/blog.js';
   import { marked } from 'marked';
-  import { dev } from '$app/environment';
 
   export let post: BlogPost;
   export let isPreview = false;
@@ -16,9 +15,7 @@
 
   // Convert post.image path to a fallback path if needed
   $: imagePath = post.image || '';
-  $: imageFallbackPath = dev
-    ? imagePath  // In dev, we're already using local paths
-    : imagePath?.replace('/directr2/blog/images/', '/src/content/blog/images/');
+  $: imageFallbackPath = imagePath?.replace('/directr2/blog/images/', '/src/content/blog/images/');
 </script>
 
 {#if isPreview}

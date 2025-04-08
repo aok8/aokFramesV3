@@ -1,4 +1,7 @@
 import { json } from '@sveltejs/kit';
+import { dev } from '$app/environment';
+import { readdir } from 'fs/promises';
+import { join } from 'path';
 
 interface R2Object {
   key: string;
@@ -12,16 +15,33 @@ interface R2ListResponse {
 
 export async function GET({ platform }) {
   try {
+    // In development mode, read from local directory
+    if (dev) {
+      const localPortfolioPath = 'src/images/Portfolio';
+      const files = await readdir(localPortfolioPath);
+      
+      const images = files
+        .filter(file => {
+          const ext = file.split('.').pop()?.toLowerCase();
+          return ['jpg', 'jpeg', 'png'].includes(ext || '');
+        })
+        .map(file => ({
+          url: `/images/portfolio/${file}`,
+          fallback: `/src/images/Portfolio/${file}`
+        }));
+
+      return json(images);
+    }
+
+    // Production mode - use R2 bucket
     if (!platform?.env?.ASSETSBUCKET) {
       throw new Error('ASSETSBUCKET binding not found');
     }
 
-    // Get list of objects from R2 bucket
     const objects = await platform.env.ASSETSBUCKET.list({
       prefix: 'portfolio/'
     });
 
-    // Filter for image files and map to required format
     const images = objects.objects
       .filter((obj: R2Object) => {
         const ext = obj.key.split('.').pop()?.toLowerCase();
@@ -34,7 +54,7 @@ export async function GET({ platform }) {
 
     return json(images);
   } catch (error) {
-    console.error('Error listing R2 objects:', error);
+    console.error('Error listing images:', error);
     return new Response('Error fetching portfolio images', { status: 500 });
   }
 } 

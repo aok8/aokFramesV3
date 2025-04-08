@@ -2,7 +2,7 @@
   import { fade, scale } from 'svelte/transition';
   import { theme } from '../../../theme/theme.js';
   import { onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment';
+  import { BROWSER } from 'esm-env';
 
   export let open = false;
   export let onClose: () => void;
@@ -16,26 +16,26 @@
   }
 
   function handleClose() {
-    if (browser) {
+    if (BROWSER) {
       document.body.style.overflow = '';
     }
     onClose();
   }
 
   onMount(() => {
-    if (browser) {
+    if (BROWSER) {
       document.addEventListener('keydown', handleKeydown);
     }
   });
 
   onDestroy(() => {
-    if (browser) {
+    if (BROWSER) {
       document.removeEventListener('keydown', handleKeydown);
       document.body.style.overflow = '';
     }
   });
 
-  $: if (open && browser) {
+  $: if (open && BROWSER) {
     document.body.style.overflow = 'hidden';
     // Focus the close button when modal opens
     setTimeout(() => closeButton?.focus(), 0);

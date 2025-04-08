@@ -71,7 +71,7 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
     }
 
     // Check for header.jpg
-    const imageKey = `blog/posts/${slug}/header.jpg`;
+    const imageKey = `/src/content/blog/posts/${slug}/header.jpg`;
     let imagePath: string | undefined = undefined;
     let imageExists = false;
     if (dev) {
@@ -139,7 +139,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             const title = titleMatch ? titleMatch[1] : decodedSlug;
             
             // Check if image exists
-            const imageKey = `/src/content/blog/images/${decodedSlug}.jpg`;
+            const imageKey = `/src/content/blog/posts/${decodedSlug}/header.jpg`;
             let imageExists = false;
             try {
                 const imageResponse = await fetch(imageKey, { method: 'HEAD' });
@@ -262,7 +262,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                         const summary = summaryLines.join(' ') || 'No summary available';
                         
                         // Check if image exists
-                        const imageKey = `blog/images/${exactSlug}.jpg`;
+                        const imageKey = `blog/${exactSlug}/header.jpg`;
                         let imageExists = false;
                         
                         try {

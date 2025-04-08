@@ -44,7 +44,7 @@
 
   // Convert post.image path to a fallback path if needed
   $: imagePath = post.image || '';
-  $: imageFallbackPath = imagePath?.replace('/directr2/blog/images/', '/src/content/blog/images/');
+  $: imageFallbackPath = imagePath?.replace('/directr2/blog/', '/src/content/blog/posts/');
 
   // Log post ID for debugging 
   console.log('Creating blog post link for post ID:', post.id);

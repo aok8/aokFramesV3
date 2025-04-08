@@ -1,5 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.js';
+import { get } from 'svelte/store';
+import { posts } from '$lib/stores/blog.js';
 
 // Simple frontmatter parser for browser
 function parseFrontmatter(content: string) {
@@ -45,6 +47,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
     try {
         console.log('Attempting to load blog post:', slug);
         
+        // Check if the post is already in the store
+        const storedPosts = get(posts);
+        const storedPost = storedPosts.find(p => p.id === slug);
+        if (storedPost) {
+            console.log('Found post in store:', storedPost.title);
+            return { post: storedPost };
+        }
+        
         // First try the API endpoint
         try {
             const response = await fetch(`/api/blog-posts/${slug}`);
@@ -64,6 +74,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
         
         // If API fails, try direct R2 fetch
         const key = `blog/posts/${slug}.md`;
+        console.log('Attempting to fetch from R2:', key);
         const response = await fetch(`/directr2/${key}`);
         if (!response.ok) {
             console.error('Failed to load post directly from R2:', response.status);

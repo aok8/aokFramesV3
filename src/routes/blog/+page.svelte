@@ -60,96 +60,102 @@
     isLoading = true;
     
     try {
-      // Try to fetch blog status
-      const statusRes = await fetch('/api/blog-status', {
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
-        }
-      });
-      
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        console.log('Blog R2 status:', statusData);
+      // If server-side posts are empty but we're not in development mode,
+      // try to fetch posts from the client-side
+      if (data.posts.length === 0) {
+        console.log('No posts from server, attempting client-side fetch');
         
-        // If server-side data failed but we have blog posts in the bucket
-        if (data.posts.length === 0 && statusData.blogPosts?.items?.length > 0) {
-          console.log('Server-side fetch failed, attempting client-side direct fetch');
-          for (const item of statusData.blogPosts.items) {
-            try {
-              const key = item.key;
-              const filename = key.split('/').pop() || '';
-              const slug = filename.replace(/\.md$/i, '');
-              
-              // Direct fetch from R2
-              const response = await fetch(`/directr2/${key}`);
-              if (response.ok) {
-                const text = await response.text();
-                console.log(`Successfully loaded ${slug} directly`);
+        // Try to fetch blog status
+        const statusRes = await fetch('/api/blog-status', {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          console.log('Blog R2 status:', statusData);
+          
+          // If we have blog posts in the bucket, load them directly
+          if (statusData.blogPosts?.items?.length > 0) {
+            console.log('Server-side fetch failed, attempting client-side direct fetch');
+            for (const item of statusData.blogPosts.items) {
+              try {
+                const key = item.key;
+                const filename = key.split('/').pop() || '';
+                const slug = filename.replace(/\.md$/i, '');
                 
-                // Parse frontmatter and content
-                const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
-                console.log('Parsed frontmatter:', frontmatter);
-                
-                // Extract title from first h1
-                const titleMatch = markdownContent.match(/^#\s+(.*)/m);
-                const title = titleMatch ? titleMatch[1] : slug;
-                
-                // Extract first paragraph after title
-                const lines = markdownContent.split('\n');
-                let summaryLines = [];
-                let foundTitle = false;
-                
-                for (const line of lines) {
-                  // Skip until we find the title
-                  if (!foundTitle) {
-                    if (line.startsWith('#')) {
-                      foundTitle = true;
+                // Direct fetch from R2
+                const response = await fetch(`/directr2/${key}`);
+                if (response.ok) {
+                  const text = await response.text();
+                  console.log(`Successfully loaded ${slug} directly`);
+                  
+                  // Parse frontmatter and content
+                  const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
+                  console.log('Parsed frontmatter:', frontmatter);
+                  
+                  // Extract title from first h1
+                  const titleMatch = markdownContent.match(/^#\s+(.*)/m);
+                  const title = titleMatch ? titleMatch[1] : slug;
+                  
+                  // Extract first paragraph after title
+                  const lines = markdownContent.split('\n');
+                  let summaryLines = [];
+                  let foundTitle = false;
+                  
+                  for (const line of lines) {
+                    // Skip until we find the title
+                    if (!foundTitle) {
+                      if (line.startsWith('#')) {
+                        foundTitle = true;
+                      }
+                      continue;
                     }
-                    continue;
+                    
+                    // Skip empty lines after title
+                    if (line.trim() === '') continue;
+                    
+                    // First non-empty line after title is our summary
+                    summaryLines.push(line.trim());
+                    break;
                   }
                   
-                  // Skip empty lines after title
-                  if (line.trim() === '') continue;
+                  const summary = summaryLines.join(' ') || 'No summary available';
                   
-                  // First non-empty line after title is our summary
-                  summaryLines.push(line.trim());
-                  break;
+                  // Get tags from frontmatter
+                  const tags = frontmatter.tags || frontmatter.label || 'Photography';
+                  console.log('Extracted tags:', tags);
+                  
+                  // IMPORTANT: Preserve the exact slug from the filename in R2
+                  // Do not modify case or apply any transformations
+                  // This must match exactly how files are stored in R2
+                  const filename = key.split('/').pop() || '';
+                  const exactSlug = filename.replace(/\.md$/i, '');
+                  console.log('Using exact slug from R2:', exactSlug);
+                  
+                  // Simplified post object
+                  directlyLoadedPosts.push({
+                    id: exactSlug, // Preserve the original case from R2
+                    title,
+                    summary,
+                    content: markdownContent,
+                    author: frontmatter.author || 'AOK',
+                    published: frontmatter.published || new Date().toISOString().split('T')[0],
+                    label: tags,
+                    image: `/directr2/blog/images/${exactSlug}.jpg`
+                  });
                 }
-                
-                const summary = summaryLines.join(' ') || 'No summary available';
-                
-                // Get tags from frontmatter
-                const tags = frontmatter.tags || frontmatter.label || 'Photography';
-                console.log('Extracted tags:', tags);
-                
-                // IMPORTANT: Preserve the exact slug from the filename in R2
-                // Do not modify case or apply any transformations
-                // This must match exactly how files are stored in R2
-                const filename = key.split('/').pop() || '';
-                const exactSlug = filename.replace(/\.md$/i, '');
-                console.log('Using exact slug from R2:', exactSlug);
-                
-                // Simplified post object
-                directlyLoadedPosts.push({
-                  id: exactSlug, // Preserve the original case from R2
-                  title,
-                  summary,
-                  content: markdownContent,
-                  author: frontmatter.author || 'AOK',
-                  published: frontmatter.published || new Date().toISOString().split('T')[0],
-                  label: tags,
-                  image: `/directr2/blog/images/${exactSlug}.jpg`
-                });
+              } catch (e) {
+                console.error('Error directly loading post:', e);
               }
-            } catch (e) {
-              console.error('Error directly loading post:', e);
             }
-          }
-          
-          if (directlyLoadedPosts.length > 0) {
-            console.log('Directly loaded posts:', directlyLoadedPosts);
-            posts.set(directlyLoadedPosts);
+            
+            if (directlyLoadedPosts.length > 0) {
+              console.log('Directly loaded posts:', directlyLoadedPosts);
+              posts.set(directlyLoadedPosts);
+            }
           }
         }
       }
@@ -162,8 +168,11 @@
   
   $: {
     console.log('Setting posts:', data.posts);
-    if (data.posts && data.posts.length > 0) {
+    if (data.posts?.length > 0) {
       posts.set(data.posts);
+    } else if (directlyLoadedPosts.length > 0) {
+      console.log('Setting directly loaded posts to store');
+      posts.set(directlyLoadedPosts);
     }
   }
 </script>

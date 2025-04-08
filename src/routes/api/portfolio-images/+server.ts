@@ -1,7 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { readdir } from 'fs/promises';
-import { join } from 'path';
 
 interface R2Object {
   key: string;
@@ -11,6 +9,14 @@ interface R2Object {
 interface R2ListResponse {
   objects: R2Object[];
   [key: string]: any;
+}
+
+// Development-only imports
+let readdir: (path: string) => Promise<string[]>;
+if (dev) {
+  // Dynamic import to prevent bundling in production
+  const module = await import('node:fs/promises');
+  readdir = module.readdir;
 }
 
 export async function GET({ platform }) {

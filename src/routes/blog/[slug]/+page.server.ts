@@ -1,28 +1,31 @@
-import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
 import { loadBlogPost } from '$lib/server/blog.js';
+import { error } from '@sveltejs/kit';
+
+interface Platform {
+  env?: {
+    ASSETSBUCKET?: {
+      list: (options: { prefix: string }) => Promise<{ objects: any[] }>;
+      get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
+      head: (key: string) => Promise<unknown | null>;
+    };
+  };
+}
 
 interface Params {
   slug: string;
 }
 
-export const load = (async ({ params }: { params: Params }) => {
-  try {
-    const post = loadBlogPost(params.slug);
-    
-    if (!params.slug || !post) {
-      throw error(404, {
-        message: 'Post not found'
-      });
-    }
+export const load: PageServerLoad = async ({ params, platform }: { params: Params; platform: unknown }) => {
+  const post = await loadBlogPost(params.slug, platform as Platform | undefined);
 
-    return {
-      post
-    };
-  } catch (e) {
-    console.error('Error loading blog post:', e);
+  if (!post) {
     throw error(404, {
-      message: 'Post not found'
+      message: 'Not found'
     });
   }
-}) satisfies PageServerLoad; 
+
+  return {
+    post
+  };
+}; 

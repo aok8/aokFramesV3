@@ -1,7 +1,10 @@
-import type { PageServerLoad } from './$types.js';
 import { loadBlogPosts } from '$lib/server/blog.js';
+import type { PageServerLoad } from './$types';
 
-export const load = (async () => {
-  const posts = loadBlogPosts();
-  return { posts };
-}) satisfies PageServerLoad; 
+export const load: PageServerLoad = async ({ platform }) => {
+  const posts = await loadBlogPosts(platform);
+
+  return {
+    posts
+  };
+}; 

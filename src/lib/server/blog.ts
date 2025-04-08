@@ -1,51 +1,173 @@
 import { marked } from 'marked';
 import type { BlogPost } from '../types/blog.js';
-import fs from 'fs';
-import path from 'path';
+import { dev } from '$app/environment';
 import matter from 'gray-matter';
 
-// Constants for file paths
-const WORKSPACE_ROOT = process.cwd();
-const POSTS_DIR = path.join(WORKSPACE_ROOT, 'src/content/blog/posts');
-const IMAGES_DIR = path.join(WORKSPACE_ROOT, 'src/content/blog/images');
+// Development-only imports
+let fs: any;
+let path: any;
+if (dev) {
+  // Dynamic imports to prevent bundling in production
+  const fsPromises = await import('node:fs/promises');
+  const pathModule = await import('node:path');
+  fs = fsPromises;  // Using fs/promises directly
+  path = pathModule.default;
+}
 
-// Load all blog posts from filesystem
-export function loadBlogPosts(): BlogPost[] {
+// Constants for file paths (development only)
+const WORKSPACE_ROOT = dev ? process.cwd() : '';
+const POSTS_DIR = dev ? path?.join(WORKSPACE_ROOT, 'src/content/blog/posts') : '';
+const IMAGES_DIR = dev ? path?.join(WORKSPACE_ROOT, 'src/content/blog/images') : '';
+
+interface Platform {
+  env?: {
+    ASSETSBUCKET?: {
+      list: (options: { prefix: string }) => Promise<{ objects: R2Object[] }>;
+      get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
+      head: (key: string) => Promise<unknown | null>;
+    };
+  };
+}
+
+interface R2Object {
+  key: string;
+}
+
+interface FileSystemError extends Error {
+  code?: string;
+}
+
+// Load all blog posts
+export async function loadBlogPosts(platform?: Platform): Promise<BlogPost[]> {
   try {
-    const files = fs.readdirSync(POSTS_DIR);
-    
-    const posts = files
-      .filter(file => file.toLowerCase().endsWith('.md'))
-      .map(file => {
-        const slug = file.replace(/\.md$/i, '');
-        return loadBlogPost(slug);
-      })
-      .filter((post): post is BlogPost => post !== null);
-    
-    return posts.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
+    if (dev) {
+      // Development mode - use filesystem with async operations
+      console.log('Loading blog posts from:', POSTS_DIR);
+      const files = await fs.readdir(POSTS_DIR);
+      console.log('Found files:', files);
+      
+      const posts = await Promise.all(
+        files
+          .filter((file: string) => file.toLowerCase().endsWith('.md'))
+          .map(async (file: string) => {
+            const slug = file.replace(/\.md$/i, '');
+            return await loadBlogPost(slug, platform);
+          })
+      );
+      
+      console.log('Loaded posts:', posts.length);
+      return posts
+        .filter((post: BlogPost | null): post is BlogPost => post !== null)
+        .sort((a: BlogPost, b: BlogPost) => new Date(b.published).getTime() - new Date(a.published).getTime());
+    } else {
+      // Production mode - use R2
+      if (!platform?.env?.ASSETSBUCKET) {
+        throw new Error('ASSETSBUCKET binding not found');
+      }
+
+      const objects = await platform.env.ASSETSBUCKET.list({
+        prefix: 'blog/posts/'
+      });
+
+      const posts = await Promise.all(
+        objects.objects
+          .filter((obj: R2Object) => obj.key.toLowerCase().endsWith('.md'))
+          .map(async (obj: R2Object) => {
+            const slug = obj.key.replace(/^blog\/posts\//, '').replace(/\.md$/i, '');
+            return await loadBlogPost(slug, platform);
+          })
+      );
+
+      return posts
+        .filter((post: BlogPost | null): post is BlogPost => post !== null)
+        .sort((a: BlogPost, b: BlogPost) => new Date(b.published).getTime() - new Date(a.published).getTime());
+    }
   } catch (error) {
     console.error('Error loading blog posts:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : '');
     return [];
   }
 }
 
 // Load a single blog post by slug
-export function loadBlogPost(slug: string): BlogPost | null {
+export async function loadBlogPost(slug: string, platform?: Platform): Promise<BlogPost | null> {
+  console.log('Loading blog post with slug:', slug);
+  console.log('Development mode:', dev);
+  console.log('Posts directory:', POSTS_DIR);
+  
   try {
-    const filePath = path.join(POSTS_DIR, `${slug}.md`);
-    let fileContent = fs.readFileSync(filePath, 'utf-8');
-    
+    let fileContent: string;
+    let imageExists = false;
+
+    if (dev) {
+      // Development mode - use filesystem with async operations
+      const filePath = path.join(POSTS_DIR, `${slug}.md`);
+      console.log('Attempting to load blog post from:', filePath);
+      
+      try {
+        const exists = await fs.access(filePath).then(() => true).catch(() => false);
+        console.log('File exists:', exists);
+        
+        if (!exists) {
+          console.error(`Blog post file not found: ${filePath}`);
+          return null;
+        }
+        
+        fileContent = await fs.readFile(filePath, 'utf-8');
+        console.log('Successfully read file content');
+      } catch (error) {
+        const fsError = error as FileSystemError;
+        console.error('Error reading file:', fsError);
+        console.error('Error code:', fsError.code);
+        if (fsError.code === 'ENOENT') {
+          console.error(`Blog post not found: ${slug}`);
+          return null;
+        }
+        throw error;
+      }
+      
+      // Check if image exists
+      const imageFileName = `${slug}.jpg`;
+      const imagePath = path.join(IMAGES_DIR, imageFileName);
+      try {
+        await fs.access(imagePath);
+        imageExists = true;
+        console.log('Image found:', imagePath);
+      } catch {
+        imageExists = false;
+        console.log('No image found at:', imagePath);
+      }
+    } else {
+      // Production mode - use R2
+      if (!platform?.env?.ASSETSBUCKET) {
+        throw new Error('ASSETSBUCKET binding not found');
+      }
+
+      const postObject = await platform.env.ASSETSBUCKET.get(`blog/posts/${slug}.md`);
+      if (!postObject) {
+        console.error(`Blog post not found: ${slug}`);
+        return null;
+      }
+      fileContent = await postObject.text();
+
+      // Check if image exists
+      const imageObject = await platform.env.ASSETSBUCKET.head(`blog/images/${slug}.jpg`);
+      imageExists = imageObject !== null;
+    }
+
     // Remove BOM if present
     if (fileContent.charCodeAt(0) === 0xFEFF) {
       fileContent = fileContent.slice(1);
     }
     
     // Parse frontmatter and content
+    console.log('Parsing frontmatter and content');
     const { data, content: markdownContent } = matter(fileContent);
     
     // Extract title from first h1
     const titleMatch = markdownContent.match(/^#\s+(.*)/m);
     const title = titleMatch ? titleMatch[1] : slug;
+    console.log('Extracted title:', title);
     
     // Extract first paragraph as summary
     const lines = markdownContent.split('\n');
@@ -53,32 +175,19 @@ export function loadBlogPost(slug: string): BlogPost | null {
     let inSummary = false;
     
     for (const line of lines) {
-      // Skip empty lines before summary
       if (!inSummary && line.trim() === '') continue;
-      
-      // Stop at subheadings
       if (line.startsWith('##')) break;
-      
-      // Skip the title
       if (line.startsWith('#')) continue;
-      
-      // We're now in the summary section
       inSummary = true;
-      
-      // Add non-empty lines to summary
       if (line.trim() !== '') {
         summaryLines.push(line.trim());
       }
     }
     
     const summary = summaryLines.join(' ');
+    console.log('Extracted summary:', summary.substring(0, 100) + '...');
     
-    // Check if image exists
-    const imageFileName = `${slug}.jpg`;
-    const imagePath = path.join(IMAGES_DIR, imageFileName);
-    const imageExists = fs.existsSync(imagePath);
-    
-    return {
+    const post = {
       id: slug,
       title,
       content: markdownContent,
@@ -86,10 +195,14 @@ export function loadBlogPost(slug: string): BlogPost | null {
       author: data.author || 'AOK',
       published: data.published || new Date().toISOString().split('T')[0],
       label: data.label || 'Photography',
-      image: imageExists ? `/src/content/blog/images/${imageFileName}` : undefined
+      image: imageExists ? (dev ? `/src/content/blog/images/${slug}.jpg` : `/directr2/blog/images/${slug}.jpg`) : undefined
     };
+    
+    console.log('Successfully created blog post object:', post.id);
+    return post;
   } catch (error) {
     console.error(`Error loading blog post ${slug}:`, error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : '');
     return null;
   }
 } 

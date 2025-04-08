@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
+import { loadBlogPosts } from '$lib/server/blog.js';
 import type { RequestHandler } from './$types.js';
 import matter from 'gray-matter';
 import type { BlogPost } from '$lib/types/blog.js';
-import { loadBlogPosts } from '$lib/server/blog.js';
 import { dev } from '$app/environment';
+import type { RequestEvent } from '@sveltejs/kit';
 
 // Note: we don't define R2Object interface to avoid conflicts with built-in types
 
@@ -15,7 +16,25 @@ interface CloudflareBindings {
   };
 }
 
-export const GET = (async ({ platform, request }) => {
+interface Platform {
+  env?: {
+    ASSETSBUCKET?: {
+      list: (options: { prefix: string }) => Promise<{ objects: any[] }>;
+      get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
+      head: (key: string) => Promise<unknown | null>;
+    };
+  };
+}
+
+interface R2Object {
+  key: string;
+  uploaded?: string | Date;
+}
+
+export const GET: RequestHandler = async (event) => {
+  const platform = event.platform as Platform | undefined;
+  const request = event.request;
+
   // Configure CORS headers to ensure the API can be accessed from the frontend
   const headers = new Headers({
     'Access-Control-Allow-Origin': '*',
@@ -30,13 +49,15 @@ export const GET = (async ({ platform, request }) => {
     return new Response(null, { headers });
   }
 
-  // In development mode, use local filesystem
-  if (dev) {
-    const posts = loadBlogPosts();
-    return json(posts, { headers });
-  }
-
   try {
+    // In development mode, use local filesystem
+    if (dev) {
+      console.log('Loading blog posts in development mode');
+      const posts = await loadBlogPosts(platform);
+      console.log('Development mode posts:', posts);
+      return json(posts, { headers });
+    }
+
     // Log platform info to debug R2 bucket access issues
     console.log('Platform available:', !!platform);
     console.log('Platform env available:', !!(platform?.env));
@@ -46,9 +67,11 @@ export const GET = (async ({ platform, request }) => {
       throw new Error('ASSETSBUCKET binding not found');
     }
 
+    const assetsBucket = platform.env.ASSETSBUCKET;
+
     // Get list of objects from R2 bucket with 'blog/posts/' prefix
     console.log('Attempting to list objects with prefix: blog/posts/');
-    const objects = await platform.env.ASSETSBUCKET.list({
+    const objects = await assetsBucket.list({
       prefix: 'blog/posts/'
     });
 
@@ -62,8 +85,8 @@ export const GET = (async ({ platform, request }) => {
     // Process each markdown file to extract blog post data
     const posts = await Promise.all(
       objects.objects
-        .filter(obj => obj.key.toLowerCase().endsWith('.md'))
-        .map(async (obj) => {
+        .filter((obj: R2Object) => obj.key.toLowerCase().endsWith('.md'))
+        .map(async (obj: R2Object) => {
           try {
             console.log('Processing post with key:', obj.key);
             
@@ -72,7 +95,7 @@ export const GET = (async ({ platform, request }) => {
             const slug = filename.replace(/\.md$/i, '');
             
             // Get the actual markdown content from R2
-            const fileObject = await platform.env.ASSETSBUCKET.get(obj.key);
+            const fileObject = await assetsBucket.get(obj.key);
             if (!fileObject) {
               throw new Error(`File not found: ${obj.key}`);
             }
@@ -115,7 +138,7 @@ export const GET = (async ({ platform, request }) => {
             // Check if a corresponding image exists in blog/images
             const imageKey = `blog/images/${slug}.jpg`;
             console.log('Checking for image with key:', imageKey);
-            const imageExists = (await platform.env.ASSETSBUCKET.head(imageKey)) !== null;
+            const imageExists = (await assetsBucket.head(imageKey)) !== null;
             console.log('Image exists:', imageExists);
             
             // Convert the uploaded date string to a proper date string if needed
@@ -151,18 +174,25 @@ export const GET = (async ({ platform, request }) => {
     
     // Return JSON response with the appropriate headers
     return new Response(JSON.stringify(validPosts), { headers });
-    
   } catch (error) {
-    console.error('Error listing R2 blog posts:', error);
-    // Return an error message that includes the error details for debugging
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : String(error)
-      }), 
-      { 
-        status: 500,
-        headers
+    console.error('Error loading blog posts:', error);
+    return new Response('Error loading blog posts', { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
       }
-    );
+    });
   }
-}) satisfies RequestHandler; 
+};
+
+export const OPTIONS: RequestHandler = async () => {
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+  });
+}; 

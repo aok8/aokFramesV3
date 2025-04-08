@@ -15,7 +15,6 @@
   let selectedPhoto: string | null = null;
   let photoModalOpen = false;
   let portfolioImages: { url: string; fallback: string }[] = [];
-  let imagesLoading = true; // Add loading state
   
   // Constants for background and profile image with fallbacks
   const bgImage = '/directr2/constants/bg.jpg'; // Direct R2 as primary now
@@ -27,13 +26,13 @@
   let bgImageError = false;
   let profileImageError = false;
   
-  // Portfolio item image errors tracking - initialize after images are loaded
-  let imageErrors: boolean[] = [];
-  let imageFallbackErrors: boolean[] = [];
+  // Portfolio item image errors tracking
+  const imageErrors = Array(portfolioImages.length).fill(false);
+  const imageFallbackErrors = Array(portfolioImages.length).fill(false);
 
   // Load status reporting
   let imagesLoaded = 0;
-  let totalImages = 2; // Start with just bg and profile, update when portfolio images load
+  let totalImages = portfolioImages.length + 2; // +2 for bg and profile
   
   // Additional function to get cloudflare-specific public URL format if needed
   function getCloudflarePublicUrl(key: string): string {
@@ -111,45 +110,26 @@
   }
 
   onMount(() => {
-    const initialize = async () => {
+    const loadImages = async () => {
       if (typeof window !== 'undefined') {
-        try {
-          // Force scroll to top
-          window.scrollTo(0, 0);
-          
-          // Reset all state
-          resetState();
-          
-          // Load portfolio images asynchronously
-          console.log('Loading portfolio images...');
-          imagesLoading = true;
-          
-          // Load portfolio images
-          portfolioImages = await getPortfolioImages();
-          console.log(`Loaded ${portfolioImages.length} portfolio images`);
-          
-          // Initialize error arrays after images are loaded
-          imageErrors = Array(portfolioImages.length).fill(false);
-          imageFallbackErrors = Array(portfolioImages.length).fill(false);
-          
-          totalImages = portfolioImages.length + 2;
-          imagesLoading = false;
-          
-          // Initialize observer after a small delay to ensure DOM is ready
-          setTimeout(() => {
-            initializeObserver();
-          }, 100);
-        } catch (error) {
-          console.error('Error loading portfolio images:', error);
-          portfolioImages = []; // Ensure it's an empty array on error
-          imageErrors = [];
-          imageFallbackErrors = [];
-          imagesLoading = false;
-        }
+        // Force scroll to top
+        window.scrollTo(0, 0);
+        
+        // Reset all state
+        resetState();
+        
+        // Load portfolio images
+        portfolioImages = await getPortfolioImages();
+        totalImages = portfolioImages.length + 2;
+        
+        // Initialize observer after a small delay to ensure DOM is ready
+        setTimeout(() => {
+          initializeObserver();
+        }, 100);
       }
     };
-    
-    initialize();
+
+    loadImages();
 
     return () => {
       if (observer) {
@@ -212,116 +192,85 @@
     style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
 >
     <div class="photo-grid">
-        {#if imagesLoading}
-          <div class="loading-container">
-            <div class="loading-spinner"></div>
-            <p>Loading portfolio images...</p>
-          </div>
-        {:else if portfolioImages.length === 0}
-          <div class="no-images-message">
-            <p>No portfolio images available. Please check back later.</p>
-          </div>
-        {:else}
-          {#each portfolioImages as image, i}
-              <div class="grid-item">
-                  <button 
-                    class="image-button"
-                    on:click={() => {
+        {#each portfolioImages as image, i}
+            <div class="grid-item">
+                <button 
+                  class="image-button"
+                  on:click={() => {
+                    // For modal view, select the URL that hasn't errored first, fallback second
+                    selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
+                    photoModalOpen = true;
+                  }}
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
                       // For modal view, select the URL that hasn't errored first, fallback second
-                      selectedPhoto = !imageErrors[i] ? image.url : 
-                                    (!imageFallbackErrors[i] ? image.fallback : null);
-                      photoModalOpen = !!selectedPhoto;
-                    }}
-                  >
-                    {#if !imageErrors[i]}
-                      <img 
-                        src={image.url} 
-                        alt="Portfolio work" 
-                        class="grid-image"
-                        on:load={onImageLoad}
-                        on:error={() => {
-                          console.log(`Image ${i} failed to load, trying fallback`);
-                          imageErrors[i] = true;
-                        }}
-                      />
-                    {:else if !imageFallbackErrors[i]}
-                      <img 
-                        src={image.fallback} 
-                        alt="Portfolio work" 
-                        class="grid-image"
-                        on:load={onImageLoad}
-                        on:error={() => {
-                          console.error(`Both image paths failed for image ${i}`);
-                          imageFallbackErrors[i] = true;
-                        }}
-                      />
-                    {:else}
-                      <div class="image-error">
-                        Image unavailable
-                      </div>
-                    {/if}
-                  </button>
-              </div>
-          {/each}
-        {/if}
+                      selectedPhoto = !imageErrors[i] ? image.url : (!imageFallbackErrors[i] ? image.fallback : null);
+                      photoModalOpen = true;
+                    }
+                  }}
+                >
+                  {#if !imageErrors[i]}
+                    <img 
+                      src={image.url} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.log(`Image failed to load, trying fallback: ${image.url}`);
+                        imageErrors[i] = true;
+                      }}
+                    />
+                  {:else if !imageFallbackErrors[i]}
+                    <img 
+                      src={image.fallback} 
+                      alt="Portfolio work" 
+                      class="grid-photo" 
+                      loading="lazy"
+                      on:error={() => {
+                        console.error(`Both image paths failed: ${image.url}`);
+                        imageFallbackErrors[i] = true;
+                      }}
+                    />
+                  {:else}
+                    <div class="error-placeholder">Image unavailable</div>
+                  {/if}
+                </button>
+            </div>
+        {/each}
     </div>
 
-    <!-- About Section -->
     <div class="about-section">
-        <h2>About Me</h2>
-        
         <div class="about-content">
-            <div class="profile-image-container">
-                {#if !profileImageError}
-                  <img 
-                    src={profileImage} 
-                    alt="Andrew's portrait" 
-                    class="profile-image"
-                    on:error={() => {
-                      console.log('Profile image failed to load, trying fallback');
-                      profileImageError = true;
-                    }}
-                  />
-                {:else}
-                  <img 
-                    src={fallbackProfileImage} 
-                    alt="Andrew's portrait" 
-                    class="profile-image"
-                    on:error={() => {
-                      console.error('Both profile image paths failed');
-                    }}
-                  />
-                {/if}
-            </div>
-            
+            {#if !profileImageError}
+              <img 
+                src={profileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.log('Profile image failed to load, trying fallback');
+                  profileImageError = true;
+                }}
+              />
+            {:else}
+              <img 
+                src={fallbackProfileImage} 
+                alt="Profile" 
+                class="profile-photo" 
+                on:error={() => {
+                  console.error('Both profile image paths failed');
+                }}
+              />
+            {/if}
             <div class="about-text">
-                <p>
-                    Andrew Kouremetis is a Seattle-based photographer and software developer. 
-                    He specializes in film photography, street, portrait, and low light/night photography work.
-                </p>
-                <p>
-                    His work focuses on capturing the essence of his surroundings through strategic 
-                    compositions while remaining immersive in the environment. He likes to photograph with 
-                    intention, creating images that pay careful attention to light, form, and moment.
-                </p>
-                <p>
-                    To purchase prints or inquire about commercial photography services, please reach out.
-                </p>
-                
-                <div class="cta-buttons">
-                    <a href="/contact" class="contact-button">
-                      <Button>Contact Me</Button>
-                    </a>
-                    <a href="/blog" class="blog-button">
-                      <Button variant="outline">Visit Blog</Button>
-                    </a>
-                </div>
+                <h2>About Me</h2>
+                <p>I'm a Seattle based photographer who shoots both film and digital. I have a passion for capturing moments and telling stories through images as well as trying to continuously improve while experiencing life to the fullest.</p>
+                <Button href="/about" variant="outline">More About Me</Button>
             </div>
         </div>
     </div>
-    
-    <Footer />
 </div>
+
+<Footer />
 
 <style>
     .content {
@@ -391,7 +340,7 @@
         transform: scale(1.05);
     }
 
-    .grid-image {
+    .grid-photo {
         width: 100%;
         height: 100%;
         object-fit: cover;
@@ -410,17 +359,10 @@
         align-items: center;
     }
 
-    .profile-image-container {
+    .profile-photo {
         width: 200px;
         height: 200px;
         border-radius: 50%;
-        overflow: hidden;
-        object-fit: cover;
-    }
-
-    .profile-image {
-        width: 100%;
-        height: 100%;
         object-fit: cover;
     }
 
@@ -469,7 +411,7 @@
           margin-bottom: 0.4rem;
         }
 
-        .profile-image {
+        .profile-photo {
             width: 10vh;
             height: 10vh;
             border-radius: 50%;
@@ -480,7 +422,7 @@
         }
     }
 
-    .image-error {
+    .error-placeholder {
         width: 100%;
         aspect-ratio: 1 / 1;
         background-color: rgba(0, 0, 0, 0.1);
@@ -489,35 +431,5 @@
         align-items: center;
         justify-content: center;
         font-size: 14px;
-    }
-
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      padding: 3rem;
-    }
-    
-    .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid rgba(0,0,0,0.1);
-      border-left-color: #333;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-bottom: 1rem;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    .no-images-message {
-      width: 100%;
-      text-align: center;
-      padding: 2rem;
-      color: #666;
     }
 </style>

@@ -109,10 +109,16 @@ export const load: PageLoad = async ({ params, fetch }) => {
             const filename = item.key.split('/').pop() || '';
             const itemSlug = filename.replace(/\.md$/i, '');
             console.log('Comparing:', itemSlug, 'with', slug);
-            return itemSlug === slug;
+            // Case-insensitive comparison and handle special characters
+            return itemSlug.toLowerCase() === decodeURIComponent(slug).toLowerCase();
         });
         
         if (!postItem) {
+            // Log all available posts for debugging
+            console.log('Available posts:', statusData.blogPosts?.items?.map((item: any) => {
+                const filename = item.key.split('/').pop() || '';
+                return filename.replace(/\.md$/i, '');
+            }));
             console.error('Blog post not found in R2 listing');
             throw error(404, 'Blog post not found');
         }

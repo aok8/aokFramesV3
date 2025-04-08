@@ -111,29 +111,41 @@
                   const titleMatch = markdownContent.match(/^#\s+(.*)/m);
                   const title = titleMatch ? titleMatch[1] : slug;
                   
-                  // Extract first paragraph after title
+                  // --- Refined Summary Extraction --- 
                   const lines = markdownContent.split('\n');
-                  let summaryLines = [];
+                  let summary = ''; // Default to empty string
                   let foundTitle = false;
-                  
-                  for (const line of lines) {
-                    // Skip until we find the title
-                    if (!foundTitle) {
-                      if (line.startsWith('#')) {
-                        foundTitle = true;
-                      }
-                      continue;
+                  let titleIndex = -1;
+
+                  // Find the index of the main title line
+                  for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim().startsWith('# ')) { // More specific check for H1
+                       foundTitle = true;
+                       titleIndex = i;
+                       break;
                     }
-                    
-                    // Skip empty lines after title
-                    if (line.trim() === '') continue;
-                    
-                    // First non-empty line after title is our summary
-                    summaryLines.push(line.trim());
-                    break;
                   }
                   
-                  const summary = summaryLines.join(' ') || 'No summary available';
+                  // If title was found, look for the first non-empty, non-heading line after it
+                  if (foundTitle) {
+                      for (let i = titleIndex + 1; i < lines.length; i++) {
+                          const line = lines[i].trim();
+                          if (line === '') continue; // Skip empty lines
+                          
+                          // Check if the line starts with any heading marker (#)
+                          if (line.startsWith('#')) {
+                              // Found another heading before finding a summary paragraph
+                              console.log(`Skipping summary for "${title}" because next content is a heading: ${line}`);
+                              break; // Stop searching for summary
+                          } else {
+                              // Found a valid summary line
+                              summary = line;
+                              console.log(`Extracted summary for "${title}": ${summary.substring(0, 50)}...`);
+                              break; // Stop after finding the first valid line
+                          }
+                      }
+                  }
+                  // --- End Refined Summary Extraction --- 
                   
                   // Get tags from frontmatter
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
@@ -150,7 +162,7 @@
                   loadedPosts.push({
                     id: exactSlug, // Preserve the original case from R2
                     title,
-                    summary,
+                    summary, // Use the refined summary
                     content: markdownContent,
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],

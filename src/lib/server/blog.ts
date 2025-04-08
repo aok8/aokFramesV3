@@ -149,6 +149,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
         return null;
       }
       fileContent = await postObject.text();
+      console.log('R2 file content first 100 chars:', fileContent.substring(0, 100));
 
       // Check if image exists
       const imageObject = await platform.env.ASSETSBUCKET.head(`blog/images/${slug}.jpg`);
@@ -163,6 +164,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     // Parse frontmatter and content
     console.log('Parsing frontmatter and content');
     const { data, content: markdownContent } = matter(fileContent);
+    console.log('Parsed frontmatter:', data);
     
     // Extract title from first h1
     const titleMatch = markdownContent.match(/^#\s+(.*)/m);
@@ -174,22 +176,39 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     let summaryLines = [];
     let inSummary = false;
     let hasContent = false;
+    let foundFirstHeading = false;
     
     for (const line of lines) {
-      if (!inSummary && line.trim() === '') continue;
-      if (line.startsWith('##') || line.startsWith('#')) {
-        if (hasContent) break; // Only break if we've found content
+      // Skip until we find the first heading
+      if (!foundFirstHeading) {
+        if (line.startsWith('#')) {
+          foundFirstHeading = true;
+        }
         continue;
       }
+
+      // Skip empty lines after title until we find content
+      if (!inSummary && line.trim() === '') continue;
+
+      // Stop if we hit another heading
+      if (line.startsWith('#')) {
+        break;
+      }
+
       inSummary = true;
-      if (line.trim() !== '') {
-        summaryLines.push(line.trim());
+      const trimmedLine = line.trim();
+      if (trimmedLine !== '') {
+        summaryLines.push(trimmedLine);
         hasContent = true;
       }
     }
     
     const summary = hasContent ? summaryLines.join(' ') : '';
     console.log('Extracted summary:', summary ? summary.substring(0, 100) + '...' : 'No summary found');
+    
+    // Get tags from frontmatter
+    const tags = data.tags || data.label || 'Photography';
+    console.log('Extracted tags:', tags);
     
     const post = {
       id: slug,
@@ -198,7 +217,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       summary,
       author: data.author || 'AOK',
       published: data.published || new Date().toISOString().split('T')[0],
-      label: data.label || data.tags || 'Photography', // Add data.tags as fallback
+      label: tags,
       image: imageExists ? (dev ? `/src/content/blog/images/${slug}.jpg` : `/directr2/blog/images/${slug}.jpg`) : undefined
     };
     

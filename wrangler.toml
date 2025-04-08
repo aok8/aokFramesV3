@@ -9,8 +9,14 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 [vars]
 MY_R2_BUCKET = "aokframes-website-assets"
 
-# R2 bucket binding configuration with proper access
+# R2 bucket binding configuration with proper access - use newer naming convention
 [[r2_buckets]]
-binding = "ASSETSBUCKET"
+binding = "R2_BUCKET"
+bucket_name = "aokframes-website-assets"
+preview_bucket_name = "aokframes-website-assets"
+
+# Also maintain backward compatibility with old binding name
+[[r2_buckets]]
+binding = "ASSETSBUCKET" 
 bucket_name = "aokframes-website-assets"
 preview_bucket_name = "aokframes-website-assets"

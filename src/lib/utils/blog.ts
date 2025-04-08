@@ -98,7 +98,90 @@ const getProdBlogPosts = async (): Promise<BlogPost[]> => {
   try {
     console.log('Fetching blog posts from production API');
     
-    // Try both /api/blog-posts (standard API endpoint) and directly using the worker path
+    // First check status endpoint to verify R2 bucket status
+    try {
+      const statusResponse = await fetch('/api/blog-status', {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        console.log('R2 bucket status:', statusData.status);
+        console.log('Blog posts available:', statusData.blogPosts?.count || 0);
+        
+        // If status indicates no posts, return early
+        if (!statusData.blogPosts?.count) {
+          console.log('No blog posts found in R2 bucket');
+          return [];
+        }
+        
+        // If status shows posts available, try all configured direct loading methods
+        if (statusData.blogPosts?.count > 0) {
+          // Use the actual post keys from the status response to directly construct posts
+          const manuallyConstructedPosts = statusData.blogPosts.items.map((item: {key: string; uploaded?: string | number | Date}) => {
+            const key = item.key;
+            const filename = key.split('/').pop() || '';
+            const slug = filename.replace(/\.md$/i, '');
+            
+            // Check if a matching image exists in the status data
+            const hasMatchingImage = statusData.matching.postsWithImages.includes(slug);
+            
+            return {
+              id: slug,
+              title: slug, // Will be replaced by actual content if we can fetch it
+              summary: 'Loading...',
+              content: '',
+              author: 'AOK',
+              published: item.uploaded ? new Date(item.uploaded).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              label: 'Photography',
+              image: hasMatchingImage ? `/directr2/blog/images/${slug}.jpg` : undefined
+            } as BlogPost;
+          });
+          
+          console.log('Constructed basic posts from status data, now attempting to fetch full content');
+          
+          // Attempt to load full post content for each post
+          const endpoints = [
+            '/api/blog-posts',
+            '/blog-posts'
+          ];
+          
+          for (const endpoint of endpoints) {
+            try {
+              console.log(`Attempting to fetch posts from ${endpoint}`);
+              const response = await fetch(endpoint, {
+                headers: {
+                  'Accept': 'application/json',
+                  'Cache-Control': 'no-cache'
+                }
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                  console.log(`Successfully fetched ${data.length} posts from ${endpoint}`);
+                  return data;
+                }
+              }
+            } catch (e) {
+              console.error(`Error fetching from ${endpoint}:`, e);
+            }
+          }
+          
+          // If all endpoints failed but we have basic post info from status, return those
+          console.log('Could not fetch detailed posts, returning basic information');
+          return manuallyConstructedPosts;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking blog status:', error);
+      // Continue with normal fetch attempts even if status check fails
+    }
+    
+    // Attempt normal API endpoints as a fallback
     const endpoints = [
       '/api/blog-posts',
       '/blog-posts'

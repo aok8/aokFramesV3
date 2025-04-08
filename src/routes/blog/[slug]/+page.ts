@@ -26,8 +26,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
         }
         
         // If API fails, try direct R2 fetch
-        const response = await fetch(`/directr2/blog/posts/${slug}.md`);
+        // Use the same path structure as the blog list
+        const key = `blog/posts/${slug}.md`;
+        const response = await fetch(`/directr2/${key}`);
         if (!response.ok) {
+            console.error('Failed to load post directly from R2:', response.status);
             throw error(404, 'Blog post not found');
         }
         
@@ -36,13 +39,15 @@ export const load: PageLoad = async ({ params, fetch }) => {
         
         // Parse frontmatter and content
         const { data, content: markdownContent } = matter(text);
+        console.log('Parsed frontmatter:', data);
         
         // Extract title from first h1
         const titleMatch = markdownContent.match(/^#\s+(.*)/m);
         const title = titleMatch ? titleMatch[1] : slug;
         
         // Check if image exists
-        const imageResponse = await fetch(`/directr2/blog/images/${slug}.jpg`, { method: 'HEAD' });
+        const imageKey = `blog/images/${slug}.jpg`;
+        const imageResponse = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
         const imageExists = imageResponse.ok;
         
         const post = {
@@ -53,7 +58,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
             author: data.author || 'AOK',
             published: data.published || new Date().toISOString().split('T')[0],
             label: data.tags || data.label || 'Photography',
-            image: imageExists ? `/directr2/blog/images/${slug}.jpg` : undefined
+            image: imageExists ? `/directr2/${imageKey}` : undefined
         };
         
         console.log('Successfully created blog post from R2:', post.title);

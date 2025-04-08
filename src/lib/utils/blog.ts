@@ -93,8 +93,18 @@ async function getDevBlogPosts(): Promise<BlogPost[]> {
   }
 }
 
-// For production environment - fetch from R2 via API
-async function getProdBlogPosts(): Promise<BlogPost[]> {
+// Main function to get blog posts based on environment
+export async function getBlogPosts(): Promise<BlogPost[]> {
+  if (dev) {
+    const response = await fetch('/api/blog-posts');
+    if (!response.ok) {
+      console.error('Failed to fetch blog posts:', response.status);
+      return [];
+    }
+    return response.json();
+  }
+  
+  // Production - fetch from R2
   try {
     console.log('Fetching blog posts from production API');
     
@@ -235,19 +245,73 @@ async function getProdBlogPosts(): Promise<BlogPost[]> {
   }
 }
 
-// Main function to get blog posts based on environment
-async function getBlogPosts(): Promise<BlogPost[]> {
-  if (dev) {
-    return getDevBlogPosts();
-  }
-  return getProdBlogPosts();
-}
-
 // Get a specific blog post by slug
-async function getBlogPost(slug: string): Promise<BlogPost | null> {
-  const posts = await getBlogPosts();
-  return posts.find(post => post.id === slug) || null;
-}
+export async function getBlogPost(slug: string): Promise<BlogPost | null> {
+  if (dev) {
+    const response = await fetch(`/api/blog-posts/${slug}`);
+    if (!response.ok) {
+      console.error('Failed to fetch blog post:', response.status);
+      return null;
+    }
+    return response.json();
+  }
+  
+  // Production - fetch from R2
+  try {
+    const response = await fetch(`/directr2/blog/posts/${slug}.md`);
+    if (!response.ok) {
+      return null;
+    }
 
-// Export the public functions
-export { getBlogPosts, getBlogPost }; 
+    const content = await response.text();
+    const lines = content.split('\n');
+    let frontmatter: Record<string, string> = {};
+    let markdownContent = '';
+    let inFrontmatter = false;
+    let firstParagraph = '';
+    let foundTitle = false;
+    let title = '';
+
+    for (const line of lines) {
+      if (line.trim() === '---') {
+        inFrontmatter = !inFrontmatter;
+        continue;
+      }
+
+      if (inFrontmatter) {
+        const [key, ...valueParts] = line.split(':');
+        if (key && valueParts.length) {
+          frontmatter[key.trim()] = valueParts.join(':').trim();
+        }
+      } else {
+        markdownContent += line + '\n';
+
+        // Extract title and first paragraph
+        if (!title && line.startsWith('#')) {
+          title = line.replace(/^#\s+/, '').trim();
+          foundTitle = true;
+        } else if (!firstParagraph && foundTitle && line.trim() !== '') {
+          firstParagraph = line.trim();
+        }
+      }
+    }
+
+    // Check if an image exists
+    const imageResponse = await fetch(`/directr2/blog/images/${slug}.jpg`);
+    const hasImage = imageResponse.ok;
+
+    return {
+      id: slug,
+      title: title || slug,
+      content: markdownContent,
+      summary: firstParagraph,
+      author: frontmatter.author || 'AOK',
+      published: frontmatter.published || new Date().toISOString().split('T')[0],
+      label: frontmatter.label || 'Photography',
+      image: hasImage ? `/directr2/blog/images/${slug}.jpg` : undefined
+    };
+  } catch (e) {
+    console.error('Error getting blog post:', e);
+    return null;
+  }
+} 

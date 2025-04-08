@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import matter from 'gray-matter';
 import type { BlogPost } from '$lib/types/blog.js';
+import { loadBlogPosts } from '$lib/server/blog.js';
+import { dev } from '$app/environment';
 
 // Note: we don't define R2Object interface to avoid conflicts with built-in types
 
@@ -26,6 +28,12 @@ export const GET = (async ({ platform, request }) => {
   // Handle OPTIONS request (preflight)
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers });
+  }
+
+  // In development mode, use local filesystem
+  if (dev) {
+    const posts = loadBlogPosts();
+    return json(posts, { headers });
   }
 
   try {

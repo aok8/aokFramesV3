@@ -49,12 +49,40 @@
                 const text = await response.text();
                 console.log(`Successfully loaded ${slug} directly`);
                 
+                // Extract title from first h1
+                const titleMatch = text.match(/^#\s+(.*)/m);
+                const title = titleMatch ? titleMatch[1] : slug;
+                
+                // Extract first paragraph after title
+                const lines = text.split('\n');
+                let summaryLines = [];
+                let foundTitle = false;
+                
+                for (const line of lines) {
+                  // Skip until we find the title
+                  if (!foundTitle) {
+                    if (line.startsWith('#')) {
+                      foundTitle = true;
+                    }
+                    continue;
+                  }
+                  
+                  // Skip empty lines after title
+                  if (line.trim() === '') continue;
+                  
+                  // First non-empty line after title is our summary
+                  summaryLines.push(line.trim());
+                  break;
+                }
+                
+                const summary = summaryLines.join(' ') || 'No summary available';
+                
                 // Simplified post object
                 directlyLoadedPosts.push({
                   id: slug,
-                  title: slug,
-                  summary: 'Directly loaded from R2 bucket',
-                  content: text.substring(0, 100) + '...',
+                  title,
+                  summary,
+                  content: text,
                   author: 'AOK',
                   published: new Date().toISOString().split('T')[0],
                   label: 'Photography',

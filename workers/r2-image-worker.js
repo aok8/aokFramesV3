@@ -18,6 +18,29 @@ async function handleRequest(request, env, pathname) {
       return await handlePortfolioImage(request, env, pathname);
     } else if (pathname.startsWith('/images/blog/images/') || pathname.startsWith('/directr2/blog/images/')) {
       return await handleBlogImage(request, env, pathname);
+    } else if (pathname.startsWith('/directr2/blog/posts/')) {
+      // Handle direct access to blog posts
+      const r2Bucket = env.ASSETSBUCKET || env.R2_BUCKET || env.R2_BLOG_BUCKET;
+      if (!r2Bucket) {
+        return new Response('R2 bucket not configured', { status: 500 });
+      }
+
+      // Extract the key from the pathname
+      const key = pathname.replace('/directr2/', '');
+      const object = await r2Bucket.get(key);
+
+      if (!object) {
+        return new Response('Blog post not found', { status: 404 });
+      }
+
+      const content = await object.text();
+      return new Response(content, {
+        headers: {
+          'Content-Type': 'text/markdown',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-cache'
+        }
+      });
     } else {
       return new Response('Not found', { status: 404 });
     }

@@ -7,6 +7,7 @@
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
+  import matter from 'gray-matter';
 
   export let data: PageData;
   
@@ -49,12 +50,16 @@
                 const text = await response.text();
                 console.log(`Successfully loaded ${slug} directly`);
                 
+                // Parse frontmatter and content
+                const { data, content: markdownContent } = matter(text);
+                console.log('Parsed frontmatter:', data);
+                
                 // Extract title from first h1
-                const titleMatch = text.match(/^#\s+(.*)/m);
+                const titleMatch = markdownContent.match(/^#\s+(.*)/m);
                 const title = titleMatch ? titleMatch[1] : slug;
                 
                 // Extract first paragraph after title
-                const lines = text.split('\n');
+                const lines = markdownContent.split('\n');
                 let summaryLines = [];
                 let foundTitle = false;
                 
@@ -77,15 +82,19 @@
                 
                 const summary = summaryLines.join(' ') || 'No summary available';
                 
+                // Get tags from frontmatter
+                const tags = data.tags || data.label || 'Photography';
+                console.log('Extracted tags:', tags);
+                
                 // Simplified post object
                 directlyLoadedPosts.push({
                   id: slug,
                   title,
                   summary,
                   content: text,
-                  author: 'AOK',
-                  published: new Date().toISOString().split('T')[0],
-                  label: 'Photography',
+                  author: data.author || 'AOK',
+                  published: data.published || new Date().toISOString().split('T')[0],
+                  label: tags,
                   image: `/directr2/blog/images/${slug}.jpg`
                 });
               }

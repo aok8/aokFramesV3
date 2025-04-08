@@ -85,19 +85,29 @@
         
         if (statusRes.ok) {
           const statusData = await statusRes.json();
-          console.log('Blog R2 status:', statusData);
-          
-          if (statusData.blogPosts?.items?.length > 0) {
-            console.log('Attempting client-side direct fetch from R2');
+          console.log('Client R2 Load: Blog R2 status:', statusData);
+
+          // Extract unique slugs containing index.md from statusData
+          const slugs = new Set<string>();
+          statusData.blogPosts?.items?.forEach((item: { key: string }) => {
+              if (item.key.toLowerCase().endsWith('/index.md')) {
+                  const parts = item.key.split('/');
+                  if (parts.length >= 4) slugs.add(parts[parts.length - 2]);
+              }
+          });
+          const uniqueSlugs = Array.from(slugs);
+          console.log('Client R2 Load: Found potential slugs:', uniqueSlugs);
+
+          if (uniqueSlugs.length > 0) {
+            console.log('Client R2 Load: Attempting direct fetch...');
             const loadedPosts: BlogPostType[] = [];
             
-            for (const item of statusData.blogPosts.items) {
+            for (const slug of uniqueSlugs) {
               try {
-                const key = item.key;
-                const filename = key.split('/').pop() || '';
-                const slug = filename.replace(/\.md$/i, '');
-                
-                // Direct fetch from R2
+                // Construct key for index.md
+                const key = `blog/posts/${slug}/index.md`;
+                console.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
+
                 const response = await fetch(`/directr2/${key}`);
                 if (response.ok) {
                   const text = await response.text();
@@ -151,27 +161,32 @@
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
                   console.log('Extracted tags:', tags);
                   
-                  // IMPORTANT: Preserve the exact slug from the filename in R2
-                  // Do not modify case or apply any transformations
-                  // This must match exactly how files are stored in R2
-                  const filename = key.split('/').pop() || '';
-                  const exactSlug = filename.replace(/\.md$/i, '');
-                  console.log('Using exact slug from R2:', exactSlug);
+                  // Check for header.jpg using HEAD request
+                  const imageKey = `blog/posts/${slug}/header.jpg`;
+                  let imageExists = false;
+                  try {
+                      const imgRes = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
+                      imageExists = imgRes.ok;
+                      console.log(`Client R2 Load: Image check for ${imageKey}: ${imageExists}`);
+                  } catch (imgErr) {
+                      console.warn(`Client R2 Load: Image check failed for ${imageKey}`, imgErr);
+                  }
                   
-                  // Simplified post object
                   loadedPosts.push({
-                    id: exactSlug, // Preserve the original case from R2
+                    id: slug, // slug is the directory name
                     title,
-                    summary, // Use the refined summary
+                    summary,
                     content: markdownContent,
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: `/directr2/blog/images/${exactSlug}.jpg`
+                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.jpg path
                   });
+                } else {
+                    console.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);
                 }
               } catch (e) {
-                console.error('Error directly loading post:', e);
+                 console.error(`Client R2 Load: Error loading post for slug "${slug}":`, e);
               }
             }
             

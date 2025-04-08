@@ -43,6 +43,65 @@ function parseFrontmatter(content: string) {
   return { data: frontmatter, content: markdownContent };
 }
 
+// Function to create post object (extracted for reuse)
+async function createPostObject(slug: string, frontmatter: any, markdownContent: string, fetchFn: typeof fetch): Promise<BlogPost> {
+    const titleMatch = markdownContent.match(/^#\\s+(.*)/m);
+    const title = titleMatch ? titleMatch[1] : slug;
+    
+    // Summary extraction (reuse refined logic)
+    const lines = markdownContent.split('\n');
+    let summary = ''; 
+    let foundTitle = false;
+    let titleIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('# ')) { 
+           foundTitle = true;
+           titleIndex = i;
+           break;
+        }
+    }
+    if (foundTitle) {
+        for (let i = titleIndex + 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line === '') continue; 
+            if (line.startsWith('#')) break; 
+            summary = line;
+            break; 
+        }
+    }
+
+    // Check for header.jpg
+    const imageKey = `blog/posts/${slug}/header.jpg`;
+    let imagePath: string | undefined = undefined;
+    let imageExists = false;
+    if (dev) {
+        imagePath = `/src/content/blog/posts/${slug}/header.jpg`;
+        try {
+            const imgRes = await fetchFn(imagePath, { method: 'HEAD' });
+            imageExists = imgRes.ok;
+        } catch { imageExists = false; }
+    } else {
+        imagePath = `/directr2/${imageKey}`;
+        try {
+            const imgRes = await fetchFn(imagePath, { method: 'HEAD' });
+            imageExists = imgRes.ok;
+        } catch { imageExists = false; }
+    }
+    
+    console.log(`Image check for ${slug}: ${imageExists ? imagePath : 'None'}`);
+    
+    return {
+        id: slug,
+        title,
+        content: markdownContent, // Raw content for now, rendering handles markdown
+        summary,
+        author: frontmatter.author || 'AOK',
+        published: frontmatter.published || new Date().toISOString().split('T')[0],
+        label: frontmatter.tags || frontmatter.label || 'Photography',
+        image: imageExists ? imagePath : undefined
+    };
+}
+
 export const load: PageLoad = async ({ data, params, fetch }) => {
   console.log(`-------- Blog Post Page Load Start --------`);
   console.log(`Raw slug from params: "${params.slug}"`);
@@ -61,7 +120,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
     if (dev) {
         console.log('Running in development mode, attempting local file fetch...');
         try {
-            const postPath = `/src/content/blog/posts/${decodedSlug}.md`;
+            const postPath = `/src/content/blog/posts/${decodedSlug}/index.md`;
             console.log(`Fetching post from dev path: ${postPath}`);
             const response = await fetch(postPath);
             

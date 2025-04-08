@@ -1,15 +1,43 @@
 <script lang="ts">
   import type { BlogPost } from '$lib/types/blog.js';
-  import { marked } from 'marked';
-  import { onMount } from 'svelte';
+  import { marked, Renderer } from 'marked';
+  import { onMount, setContext } from 'svelte';
+  import { dev } from '$app/environment';
 
   export let post: BlogPost;
   export let isPreview = false;
-
-  $: htmlContent = isPreview ? '' : marked(post.content, {
-    gfm: true,
-    breaks: true
-  });
+  
+  let htmlContent: string | Promise<string> = '';
+  
+  $: {
+      if (post && post.content) {
+          const renderer = new Renderer();
+          
+          renderer.image = ({ href, title, text }: { href: string; title: string | null; text: string }): string => {
+            let resolvedHref = href;
+            if (resolvedHref && !resolvedHref.startsWith('/') && !resolvedHref.startsWith('http')) {
+              console.log(`Resolving relative image path: ${resolvedHref} for post: ${post.id}`);
+              if (dev) {
+                  resolvedHref = `/src/content/blog/posts/${post.id}/${resolvedHref}`;
+              } else {
+                  resolvedHref = `/directr2/blog/posts/${post.id}/${resolvedHref}`;
+              }
+              console.log(`Resolved relative img path: ${href} -> ${resolvedHref}`);
+            }
+            const titleAttr = title ? ` title="${title}"` : '';
+            return `<img src="${resolvedHref}" alt="${text}"${titleAttr}>`;
+          };
+      
+          htmlContent = isPreview ? '' : marked.parse(post.content, {
+            renderer: renderer, 
+            gfm: true,
+            breaks: true,
+            async: false
+          });
+      } else {
+          htmlContent = '';
+      }
+  }
 
   // Handle image errors for R2 by using local fallbacks
   let imageError = false;
@@ -30,6 +58,11 @@
   $: console.log('Image path for post:', imagePath);
   $: console.log('Image fallback path for post:', imageFallbackPath);
 
+  // Header Image Handling (uses post.image which is already absolute)
+  let headerImageError = false;
+  $: headerImagePath = post?.image || ''; // Add optional chaining
+  $: headerImageFallbackPath = dev ? headerImagePath?.replace('/directr2/blog/posts/', '/src/content/blog/posts/') : ''; 
+
   onMount(() => {
     // Log when component mounts to track lifecycle
     console.log(`BlogPost component mounted for post: ${post.id}`);
@@ -47,24 +80,22 @@
   <article class="bg-white rounded-lg shadow-sm overflow-hidden hover:-translate-y-1 transition-transform duration-200 border border-gray-100" data-post-id={post.id}>
     {#if post.image}
       <a href={blogPostUrl} class="block">
-        {#if !imageError}
+        {#if !headerImageError}
           <img
-            src={imagePath}
+            src={headerImagePath}
             alt={post.title}
             class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
             on:error={() => {
-              console.log(`Blog image failed to load, trying fallback: ${imagePath}`);
-              imageError = true;
+              console.log(`Header image failed: ${headerImagePath}, trying fallback: ${headerImageFallbackPath}`);
+              headerImageError = true;
             }}
           />
-        {:else}
+        {:else if dev && headerImageFallbackPath} 
           <img
-            src={imageFallbackPath}
+            src={headerImageFallbackPath}
             alt={post.title}
             class="w-full h-48 object-cover hover:opacity-90 transition-opacity"
-            on:error={() => {
-              console.error(`Both image paths failed for blog post: ${post.id}`);
-            }}
+            on:error={() => { console.error(`Header fallback failed: ${headerImageFallbackPath}`); }}
           />
         {/if}
       </a>
@@ -118,30 +149,34 @@
     </header>
 
     {#if post.image}
-      {#if !imageError}
+      {#if !headerImageError}
         <img
-          src={imagePath}
+          src={headerImagePath}
           alt={post.title}
           class="w-full h-[400px] object-cover rounded-lg mb-8"
           on:error={() => {
-            console.log('Blog image failed to load, trying fallback:', imagePath);
-            imageError = true;
-          }}
+             console.log(`Header image failed: ${headerImagePath}, trying fallback: ${headerImageFallbackPath}`);
+             headerImageError = true;
+           }}
         />
-      {:else}
+      {:else if dev && headerImageFallbackPath}
         <img
-          src={imageFallbackPath}
+          src={headerImageFallbackPath}
           alt={post.title}
           class="w-full h-[400px] object-cover rounded-lg mb-8"
-          on:error={() => {
-            console.error('Both image paths failed for blog post:', post.id);
-          }}
+          on:error={() => { console.error(`Header fallback failed: ${headerImageFallbackPath}`); }}
         />
       {/if}
     {/if}
 
     <div class="prose prose-lg prose-headings:font-sans prose-headings:font-semibold prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 prose-pre:p-4 prose-pre:rounded-lg">
-      {@html htmlContent}
+       {#await htmlContent}
+         <p>Loading content...</p> 
+       {:then content}
+         {@html content} 
+       {:catch error}
+         <p class="text-red-600">Error rendering content: {error.message}</p>
+       {/await}
     </div>
   </article>
 {/if}

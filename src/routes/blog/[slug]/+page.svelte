@@ -4,8 +4,83 @@
   import BlogPost from '$lib/components/blog/BlogPost.svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { theme } from '../../../theme/theme.js';
+  import { onMount } from 'svelte';
+  import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
+  import { parseFrontmatter } from '$lib/utils/frontmatter.js';
 
-  export let data: { post: BlogPostType };
+  export let data: { post?: BlogPostType };
+
+  let isLoading = false;
+  let loadError = '';
+  let post = data?.post;
+
+  async function loadPostClientSide(slug: string) {
+    console.log(`[Client] Attempting to load post "${slug}" client-side`);
+    isLoading = true;
+    loadError = '';
+
+    try {
+      // 1. Try direct fetch from /directr2/
+      const directR2Path = `/directr2/blog/posts/${slug}/index.md`;
+      console.log(`[Client] Trying direct fetch from: ${directR2Path}`);
+      
+      const response = await fetch(directR2Path);
+      
+      if (response.ok) {
+        console.log(`[Client] Successfully fetched post content`);
+        const text = await response.text();
+        
+        // Parse frontmatter and content
+        const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
+        
+        // Extract title from first h1
+        const titleMatch = markdownContent.match(/^#\s+(.*)/m);
+        const title = titleMatch ? titleMatch[1] : slug;
+        
+        // Check if header image exists
+        const imageKey = `/directr2/blog/posts/${slug}/header.jpg`;
+        let imageExists = false;
+        
+        try {
+          const imageResponse = await fetch(imageKey, { method: 'HEAD' });
+          imageExists = imageResponse.ok;
+        } catch (e) {
+          console.warn(`[Client] Error checking image: ${e}`);
+        }
+        
+        // Create post object
+        post = {
+          id: slug,
+          title,
+          content: markdownContent,
+          summary: 'Client-side loaded post',
+          author: frontmatter.author || 'AOK',
+          published: frontmatter.published || new Date().toISOString().split('T')[0],
+          label: frontmatter.tags || frontmatter.label || 'Photography',
+          image: imageExists ? imageKey : undefined
+        };
+        
+        console.log(`[Client] Successfully created post object: "${post.title}"`);
+      } else {
+        console.error(`[Client] Failed to fetch post: ${response.status}`);
+        loadError = `Failed to load post (${response.status})`;
+      }
+    } catch (e) {
+      console.error(`[Client] Error loading post:`, e);
+      loadError = e instanceof Error ? e.message : 'Unknown error loading post';
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  onMount(async () => {
+    if (!post) {
+      console.log('[Client] No post data from server, attempting client-side load');
+      const slug = $page.params.slug;
+      await loadPostClientSide(slug);
+    }
+  });
 </script>
 
 <Navbar 
@@ -36,7 +111,42 @@
       </a>
     </div>
 
-    <BlogPost post={data.post} />
+    {#if isLoading}
+      <div class="flex flex-col items-center justify-center py-20">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mb-4"></div>
+        <p class="text-lg text-gray-700">Loading post...</p>
+      </div>
+    {:else if loadError}
+      <div class="text-center py-16">
+        <h2 class="text-2xl font-bold text-red-500 mb-4">Error Loading Post</h2>
+        <p class="text-gray-700 mb-6">{loadError}</p>
+        <button 
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" 
+          on:click={() => loadPostClientSide($page.params.slug)}
+        >
+          Try Again
+        </button>
+        <a 
+          href="/blog" 
+          class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 ml-4"
+        >
+          Return to Blog
+        </a>
+      </div>
+    {:else if post}
+      <BlogPost post={post} />
+    {:else}
+      <div class="text-center py-16">
+        <h2 class="text-2xl font-bold text-gray-700 mb-4">Post Not Found</h2>
+        <p class="text-gray-600 mb-6">The blog post you're looking for could not be found.</p>
+        <a 
+          href="/blog" 
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Return to Blog
+        </a>
+      </div>
+    {/if}
   </div>
 </main>
 

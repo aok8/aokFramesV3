@@ -39,11 +39,29 @@ const USE_LOCAL_IMAGES = dev;
 export const handle: Handle = async ({ event, resolve }) => {
     const pathname = event.url.pathname;
 
-    // Handle image requests in a simplified way that directly accesses the bucket
-    if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/')) {
+    // Handle image requests and specific root files
+    if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/') || 
+        pathname === '/favicon.ico' || pathname === '/apple-touch-icon.png' || pathname === '/site.webmanifest') { // Added root files
         try {
             let key;
             
+            // Handle root level files first
+            if (pathname === '/favicon.ico') {
+                key = 'constants/favicon.ico';
+                console.log(`[Hook] Mapped root request ${pathname} to key ${key}`);
+            } else if (pathname === '/apple-touch-icon.png') {
+                key = 'constants/apple-touch-icon.png';
+                console.log(`[Hook] Mapped root request ${pathname} to key ${key}`);
+            } else if (pathname === '/site.webmanifest') {
+                key = 'constants/site.webmanifest';
+                console.log(`[Hook] Mapped root request ${pathname} to key ${key}`);
+            }
+            // --- START Favicon Handling ---
+            else if (pathname === '/images/favicon.png') {
+                key = 'constants/favicon.png';
+                console.log(`[Hook] Mapped favicon request ${pathname} to key ${key}`);
+            }
+            // --- END Favicon Handling ---
             // Map the URL path to the correct R2 key
             if (pathname.startsWith('/directr2/')) {
                 key = pathname.substring('/directr2/'.length);

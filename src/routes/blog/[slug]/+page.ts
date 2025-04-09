@@ -547,6 +547,18 @@ async function fetchAllPosts(items: any[], fetch: any) {
                 // IMPORTANT: Preserve the exact slug from the filename in R2
                 const exactSlug = filename.replace(/\.md$/i, '');
                 
+                // ---- START NEW IMAGE LOGIC ----
+                const imageKey = `blog/${exactSlug}/header.jpg`;
+                let imageExists = false;
+                try {
+                    const imageResponse = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
+                    imageExists = imageResponse.ok;
+                } catch (e) { 
+                    /* ignore error, image doesn't exist */ 
+                    console.warn(`Image check failed for ${imageKey} during fetchAllPosts:`, e);
+                }
+                // ---- END NEW IMAGE LOGIC ----
+                
                 // Simplified post object
                 loadedPosts.push({
                     id: exactSlug, // Preserve the original case from R2
@@ -556,7 +568,7 @@ async function fetchAllPosts(items: any[], fetch: any) {
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: `/directr2/blog/images/${exactSlug}.jpg`
+                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use conditional path
                 });
             }
         } catch (e) {

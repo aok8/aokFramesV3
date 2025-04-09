@@ -20,6 +20,7 @@ const USE_LOCAL_IMAGES = dev;
 
 export const handle: Handle = async ({ event, resolve }) => {
     const pathname = event.url.pathname;
+    const platform = event.platform; // Get platform context
 
     // Handle image requests in a simplified way that directly accesses the bucket
     if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/')) {
@@ -61,6 +62,67 @@ export const handle: Handle = async ({ event, resolve }) => {
 
             console.log(`Development mode: ${dev}, Using local images: ${USE_LOCAL_IMAGES}`);
             console.log(`Looking for ${USE_LOCAL_IMAGES ? 'local' : 'R2'} object with key: ${key}`);
+
+            // --- Refined /directr2/ Handling ---
+            if (pathname.startsWith('/directr2/')) {
+                console.log(`[Hook] Intercepting /directr2/ request for key: ${key}`);
+
+                // Production logic: Use R2 bucket
+                if (!dev && platform?.env?.ASSETSBUCKET) {
+                    console.log(`[Hook Prod] Attempting R2 get for key: ${key}`);
+                    try {
+                        // Type assertion might be needed depending on platform definition
+                        const R2Bucket = platform.env.ASSETSBUCKET as R2Bucket;
+                        const object = await R2Bucket.get(key);
+
+                        if (object !== null) {
+                            console.log(`[Hook Prod] R2 get successful for key: ${key}. Streaming response.`);
+                            const headers = new Headers();
+                            object.writeHttpMetadata(headers);
+                            headers.set('etag', object.httpEtag);
+                            // headers.set('Cache-Control', 'public, max-age=3600'); // Optional caching
+                            return new Response(object.body, { headers });
+                        } else {
+                            // Object not found in R2
+                            console.warn(`[Hook Prod] Object not found in R2 for key: ${key}. Returning 404.`);
+                            return new Response('Not Found in R2', { status: 404 });
+                        }
+                    } catch (err) {
+                        console.error(`[Hook Prod] Error fetching key ${key} from R2:`, err);
+                        return new Response('Internal Server Error fetching from R2', { status: 500 });
+                    }
+                }
+                // Development logic: Use local path fallback
+                else if (dev) {
+                    console.log(`[Hook Dev] Looking for local path for key: ${key}`);
+                    const localPath = getLocalPath(key); // Use existing helper
+
+                    if (localPath) {
+                        console.log(`[Hook Dev] Found local path: ${localPath}. Assuming Vite handles src/ path.`);
+                        // In dev, allow request to proceed - Vite might handle src/ paths directly
+                        // or the fetch in +page.ts might resolve it. No explicit return needed here.
+                    } else {
+                        console.warn(`[Hook Dev] No local path mapping found for key: ${key}. Passing through.`);
+                        // Fall through to resolve(event) if no local mapping
+                    }
+                }
+                // Fallback / Error case
+                else {
+                    console.error('[Hook] Invalid state for /directr2/: Not dev and no ASSETSBUCKET binding.');
+                    return new Response('Server Configuration Error', { status: 500 });
+                }
+                // If dev logic fell through, let SvelteKit handle it
+                // Production logic always returns explicitly
+                if (dev) {
+                   console.log(`[Hook Dev] Passing ${pathname} to SvelteKit resolver after /directr2 check.`);
+                   // Continue to resolve normally for dev if no specific action taken
+                } else {
+                   // Should be unreachable as prod cases return explicitly
+                   console.error('[Hook Prod] Reached unexpected state after /directr2 handling.');
+                   return new Response('Internal Server Error', { status: 500 });
+                }
+            }
+            // --- End Refined /directr2/ Handling ---
 
             // In production or when not using local images, use R2
             if (!USE_LOCAL_IMAGES) {
@@ -154,14 +216,37 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 // Helper function to get the local path for a key
 function getLocalPath(key: string): string | null {
+    console.log(`[getLocalPath] Mapping key: ${key}`);
     if (key.startsWith('portfolio/')) {
-        return `/src/images/Portfolio/${key.substring('portfolio/'.length)}`;
+        const path = `/src/images/Portfolio/${key.substring('portfolio/'.length)}`;
+        console.log(`[getLocalPath] Mapped portfolio key to: ${path}`);
+        return path;
     } else if (key.startsWith('blog/')) {
-        const blogPath = key.substring('blog/'.length); // Extract path part, e.g., "night-photo/header.jpg"
-        // Construct path relative to the 'posts' directory
-        return `/src/content/blog/posts/${blogPath}`;
+        const blogPath = key.substring('blog/'.length); 
+        const path = `/src/content/blog/posts/${blogPath}`; // Use corrected posts path
+        console.log(`[getLocalPath] Mapped blog key to: ${path}`);
+        return path;
     } else if (key.startsWith('constants/')) {
-        return `/public/images/${key.substring('constants/'.length)}`;
+        const path = `/public/images/${key.substring('constants/'.length)}`;
+        console.log(`[getLocalPath] Mapped constants key to: ${path}`);
+        return path;
     }
+    console.log(`[getLocalPath] No mapping found for key: ${key}`);
     return null;
+}
+
+// Add a minimal R2Bucket type if not globally available (adjust if needed)
+interface R2Bucket {
+    get(key: string): Promise<R2Object | null>;
+    head(key: string): Promise<R2ObjectMeta | null>;
+}
+interface R2Object {
+    body: ReadableStream;
+    writeHttpMetadata(headers: Headers): void;
+    httpEtag: string;
+    // Add other properties if used
+}
+interface R2ObjectMeta {
+    httpEtag: string;
+    // Add other properties if used
 } 

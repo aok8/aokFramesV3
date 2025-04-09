@@ -233,13 +233,15 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                 console.log('All post slugs in R2:', allFilenames);
                 
                 if (matchingItem) {
-                    console.log('Found direct match for post:', matchingItem.key);
+                    console.log(`[+page.ts Server Load] Found direct match for post object:`, matchingItem);
                     
-                    // Get the exact filename with correct case
-                    const exactFilename = matchingItem.key.split('/').pop() || '';
-                    const exactSlug = exactFilename.replace(/\.md$/i, '');
-                    console.log(`Using exact slug from R2: ${exactSlug}`);
-                    
+                    // --- Use foundSlug (which has correct case) instead of recalculating --- 
+                    // const exactFilename = matchingItem.key.split('/').pop() || '';
+                    // const exactSlug_OLD = exactFilename.replace(/\.md$/i, ''); // This was incorrect
+                    // console.log(`[+page.ts Server Load] Using exact slug from R2: ${exactSlug}`); // Use foundSlug instead
+                    const exactSlug = foundSlug!; // Use the slug identified earlier (assert non-null)
+                    // ---------------------------------------------------------------------
+
                     // Fetch the content directly from R2
                     const directR2Key = `/directr2/${matchingItem.key}`;
                     console.log(`[+page.ts Server Load] Fetching post content from R2 via: ${directR2Key}`);
@@ -250,9 +252,8 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                         const content = await postResponse.text();
                         const { data: frontmatter, content: markdownContent } = parseFrontmatter(content);
                         
-                        // Extract title from first h1
                         const titleMatch = markdownContent.match(/^#\s+(.*)/m);
-                        const title = titleMatch ? titleMatch[1] : exactSlug;
+                        const title = titleMatch ? titleMatch[1] : exactSlug; // Use correct exactSlug
                         
                         // Extract first paragraph after title for summary
                         const lines = markdownContent.split('\n');
@@ -278,22 +279,24 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                         
                         const summary = summaryLines.join(' ') || 'No summary available';
                         
-                        // Check if image exists
-                        const imageKey = `blog/${exactSlug}/header.jpg`;
+                        // Check if image exists using the correct exactSlug
+                        const imageKey = `blog/${exactSlug}/header.jpg`; 
                         let imageExists = false;
                         
                         try {
-                            const imageResponse = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
+                            const imageCheckUrl = `/directr2/${imageKey}`;
+                            console.log(`[+page.ts Server Load] Checking for header image via HEAD: ${imageCheckUrl}`);
+                            const imageResponse = await fetch(imageCheckUrl, { method: 'HEAD' });
                             imageExists = imageResponse.ok;
-                            console.log(`Image exists for post: ${imageExists}`);
+                            console.log(`[+page.ts Server Load] Image exists for post "${exactSlug}": ${imageExists}`);
                         } catch (e) {
-                            console.error('Error checking for image:', e);
+                            console.error(`[+page.ts Server Load] Error checking for image "${imageKey}":`, e);
                             imageExists = false;
                         }
                         
-                        // Create post object
+                        // Create post object using the correct exactSlug for ID
                         const post = {
-                            id: exactSlug, // Using exact slug from R2 is crucial
+                            id: exactSlug, // Use correct exactSlug
                             title,
                             content: markdownContent,
                             summary,
@@ -303,7 +306,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                             image: imageExists ? `/directr2/${imageKey}` : undefined
                         };
                         
-                        console.log(`Successfully created blog post from direct R2 fetch: "${post.title}" with ID "${post.id}"`);
+                        console.log(`[+page.ts Server Load] Successfully created blog post object: "${post.title}" with ID "${post.id}"`);
                         
                         // Update the store with this post
                         const currentPosts = get(posts);

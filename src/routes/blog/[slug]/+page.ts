@@ -202,6 +202,28 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             console.log('[+page.ts Server Load] Blog status API response received successfully');
             console.log('[+page.ts Server Load] R2 slugs from API:', statusData?.blogPosts?.slugs);
             
+            // --- START REVISED MATCHING LOGIC ---
+            let matchingItem: { key: string } | undefined = undefined;
+            const apiSlugs: string[] = statusData?.blogPosts?.slugs || [];
+            
+            // Find if the requested slug exists in the slugs returned by the API (case-insensitive)
+            const foundSlug = apiSlugs.find(s => s.toLowerCase() === decodedSlug.toLowerCase());
+            
+            if (foundSlug) {
+                console.log(`[+page.ts Server Load] Found slug "${foundSlug}" in API slugs.`);
+                // Reconstruct the expected key for the index.md file
+                const expectedKey = `blog/posts/${foundSlug}/index.md`;
+                // Find the item with this exact key in the API items list
+                matchingItem = statusData.blogPosts.items.find((item: { key: string }) => item.key === expectedKey);
+                 if (!matchingItem) {
+                   console.warn(`[+page.ts Server Load] Slug "${foundSlug}" was in slugs list, but key "${expectedKey}" not found in items list!`);
+                 }
+            } else {
+                console.log(`[+page.ts Server Load] Slug "${decodedSlug}" not found in API slugs list.`);
+            }
+            console.log(`[+page.ts Server Load] Found matchingItem using slugs list: ${!!matchingItem}`);
+            // --- END REVISED MATCHING LOGIC ---
+            
             if (statusData.blogPosts?.items?.length > 0) {
                 // Log all filenames for debugging
                 const allFilenames = statusData.blogPosts.items.map((item: { key: string }) => {
@@ -209,15 +231,6 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                     return filename.replace(/\.md$/i, '');
                 });
                 console.log('All post slugs in R2:', allFilenames);
-                
-                // Find the post with this slug (case insensitive)
-                const matchingItem = statusData.blogPosts.items.find((item: { key: string }) => {
-                    const filename = item.key.split('/').pop() || '';
-                    const filenameWithoutExt = filename.replace(/\.md$/i, '');
-                    // console.log(`[+page.ts Server Load] Comparing: "${filenameWithoutExt.toLowerCase()}" to "${decodedSlug.toLowerCase()}"`);
-                    return filenameWithoutExt.toLowerCase() === decodedSlug.toLowerCase();
-                });
-                console.log(`[+page.ts Server Load] Found matchingItem in API status: ${!!matchingItem}`);
                 
                 if (matchingItem) {
                     console.log('Found direct match for post:', matchingItem.key);

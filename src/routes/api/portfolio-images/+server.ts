@@ -2,6 +2,18 @@ import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import path from 'node:path';
 import { imageSize } from 'image-size';
+import type { PageServerLoad } from './$types';
+// Import the generated constant from the .ts file
+import { dimensionsMap } from '$lib/data/portfolio-dimensions'; // No .ts extension needed usually
+
+// Define the expected structure of the dimensions JSON
+interface ImageDimensions {
+  width: number;
+  height: number;
+}
+interface DimensionsMap {
+  [filename: string]: ImageDimensions;
+}
 
 interface R2Object {
   key: string;
@@ -30,7 +42,8 @@ if (dev) {
   devFs = await import('node:fs/promises');
 }
 
-export async function GET({ platform }) {
+// Rename export back to GET for API route
+export const GET: PageServerLoad = async ({ platform }) => {
   try {
     let images: PortfolioImage[] = [];
 
@@ -66,14 +79,14 @@ export async function GET({ platform }) {
           });
       }
 
-    } else { // Production mode - use R2 bucket
+    } else { // Production mode - use R2 bucket and imported dimensions map
       if (!platform?.env?.ASSETSBUCKET) {
         throw new Error('ASSETSBUCKET binding not found');
       }
 
       const r2Objects = await platform.env.ASSETSBUCKET.list({
         prefix: 'portfolio/',
-        include: ['customMetadata'] // Explicitly request customMetadata
+        // include: ['customMetadata'] // No longer need custom metadata
       });
 
       images = r2Objects.objects
@@ -82,28 +95,25 @@ export async function GET({ platform }) {
           return ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '');
         })
         .map((obj: R2Object): PortfolioImage => {
-          let width = 0, height = 0;
+          let width = 1, height = 1; // Default dimensions
+          const filename = obj.key.split('/').pop();
 
-          // Try reading dimensions from R2 custom metadata
-          if (obj.customMetadata?.width && obj.customMetadata?.height) {
-             width = parseInt(obj.customMetadata.width, 10);
-             height = parseInt(obj.customMetadata.height, 10);
+          // Look up dimensions directly in the imported map
+          // Type guard might still be good practice, but TS should know the type now
+          if (filename && filename in dimensionsMap) {
+             // Access directly, TS knows the type from the imported const
+             width = dimensionsMap[filename].width;
+             height = dimensionsMap[filename].height;
           } else {
-             // --- Filesystem fallback removed --- 
-             // Cannot access local filesystem reliably in Cloudflare Functions.
-             // Images uploaded WITHOUT dimensions in metadata will get default 1x1 size.
-             console.warn(`Dimensions missing in R2 metadata for ${obj.key}. Using default 1x1.`);
-             width = 1; 
-             height = 1;
+             console.warn(`Dimensions not found in generated map for R2 object: ${obj.key} (filename: ${filename}). Using default 1x1.`);
           }
           
-          // Ensure non-zero dimensions
           width = width || 1;
           height = height || 1;
 
           return {
             url: `/directr2/${obj.key}`,
-            fallback: `/images/Portfolio/${obj.key.replace(/^portfolio\//, '')}`,
+            fallback: `/images/Portfolio/${filename}`,
             width: width,
             height: height
           };

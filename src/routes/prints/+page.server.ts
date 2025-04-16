@@ -7,7 +7,7 @@ import path from 'node:path'; // Import path statically
 const DEFAULT_WIDTH = 16;
 const DEFAULT_HEIGHT = 9; // Default to 16:9 aspect ratio
 const IMAGE_KEY = 'constants/Prints.jpg';
-const LOCAL_FALLBACK_PATH = 'src/images/constants/Prints.jpg';
+const LOCAL_FALLBACK_PATH = 'public/images/Prints.jpg';
 
 // Revert to implicit platform typing via PageServerLoad
 export const load: PageServerLoad = async ({ platform }) => {

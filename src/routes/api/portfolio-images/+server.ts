@@ -24,11 +24,10 @@ interface PortfolioImage {
 }
 
 // Development-only imports
-let readdir: (path: string) => Promise<string[]> = async () => []; // Default for type safety
+let devFs: typeof import('node:fs/promises') | null = null;
 if (dev) {
-  // Dynamically import readdir ONLY in dev
-  const fsPromisesModule = await import('node:fs/promises');
-  readdir = fsPromisesModule.readdir;
+  // Dynamically import fs ONLY in dev
+  devFs = await import('node:fs/promises');
 }
 
 export async function GET({ platform }) {
@@ -36,9 +35,9 @@ export async function GET({ platform }) {
     let images: PortfolioImage[] = [];
 
     // In development mode, read from local directory
-    if (dev) {
+    if (dev && devFs) {
       const localPortfolioPath = path.resolve('src/images/Portfolio');
-      const files = await readdir(localPortfolioPath);
+      const files = await devFs.readdir(localPortfolioPath);
 
       images = [];
       for (const file of files) {
@@ -48,12 +47,14 @@ export async function GET({ platform }) {
           const filePath = path.join(localPortfolioPath, file);
           let width = 0, height = 0;
           try {
-            // Use imageSize with string path (works in Node dev env)
-            // const buffer = await fs.readFile(filePath); // Removed
-            // @ts-ignore - Ignore potential type mismatch for dev env
-            const dimensions = imageSize(filePath);
+            // --- Read Buffer for imageSize --- 
+            const buffer = await devFs.readFile(filePath);
+            const dimensions = imageSize(buffer); // Pass buffer
+            // --- Removed @ts-ignore --- 
             width = dimensions.width ?? 0;
             height = dimensions.height ?? 0;
+            // Keep the logging for confirmation -- Removing now
+            // console.log(`DEV_DIMENSIONS: ${file} - Width: ${width}, Height: ${height}`);
           } catch (e) {
             console.error(`Error getting dimensions for dev ${filePath}:`, e);
           }

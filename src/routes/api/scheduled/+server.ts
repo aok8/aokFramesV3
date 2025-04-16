@@ -47,9 +47,32 @@ export const GET: RequestHandler = async ({ platform }) => {
 // and can be triggered via a cron job or manually
 export const POST: RequestHandler = async ({ platform, request }) => {
   try {
+    // Ensure platform is defined
+    if (!platform) {
+      return new Response(JSON.stringify({ 
+        status: 'error',
+        message: 'Platform not available'
+      }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Ensure necessary bindings are available
+    if (!platform.env?.IMAGE_DIMS_KV || !platform.env?.R2_BUCKET) {
+      return new Response(JSON.stringify({ 
+        status: 'error',
+        message: 'Required KV or R2 bindings not available',
+        available: Object.keys(platform.env || {})
+      }), { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // Check for an API key or other authentication (optional)
     const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !isValidAuthToken(authHeader)) {
+    if (authHeader && !isValidAuthToken(authHeader)) {
       return new Response('Unauthorized', { status: 401 });
     }
     

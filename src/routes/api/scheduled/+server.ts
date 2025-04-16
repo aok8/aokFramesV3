@@ -122,17 +122,15 @@ export const POST: RequestHandler = async ({ platform, request }) => {
           
         // *** Actual Dimension Extraction Logic ***
         let dimensions: ImageDimensions | null = null;
+        const contentType = r2Object.httpMetadata?.contentType?.toLowerCase();
+        const fileExtension = obj.key.split('.').pop()?.toLowerCase();
+        
         try {
-          const contentType = r2Object.httpMetadata?.contentType?.toLowerCase();
-          const fileExtension = obj.key.split('.').pop()?.toLowerCase();
-          
-          console.log(`Image ${obj.key} - Content type: ${contentType || 'unknown'}, Extension: ${fileExtension || 'unknown'}`);
-          
-          // Read at least 150KB to ensure we can find the SOF marker
+          // Read at least 300KB to ensure we can find the SOF marker in files with lots of metadata
           const reader = r2Object.body.getReader();
           let receivedLength = 0;
           const chunks = [];
-          const maxBytes = 150 * 1024; // Increased to 150KB to capture more of the file
+          const maxBytes = 300 * 1024; // Increased to 300KB to capture more of the file
           console.log(`Reading up to ${maxBytes} bytes from ${obj.key} to find dimensions`);
           while (receivedLength < maxBytes) {
             const { done, value } = await reader.read();
@@ -154,6 +152,9 @@ export const POST: RequestHandler = async ({ platform, request }) => {
             position += chunk.length;
           }
           
+          // Debug: show content type and extension for troubleshooting
+          console.log(`Processing ${obj.key} - Content type: ${contentType}, Extension: ${fileExtension}, Size: ${r2Object.size} bytes`);
+          
           // Determine type and parse
           if (contentType === 'image/jpeg' || (!contentType && fileExtension === 'jpg') || (!contentType && fileExtension === 'jpeg')) {
             console.log(`Parsing JPEG dimensions for ${obj.key}`);
@@ -166,16 +167,37 @@ export const POST: RequestHandler = async ({ platform, request }) => {
           }
         } catch (parseError) {
           console.error(`  Error parsing dimensions for ${obj.key}:`, parseError instanceof Error ? parseError.message : String(parseError));
+          console.error(`  Stack trace:`, parseError instanceof Error ? parseError.stack : 'No stack trace available');
           dimensions = null; // Ensure dimensions is null on error
         }
 
         if (dimensions) {
+          // Check for wide aspect ratio (greater than 1.8:1)
+          if (dimensions.width / dimensions.height > 1.8) {
+            console.log(`  ⚠️ Wide image detected: ${obj.key} (${dimensions.width}x${dimensions.height}, ratio: ${(dimensions.width / dimensions.height).toFixed(2)})`);
+          }
+          
           // Store dimensions in KV, using the R2 object key as the KV key
           await platform.env.IMAGE_DIMS_KV.put(obj.key, JSON.stringify(dimensions));
           console.log(`  Stored dimensions for ${obj.key}: ${dimensions.width}x${dimensions.height}`);
           processedCount++;
         } else {
           console.warn(`  Could not extract dimensions for ${obj.key}. Skipping.`);
+          
+          // Additional debug info for the failed image
+          try {
+            // Try to get file size and other info
+            const fileInfo = {
+              key: obj.key,
+              size: r2Object.size,
+              contentType: contentType || 'unknown',
+              extension: fileExtension || 'unknown',
+              httpMetadata: r2Object.httpMetadata || {}
+            };
+            console.error(`  Failed image details:`, JSON.stringify(fileInfo));
+          } catch (infoError) {
+            console.error('  Could not get file info:', infoError);
+          }
         }
       } catch (err) {
         console.error(`  Error processing image ${obj.key}:`, err instanceof Error ? err.message : String(err));

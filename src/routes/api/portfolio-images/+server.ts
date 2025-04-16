@@ -1,8 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import path from 'node:path'; // Import path for joining paths
-import fs from 'node:fs/promises'; // Import fs.readFile
-import { imageSize } from 'image-size'; // Keep standard import
+import path from 'node:path';
+import { imageSize } from 'image-size';
 
 interface R2Object {
   key: string;
@@ -25,9 +24,12 @@ interface PortfolioImage {
 }
 
 // Development-only imports
-// let readdir: (path: string) => Promise<string[]>; // readdir is part of fs now
-
-// No longer need conditional logic for fs/readdir
+let readdir: (path: string) => Promise<string[]> = async () => []; // Default for type safety
+if (dev) {
+  // Dynamically import readdir ONLY in dev
+  const fsPromisesModule = await import('node:fs/promises');
+  readdir = fsPromisesModule.readdir;
+}
 
 export async function GET({ platform }) {
   try {
@@ -35,10 +37,9 @@ export async function GET({ platform }) {
 
     // In development mode, read from local directory
     if (dev) {
-      const localPortfolioPath = path.resolve('src/images/Portfolio'); // Use absolute path
-      const files = await fs.readdir(localPortfolioPath);
+      const localPortfolioPath = path.resolve('src/images/Portfolio');
+      const files = await readdir(localPortfolioPath);
 
-      // Process files sequentially to avoid issues with too many open files if needed
       images = [];
       for (const file of files) {
           const ext = file.split('.').pop()?.toLowerCase();
@@ -47,16 +48,18 @@ export async function GET({ platform }) {
           const filePath = path.join(localPortfolioPath, file);
           let width = 0, height = 0;
           try {
-            const buffer = await fs.readFile(filePath); // Read file to buffer
-            const dimensions = imageSize(buffer); // Pass buffer
+            // Use imageSize with string path (works in Node dev env)
+            // const buffer = await fs.readFile(filePath); // Removed
+            // @ts-ignore - Ignore potential type mismatch for dev env
+            const dimensions = imageSize(filePath);
             width = dimensions.width ?? 0;
             height = dimensions.height ?? 0;
           } catch (e) {
-            console.error(`Error getting dimensions for ${filePath}:`, e);
+            console.error(`Error getting dimensions for dev ${filePath}:`, e);
           }
           images.push({
-            url: `/images/portfolio/${file}`, // Keep dev URL simple
-            fallback: `/images/portfolio/${file}`, // Fallback is the same in dev
+            url: `/images/portfolio/${file}`,
+            fallback: `/images/portfolio/${file}`,
             width,
             height
           });
@@ -68,53 +71,42 @@ export async function GET({ platform }) {
       }
 
       const r2Objects = await platform.env.ASSETSBUCKET.list({
-        prefix: 'portfolio/'
+        prefix: 'portfolio/',
+        include: ['customMetadata'] // Explicitly request customMetadata
       });
 
-      // Use Promise.all to process images concurrently
-      images = await Promise.all(
-          r2Objects.objects
-            .filter((obj: R2Object) => {
-              const ext = obj.key.split('.').pop()?.toLowerCase();
-              return ['jpg', 'jpeg', 'png', 'webp'].includes(ext || ''); // Added webp
-            })
-            .map(async (obj: R2Object): Promise<PortfolioImage> => {
-              let width = 0, height = 0;
+      images = r2Objects.objects
+        .filter((obj: R2Object) => {
+          const ext = obj.key.split('.').pop()?.toLowerCase();
+          return ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '');
+        })
+        .map((obj: R2Object): PortfolioImage => {
+          let width = 0, height = 0;
 
-              // Option 1: Try reading from R2 custom metadata if available
-              if (obj.customMetadata?.width && obj.customMetadata?.height) {
-                 width = parseInt(obj.customMetadata.width, 10);
-                 height = parseInt(obj.customMetadata.height, 10);
-              }
+          // Try reading dimensions from R2 custom metadata
+          if (obj.customMetadata?.width && obj.customMetadata?.height) {
+             width = parseInt(obj.customMetadata.width, 10);
+             height = parseInt(obj.customMetadata.height, 10);
+          } else {
+             // --- Filesystem fallback removed --- 
+             // Cannot access local filesystem reliably in Cloudflare Functions.
+             // Images uploaded WITHOUT dimensions in metadata will get default 1x1 size.
+             console.warn(`Dimensions missing in R2 metadata for ${obj.key}. Using default 1x1.`);
+             width = 1; 
+             height = 1;
+          }
+          
+          // Ensure non-zero dimensions
+          width = width || 1;
+          height = height || 1;
 
-              // Option 2: If metadata unreliable or absent, get dimensions from local fallback
-              // This assumes the fallback path corresponds to a file available at build/run time on the server
-              // Adjust the fallback path logic as needed for your deployment setup
-              if (!width || !height) {
-                 const fallbackFilename = obj.key.replace(/^portfolio\//, ''); // Get filename
-                 const fallbackPath = path.resolve(`src/images/Portfolio/${fallbackFilename}`); // Construct potential local path
-                 try {
-                    const buffer = await fs.readFile(fallbackPath); // Read fallback file to buffer
-                    const dimensions = imageSize(buffer); // Pass buffer
-                    width = dimensions.width ?? 0;
-                    height = dimensions.height ?? 0;
-                 } catch (e) {
-                    console.warn(`Could not get dimensions for fallback ${fallbackPath}:`, e instanceof Error ? e.message : e);
-                    // Assign default dimensions or handle error as needed
-                    width = width || 1; // Avoid division by zero for aspect ratio
-                    height = height || 1;
-                 }
-              }
-
-
-              return {
-                url: `/directr2/${obj.key}`, // R2 URL
-                fallback: `/images/Portfolio/${obj.key.replace(/^portfolio\//, '')}`, // Local fallback URL (relative to static/images or src/images if served)
-                width: width || 1, // Ensure non-zero
-                height: height || 1 // Ensure non-zero
-              };
-            })
-      );
+          return {
+            url: `/directr2/${obj.key}`,
+            fallback: `/images/Portfolio/${obj.key.replace(/^portfolio\//, '')}`,
+            width: width,
+            height: height
+          };
+        });
     }
 
     // Add basic sorting if needed, e.g., by filename

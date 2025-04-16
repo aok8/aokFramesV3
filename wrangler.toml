@@ -25,5 +25,4 @@ preview_bucket_name = "aokframes-website-assets"
 [[kv_namespaces]]
 binding = "IMAGE_DIMS_KV"
 id = "1b91abdae8064720853c87a34b3bf3d4" 
-# !!! Replace with your actual Preview KV namespace ID if different !!!
-preview_id = "YOUR_KV_PREVIEW_ID_HERE"
+preview_id = "1b91abdae8064720853c87a34b3bf3d4"

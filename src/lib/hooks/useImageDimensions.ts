@@ -19,13 +19,23 @@ async function fetchDimensions(): Promise<DimensionsMap | null> {
       throw new Error(`Failed to fetch dimensions: ${response.statusText}`);
     }
     const data: DimensionsMap = await response.json();
-    return data;
+    
+    // Check if we got any dimensions from the API
+    if (data && Object.keys(data).length > 0) {
+      console.log(`Successfully fetched ${Object.keys(data).length} image dimensions from API`);
+      return data;
+    } else {
+      console.warn('API returned empty dimensions data, falling back to local dimensions');
+      return null; // Will trigger fallback to local dimensions
+    }
   } catch (error) {
     console.error('Error fetching image dimensions:', error);
-    return null; // Return null on error
+    return null; // Return null on error, will trigger fallback to local dimensions
   }
 }
 
+// In development, we'll still prefer local dimensions for faster development
+// but in production, we'll try API first, then fall back to local
 if (import.meta.env.DEV) {
   // In development, use the locally generated map directly
   console.log('Using local image dimensions map (Development Mode).');
@@ -34,35 +44,29 @@ if (import.meta.env.DEV) {
     return () => {}; // No cleanup needed
   });
 } else {
-  // In production, fetch from the API
-  console.log('Fetching image dimensions from API (Production Mode).');
-  // Only fetch on the client-side in production to avoid build-time fetches
-  let initialValue: DimensionsMap | null = null;
-  let setStore: (value: DimensionsMap | null) => void;
-
-  dimensionsStore = readable<DimensionsMap | null>(initialValue, (set) => {
-    setStore = set;
+  // In production, always try API first but have localDimensionsMap as fallback
+  console.log('Fetching image dimensions from API with local fallback (Production Mode).');
+  
+  dimensionsStore = readable<DimensionsMap | null>(localDimensionsMap, (set) => {
     if (BROWSER) {
+      // If we're in the browser, fetch from the API
       fetchDimensions().then(data => {
         if (data) {
+          // If API data exists, use it
           set(data);
         }
+        // Otherwise, we're already initialized with localDimensionsMap
       });
     }
     return () => {}; // No cleanup needed
   });
-  
-  // If not running in the browser initially (e.g., SSR), 
-  // potentially try fetching again when component mounts if needed,
-  // although API route should ideally be available during SSR build/render too.
-  // The `BROWSER` check handles the typical CSR case.
 }
 
 /**
  * Svelte hook to get the image dimensions map.
- * Uses local data in development and fetches from API in production.
+ * Uses local data in development and fetches from API in production with local fallback.
  * 
- * @returns A readable store containing the dimensions map (or null if loading/error).
+ * @returns A readable store containing the dimensions map.
  */
 export function useImageDimensions(): Readable<DimensionsMap | null> {
   return dimensionsStore;
@@ -80,7 +84,17 @@ export function getDimensions(map: DimensionsMap | null, imageName: string, r2Ba
   if (!map || !imageName) {
     return null;
   }
-  // Construct the full key as stored in R2/KV
+  // First try the full key as stored in R2/KV
   const key = `${r2BasePath}${imageName}`;
-  return map[key] || null;
+  if (map[key]) {
+    return map[key];
+  }
+  
+  // Then try just the filename without the path
+  // This is important for local fallback which may not have the full path
+  if (map[imageName]) {
+    return map[imageName];
+  }
+  
+  return null;
 } 

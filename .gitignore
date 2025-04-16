@@ -31,3 +31,6 @@ src/images/Portfolio
 .cloudflare
 
 src/content/
+
+# Generated files
+src/lib/data/portfolio-dimensions.ts

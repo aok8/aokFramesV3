@@ -3,8 +3,8 @@ import { dev } from '$app/environment';
 import path from 'node:path';
 import { imageSize } from 'image-size';
 import type { PageServerLoad } from './$types';
-// Import the generated constant from the .ts file
-import { dimensionsMap } from '$lib/data/portfolio-dimensions'; // No .ts extension needed usually
+// Import the generated constant from the .ts file as fallback
+import { dimensionsMap as localDimensionsMap } from '$lib/data/portfolio-dimensions';
 
 // Define the expected structure of the dimensions JSON
 interface ImageDimensions {
@@ -42,10 +42,48 @@ if (dev) {
   devFs = await import('node:fs/promises');
 }
 
+// Helper function to fetch dimensions from the API
+async function fetchDimensionsFromAPI(fetch: any): Promise<DimensionsMap | null> {
+  try {
+    const response = await fetch('/api/dimensions');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch dimensions: ${response.statusText}`);
+    }
+    const data: DimensionsMap = await response.json();
+    
+    // Check if we got any dimensions from the API
+    if (data && Object.keys(data).length > 0) {
+      console.log(`[portfolio-images] Successfully fetched ${Object.keys(data).length} image dimensions from API`);
+      return data;
+    } else {
+      console.warn('[portfolio-images] API returned empty dimensions data, falling back to local dimensions');
+      return null;
+    }
+  } catch (error) {
+    console.error('[portfolio-images] Error fetching image dimensions:', error);
+    return null;
+  }
+}
+
 // Rename export back to GET for API route
-export const GET: PageServerLoad = async ({ platform }) => {
+export const GET: PageServerLoad = async ({ platform, fetch }) => {
   try {
     let images: PortfolioImage[] = [];
+    let dimensionsMap: DimensionsMap = {};
+
+    // Try to fetch dimensions from the API first (regardless of environment)
+    // This should work in both development and production
+    if (!dev) {
+      const apiDimensions = await fetchDimensionsFromAPI(fetch);
+      if (apiDimensions && Object.keys(apiDimensions).length > 0) {
+        dimensionsMap = apiDimensions;
+        console.log(`[portfolio-images] Using ${Object.keys(dimensionsMap).length} dimensions from API`);
+      } else {
+        // Fall back to local dimensions map if API fails
+        dimensionsMap = localDimensionsMap;
+        console.log(`[portfolio-images] Falling back to local dimensions map with ${Object.keys(dimensionsMap).length} entries`);
+      }
+    }
 
     // In development mode, read from local directory
     if (dev && devFs) {
@@ -79,14 +117,13 @@ export const GET: PageServerLoad = async ({ platform }) => {
           });
       }
 
-    } else { // Production mode - use R2 bucket and imported dimensions map
+    } else { // Production mode - use R2 bucket and dimensions map
       if (!platform?.env?.ASSETSBUCKET) {
         throw new Error('ASSETSBUCKET binding not found');
       }
 
       const r2Objects = await platform.env.ASSETSBUCKET.list({
         prefix: 'portfolio/',
-        // include: ['customMetadata'] // No longer need custom metadata
       });
 
       images = r2Objects.objects
@@ -96,16 +133,25 @@ export const GET: PageServerLoad = async ({ platform }) => {
         })
         .map((obj: R2Object): PortfolioImage => {
           let width = 1, height = 1; // Default dimensions
-          const filename = obj.key.split('/').pop();
+          const filename = obj.key.split('/').pop() || '';
 
-          // Look up dimensions directly in the imported map
-          // Type guard might still be good practice, but TS should know the type now
-          if (filename && filename in dimensionsMap) {
-             // Access directly, TS knows the type from the imported const
-             width = dimensionsMap[filename].width;
-             height = dimensionsMap[filename].height;
-          } else {
-             console.warn(`Dimensions not found in generated map for R2 object: ${obj.key} (filename: ${filename}). Using default 1x1.`);
+          // First try to get dimensions from the map using the full key
+          if (obj.key in dimensionsMap) {
+            width = dimensionsMap[obj.key].width;
+            height = dimensionsMap[obj.key].height;
+          }
+          // Then try using just the filename
+          else if (filename in dimensionsMap) {
+            width = dimensionsMap[filename].width;
+            height = dimensionsMap[filename].height;
+          }
+          // Finally, try with the portfolio/ prefix explicitly
+          else if (('portfolio/' + filename) in dimensionsMap) {
+            width = dimensionsMap['portfolio/' + filename].width;
+            height = dimensionsMap['portfolio/' + filename].height;
+          }
+          else {
+            console.warn(`Dimensions not found for R2 object: ${obj.key} (filename: ${filename}). Using default 1x1.`);
           }
           
           width = width || 1;

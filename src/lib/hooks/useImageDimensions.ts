@@ -1,4 +1,6 @@
+// @ts-ignore - Handle missing type declarations
 import { BROWSER } from 'svelte/environment';
+// @ts-ignore - Handle missing generated file
 import { dimensionsMap as localDimensionsMap } from '$lib/data/portfolio-dimensions';
 import { readable, type Readable } from 'svelte/store';
 
@@ -14,6 +16,7 @@ let dimensionsStore: Readable<DimensionsMap | null>;
 
 async function fetchDimensions(): Promise<DimensionsMap | null> {
   try {
+    console.log('Attempting to fetch dimensions from /api/dimensions');
     const response = await fetch('/api/dimensions');
     if (!response.ok) {
       throw new Error(`Failed to fetch dimensions: ${response.statusText}`);

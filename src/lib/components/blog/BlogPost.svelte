@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { BlogPost } from '$lib/types/blog.js';
   import { marked, Renderer } from 'marked';
-  import { onMount, setContext, afterUpdate } from 'svelte';
+  import { onMount, setContext, afterUpdate, tick } from 'svelte';
   import { dev } from '$app/environment';
 
   export let post: BlogPost;
@@ -69,11 +69,25 @@
   $: headerImagePath = post?.image || '';
   $: headerImageFallbackPath = dev ? headerImagePath?.replace('/directr2/blog/posts/', '/src/content/blog/posts/') : ''; 
 
-  onMount(() => {
+  onMount(async () => {
     headerImageLoaded = false;
     headerImageError = false;
     console.log(`BlogPost component mounted for post: ${post.id}`);
-    // ... querySelector logic removed for brevity ...
+    
+    // Wait for initial DOM updates
+    await tick();
+
+    // Check if header image loaded before listener attached
+    if (!isPreview && post.image) { // Only check in full post view with an image
+      const imageId = !headerImageError ? `post-header-image-${post.id}` : (dev && headerImageFallbackPath ? `post-header-fallback-${post.id}` : null);
+      if (imageId) {
+        const imgElement = document.getElementById(imageId) as HTMLImageElement | null;
+        if (imgElement?.complete && !headerImageLoaded) {
+          console.log(`Header image (${imageId}) already complete on mount. Setting loaded.`);
+          headerImageLoaded = true;
+        }
+      }
+    }
   });
 
   afterUpdate(() => {
@@ -191,6 +205,7 @@
        <div class="image-placeholder full-post-header">
         {#if !headerImageError}
           <img
+            id="post-header-image-{post.id}"
             src={headerImagePath}
             alt={post.title}
             class="full-post-image"
@@ -210,6 +225,7 @@
           />
         {:else if dev && headerImageFallbackPath}
           <img
+            id="post-header-fallback-{post.id}"
             src={headerImageFallbackPath}
             alt={post.title}
             class="full-post-image"

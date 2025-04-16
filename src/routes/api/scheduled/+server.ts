@@ -1,5 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import type { KVNamespace, R2Bucket } from '@cloudflare/workers-types';
+import type { KVNamespace } from '@cloudflare/workers-types';
 
 // Define the structure for storing dimensions in KV
 interface ImageDimensions {
@@ -95,27 +95,74 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     
     console.log(`Found ${imagesToProcess.length} new images to process.`);
     
-    // Array to collect successful processing results
-    const results = await Promise.allSettled(
-      imagesToProcess.map(obj => processImage(obj, platform.env.R2_BUCKET, platform.env.IMAGE_DIMS_KV))
-    );
-    
-    // Count successful operations
-    const processedCount = results.filter(result => result.status === 'fulfilled' && result.value === true).length;
+    // Process images sequentially to avoid type issues
+    let processedCount = 0;
+    for (const obj of imagesToProcess) {
+      try {
+        console.log(`Processing image: ${obj.key}`);
+        const r2Object = await platform.env.R2_BUCKET.get(obj.key);
+
+        if (!r2Object) {
+          console.warn(`Could not retrieve object ${obj.key} from R2.`);
+          continue;
+        }
+          
+        // *** Actual Dimension Extraction Logic ***
+        let dimensions: ImageDimensions | null = null;
+        try {
+          const contentType = r2Object.httpMetadata?.contentType?.toLowerCase();
+          const fileExtension = obj.key.split('.').pop()?.toLowerCase();
+          
+          // Read the first ~32KB, which should be enough for headers
+          const reader = r2Object.body.getReader();
+          let receivedLength = 0;
+          const chunks = [];
+          const maxBytes = 32 * 1024;
+          while (receivedLength < maxBytes) {
+            const { done, value } = await reader.read();
+            if (done || !value) {
+              break;
+            }
+            chunks.push(value);
+            receivedLength += value.length;
+          }
+          reader.releaseLock(); // Release lock ASAP
+          // Combine the chunks into a single buffer
+          const buffer = new Uint8Array(receivedLength);
+          let position = 0;
+          for (const chunk of chunks) {
+            buffer.set(chunk, position);
+            position += chunk.length;
+          }
+          
+          // Determine type and parse
+          if (contentType === 'image/jpeg' || (!contentType && fileExtension === 'jpg') || (!contentType && fileExtension === 'jpeg')) {
+            dimensions = parseJpegDimensions(buffer);
+          } else if (contentType === 'image/png' || (!contentType && fileExtension === 'png')) {
+            dimensions = parsePngDimensions(buffer);
+          } else {
+            console.warn(`  Unsupported content type or extension for ${obj.key}: ${contentType || fileExtension}`);
+          }
+        } catch (parseError) {
+          console.error(`  Error parsing dimensions for ${obj.key}:`, parseError instanceof Error ? parseError.message : String(parseError));
+          dimensions = null; // Ensure dimensions is null on error
+        }
+
+        if (dimensions) {
+          // Store dimensions in KV, using the R2 object key as the KV key
+          await platform.env.IMAGE_DIMS_KV.put(obj.key, JSON.stringify(dimensions));
+          console.log(`  Stored dimensions for ${obj.key}: ${dimensions.width}x${dimensions.height}`);
+          processedCount++;
+        } else {
+          console.warn(`  Could not extract dimensions for ${obj.key}. Skipping.`);
+        }
+      } catch (err) {
+        console.error(`  Error processing image ${obj.key}:`, err instanceof Error ? err.message : String(err));
+      }
+    }
     
     // Log detailed results
     console.log(`Successfully processed ${processedCount} out of ${imagesToProcess.length} images.`);
-    
-    // Log any errors
-    const errors = results.filter(result => result.status === 'rejected');
-    if (errors.length > 0) {
-      console.error(`Failed to process ${errors.length} images.`);
-      errors.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.error(`Error ${index + 1}:`, result.reason);
-        }
-      });
-    }
 
     return new Response(JSON.stringify({
       status: 'success',
@@ -140,80 +187,6 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     });
   }
 };
-
-/**
- * Process a single image and store its dimensions in KV
- * Returns true if successful, false otherwise
- */
-async function processImage(
-  obj: { key: string }, 
-  r2Bucket: R2Bucket, 
-  kvNamespace: KVNamespace
-): Promise<boolean> {
-  try {
-    console.log(`Processing image: ${obj.key}`);
-    const r2Object = await r2Bucket.get(obj.key);
-
-    if (!r2Object) {
-      console.warn(`Could not retrieve object ${obj.key} from R2.`);
-      return false;
-    }
-      
-    // *** Actual Dimension Extraction Logic ***
-    let dimensions: ImageDimensions | null = null;
-    try {
-      const contentType = r2Object.httpMetadata?.contentType?.toLowerCase();
-      const fileExtension = obj.key.split('.').pop()?.toLowerCase();
-      
-      // Read the first ~32KB, which should be enough for headers
-      const reader = r2Object.body.getReader();
-      let receivedLength = 0;
-      const chunks = [];
-      const maxBytes = 32 * 1024;
-      while (receivedLength < maxBytes) {
-        const { done, value } = await reader.read();
-        if (done || !value) {
-          break;
-        }
-        chunks.push(value);
-        receivedLength += value.length;
-      }
-      reader.releaseLock(); // Release lock ASAP
-      // Combine the chunks into a single buffer
-      const buffer = new Uint8Array(receivedLength);
-      let position = 0;
-      for (const chunk of chunks) {
-        buffer.set(chunk, position);
-        position += chunk.length;
-      }
-      
-      // Determine type and parse
-      if (contentType === 'image/jpeg' || (!contentType && fileExtension === 'jpg') || (!contentType && fileExtension === 'jpeg')) {
-        dimensions = parseJpegDimensions(buffer);
-      } else if (contentType === 'image/png' || (!contentType && fileExtension === 'png')) {
-        dimensions = parsePngDimensions(buffer);
-      } else {
-        console.warn(`  Unsupported content type or extension for ${obj.key}: ${contentType || fileExtension}`);
-      }
-    } catch (parseError) {
-      console.error(`  Error parsing dimensions for ${obj.key}:`, parseError instanceof Error ? parseError.message : String(parseError));
-      dimensions = null; // Ensure dimensions is null on error
-    }
-
-    if (dimensions) {
-      // Store dimensions in KV, using the R2 object key as the KV key
-      await kvNamespace.put(obj.key, JSON.stringify(dimensions));
-      console.log(`  Stored dimensions for ${obj.key}: ${dimensions.width}x${dimensions.height}`);
-      return true;
-    } else {
-      console.warn(`  Could not extract dimensions for ${obj.key}. Skipping.`);
-      return false;
-    }
-  } catch (err) {
-    console.error(`  Error processing image ${obj.key}:`, err instanceof Error ? err.message : String(err));
-    throw err; // Re-throw to be caught by Promise.allSettled
-  }
-}
 
 // Simple auth token validation (replace with your own logic)
 function isValidAuthToken(authHeader: string): boolean {

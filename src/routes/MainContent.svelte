@@ -4,7 +4,7 @@
   import { theme } from '../theme/theme.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Footer, Navbar, Modal } from '$lib/components/ui/index.js';
-  import { getPortfolioImages } from '$lib/utils/images.js';
+  import { getPortfolioImages } from '$lib/utils/images';
 
   // Define the expected image structure including dimensions
   interface PortfolioImage {

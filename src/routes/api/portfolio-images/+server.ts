@@ -161,30 +161,55 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
 
     // In development mode, read from local directory
     if (dev && devFs) {
-      const localPortfolioPath = path.resolve('src/images/Portfolio');
-      const files = await devFs.readdir(localPortfolioPath);
+      // Use lowercase 'portfolio' to match the actual directory path
+      const localPortfolioPath = path.resolve('src/images/portfolio');
+      logEvent(`[portfolio-images] DEV MODE: Looking for images in ${localPortfolioPath}`);
+      
+      try {
+        const files = await devFs.readdir(localPortfolioPath);
+        logEvent(`[portfolio-images] Found ${files.length} files in local portfolio directory`);
 
-      images = [];
-      for (const file of files) {
-          const ext = file.split('.').pop()?.toLowerCase();
-          if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue;
+        images = [];
+        for (const file of files) {
+            const ext = file.split('.').pop()?.toLowerCase();
+            if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue;
 
-          const filePath = path.join(localPortfolioPath, file);
-          let width = 0, height = 0;
-          try {
-            const buffer = await devFs.readFile(filePath);
-            const dimensions = imageSize(buffer);
-            width = dimensions.width ?? 0;
-            height = dimensions.height ?? 0;
-          } catch (e) {
-            logEvent(`[portfolio-images] Error getting dimensions for dev ${filePath}: ${e}`);
-          }
-          images.push({
-            url: `/images/portfolio/${file}`,
-            fallback: `/images/portfolio/${file}`,
-            width,
-            height
-          });
+            const filePath = path.join(localPortfolioPath, file);
+            
+            // First try to get dimensions from our dimensionsMap
+            let width = 0, height = 0;
+            
+            // Try finding dimensions in the local map
+            if (file in dimensionsMap) {
+              width = dimensionsMap[file].width;
+              height = dimensionsMap[file].height;
+              logEvent(`[portfolio-images] Using pre-generated dimensions for ${file}: ${width}x${height}`);
+            } 
+            // If dimensions not found in map, get them from the actual file
+            else {
+              try {
+                const buffer = await devFs.readFile(filePath);
+                const dimensions = imageSize(buffer);
+                width = dimensions.width ?? 0;
+                height = dimensions.height ?? 0;
+                logEvent(`[portfolio-images] Extracted dimensions from file ${file}: ${width}x${height}`);
+              } catch (e) {
+                logEvent(`[portfolio-images] Error getting dimensions for dev ${filePath}: ${e}`);
+              }
+            }
+            
+            images.push({
+              url: `/images/portfolio/${file}`,
+              fallback: `/images/portfolio/${file}`,
+              width,
+              height,
+              _source: 'local-dev'
+            });
+        }
+        
+        logEvent(`[portfolio-images] DEV MODE: Successfully loaded ${images.length} images from local directory`);
+      } catch (dirError) {
+        logEvent(`[portfolio-images] DEV MODE ERROR: Failed to read local directory: ${dirError}`);
       }
     } else { 
       // Production mode - use R2 bucket and dimensions map

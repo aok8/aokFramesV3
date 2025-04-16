@@ -37,4 +37,4 @@
   </div>
 </main>
 
-<Footer /> 
+<Footer --bg-color={theme.background.light} --text-color={theme.text.primary}/> 

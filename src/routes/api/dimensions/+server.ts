@@ -8,7 +8,7 @@ interface ImageDimensions {
 type DimensionsMap = Record<string, ImageDimensions>;
 
 // Path within the R2 bucket to scan for images (used as KV prefix)
-const IMAGE_FOLDER_PATH = 'photos/mainImages/';
+const IMAGE_FOLDER_PATH = 'portfolio/';
 
 export const GET: RequestHandler = async ({ platform }) => {
   try {
@@ -18,6 +18,30 @@ export const GET: RequestHandler = async ({ platform }) => {
 
     // Fetch all keys from the KV namespace with the specified prefix
     const listResponse = await platform.env.IMAGE_DIMS_KV.list({ prefix: IMAGE_FOLDER_PATH });
+    
+    // Debug: Show environment info and raw list response
+    console.log(`KV namespace info:`, {
+      available: !!platform.env.IMAGE_DIMS_KV,
+      envKeys: Object.keys(platform.env || {})
+    });
+    console.log(`Raw list response:`, JSON.stringify(listResponse));
+    
+    // Add detailed logging
+    console.log(`Found ${listResponse.keys.length} keys in KV with prefix '${IMAGE_FOLDER_PATH}'`);
+    if (listResponse.keys.length > 0) {
+      console.log('First few keys:', listResponse.keys.slice(0, 5).map(k => k.name));
+    } else {
+      // Try listing all keys without a prefix as a fallback
+      try {
+        const allKeys = await platform.env.IMAGE_DIMS_KV.list();
+        console.log(`Found ${allKeys.keys.length} total keys in KV (no prefix)`);
+        if (allKeys.keys.length > 0) {
+          console.log('First few keys without prefix filter:', allKeys.keys.slice(0, 5).map(k => k.name));
+        }
+      } catch (e) {
+        console.error('Error listing all keys:', e);
+      }
+    }
 
     const dimensionsMap: DimensionsMap = {};
     const kvFetchPromises: Promise<void>[] = [];
@@ -33,6 +57,7 @@ export const GET: RequestHandler = async ({ platform }) => {
               const dimensions: ImageDimensions = JSON.parse(value);
               // Use the R2 object key (which is the KV key) as the key in our map
               dimensionsMap[key.name] = dimensions;
+              console.log(`Successfully retrieved dimensions for ${key.name}: ${dimensions.width}x${dimensions.height}`);
             } else {
               console.warn(`Value for key ${key.name} was null or empty.`);
             }
@@ -45,6 +70,9 @@ export const GET: RequestHandler = async ({ platform }) => {
     
     // Wait for all KV fetches to complete
     await Promise.allSettled(kvFetchPromises);
+    
+    // Log final result
+    console.log(`Returning dimensions map with ${Object.keys(dimensionsMap).length} entries`);
 
     // Return the complete dimensions map as JSON
     return new Response(JSON.stringify(dimensionsMap), {

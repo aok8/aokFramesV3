@@ -6,6 +6,7 @@
 	},
 	"scripts": {
 		"dev": "vite dev",
+		"generate-dims": "node scripts/generate-portfolio-dimensions.js",
 		"build": "vite build && npm run prepack",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",

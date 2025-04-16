@@ -9,6 +9,40 @@ interface ImageDimensions {
 // Path within the R2 bucket to scan for images
 const IMAGE_FOLDER_PATH = 'photos/mainImages/';
 
+// Allow GET requests for testing - returns status only, doesn't run the job
+export const GET: RequestHandler = async ({ platform }) => {
+  try {
+    if (!platform?.env?.IMAGE_DIMS_KV) {
+      return new Response('KV namespace not available', { status: 500 });
+    }
+
+    // List existing keys in KV to get count
+    const kvListResponse = await platform.env.IMAGE_DIMS_KV.list({ prefix: IMAGE_FOLDER_PATH });
+    const processedCount = kvListResponse.keys.length;
+
+    // Return status only
+    return new Response(JSON.stringify({
+      status: 'ready',
+      message: 'Use POST to run the job',
+      processed_images: processedCount
+    }), {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      status: 'error',
+      message: error instanceof Error ? error.message : String(error)
+    }), { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      } 
+    });
+  }
+};
+
 // This endpoint will run the image dimension extraction process
 // and can be triggered via a cron job or manually
 export const POST: RequestHandler = async ({ platform, request }) => {

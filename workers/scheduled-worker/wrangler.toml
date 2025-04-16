@@ -1,0 +1,8 @@
+name = "aokframes-scheduled-worker"
+main = "index.js"
+compatibility_date = "2024-04-04"
+
+# Configure the schedule - adjust as needed
+# This example runs every day at 2:00 AM UTC
+[triggers]
+crons = ["0 2 * * *"] 

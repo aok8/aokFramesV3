@@ -1,6 +1,8 @@
 interface PortfolioImage {
   url: string;
   fallback: string;
+  width: number;
+  height: number;
 }
 
 export const getPortfolioImages = async (): Promise<PortfolioImage[]> => {

@@ -7,7 +7,7 @@ interface ImageDimensions {
 }
 
 // Path within the R2 bucket to scan for images
-const IMAGE_FOLDER_PATH = 'photos/mainImages/';
+const IMAGE_FOLDER_PATH = 'portfolio/';
 
 // Allow GET requests for testing - returns status only, doesn't run the job
 export const GET: RequestHandler = async ({ platform }) => {

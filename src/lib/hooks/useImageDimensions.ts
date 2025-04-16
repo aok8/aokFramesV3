@@ -73,10 +73,10 @@ export function useImageDimensions(): Readable<DimensionsMap | null> {
  * 
  * @param map The dimensions map (from the store).
  * @param imageName The filename of the image (e.g., "image1.jpg").
- * @param r2BasePath The base path in R2 (e.g., "photos/mainImages/"). Defaults to "photos/mainImages/".
+ * @param r2BasePath The base path in R2 (e.g., "portfolio/"). Defaults to "portfolio/".
  * @returns The dimensions { width, height } or null if not found.
  */
-export function getDimensions(map: DimensionsMap | null, imageName: string, r2BasePath: string = 'photos/mainImages/'): ImageDimensions | null {
+export function getDimensions(map: DimensionsMap | null, imageName: string, r2BasePath: string = 'portfolio/'): ImageDimensions | null {
   if (!map || !imageName) {
     return null;
   }

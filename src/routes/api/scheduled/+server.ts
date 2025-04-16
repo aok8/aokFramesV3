@@ -128,11 +128,12 @@ export const POST: RequestHandler = async ({ platform, request }) => {
           
           console.log(`Image ${obj.key} - Content type: ${contentType || 'unknown'}, Extension: ${fileExtension || 'unknown'}`);
           
-          // Read the first ~32KB, which should be enough for headers
+          // Read at least 150KB to ensure we can find the SOF marker
           const reader = r2Object.body.getReader();
           let receivedLength = 0;
           const chunks = [];
-          const maxBytes = 32 * 1024;
+          const maxBytes = 150 * 1024; // Increased to 150KB to capture more of the file
+          console.log(`Reading up to ${maxBytes} bytes from ${obj.key} to find dimensions`);
           while (receivedLength < maxBytes) {
             const { done, value } = await reader.read();
             if (done || !value) {

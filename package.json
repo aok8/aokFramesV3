@@ -37,9 +37,10 @@
 		"svelte": "^5.0.0"
 	},
 	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250416.0",
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
-		"@sveltejs/adapter-cloudflare": "^7.0.0",
+		"@sveltejs/adapter-cloudflare": "^7.0.1",
 		"@sveltejs/package": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
 		"@tailwindcss/forms": "^0.5.10",

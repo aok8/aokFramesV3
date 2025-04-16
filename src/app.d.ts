@@ -1,20 +1,24 @@
-// See https://svelte.dev/docs/kit/types#app.d.ts
+/// <reference types="@sveltejs/kit" />
+import type { R2Bucket, KVNamespace } from '@cloudflare/workers-types';
+
+// See https://kit.svelte.dev/docs/types#app
 // for information about these interfaces
 declare global {
 	namespace App {
 		// interface Error {}
 		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
 		interface Platform {
 			env: {
+				R2_BUCKET: R2Bucket;
 				ASSETSBUCKET: R2Bucket;
+				IMAGE_DIMS_KV: KVNamespace;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;
 			};
 			caches: CacheStorage & { default: Cache };
 		}
+		// interface PageData {}
 	}
 }
 

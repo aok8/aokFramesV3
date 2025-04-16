@@ -43,99 +43,87 @@ if (dev) {
   devFs = await import('node:fs/promises');
 }
 
-// Helper function to fetch dimensions from the API (server-side)
-async function fetchDimensionsFromAPI(platform: any, fetch: any): Promise<DimensionsMap | null> {
-  // For cloud builds, we'll check both ways: via platform.env and via fetch
-  // This ensures we get dimensions regardless of environment
-
-  // Option 1: Try directly from the KV store first (more reliable in Cloudflare)
-  if (platform?.env?.IMAGE_DIMS_KV) {
-    try {
-      console.log('[portfolio-images] Trying to read dimensions directly from KV');
-      const listResponse = await platform.env.IMAGE_DIMS_KV.list({ 
-        prefix: 'portfolio/' 
-      });
-      
-      if (listResponse && listResponse.keys && listResponse.keys.length > 0) {
-        console.log(`[portfolio-images] Found ${listResponse.keys.length} keys in KV`);
-        
-        // Create an object to store the dimensions
-        const dimensionsMap: DimensionsMap = {};
-        
-        // Get all the dimensions in parallel
-        const fetchPromises = listResponse.keys.map(async (key: any) => {
-          try {
-            const value = await platform.env.IMAGE_DIMS_KV.get(key.name);
-            if (value) {
-              const dimensions = JSON.parse(value);
-              dimensionsMap[key.name] = dimensions;
-            }
-          } catch (err) {
-            console.error(`[portfolio-images] Error getting KV value for ${key.name}:`, err);
-          }
-        });
-        
-        await Promise.all(fetchPromises);
-        
-        if (Object.keys(dimensionsMap).length > 0) {
-          console.log(`[portfolio-images] Successfully loaded ${Object.keys(dimensionsMap).length} dimensions directly from KV`);
-          return dimensionsMap;
-        }
-      }
-    } catch (kvError) {
-      console.error('[portfolio-images] Error accessing KV directly:', kvError);
-    }
-  }
-
-  // Option 2: Try the dimensions API as fallback
-  try {
-    console.log('[portfolio-images] Trying to fetch dimensions from API endpoint');
-    const response = await fetch('/api/dimensions');
-    if (!response.ok) {
-      throw new Error(`Failed to fetch dimensions: ${response.statusText}`);
-    }
-    const data: DimensionsMap = await response.json();
-    
-    // Check if we got any dimensions from the API
-    if (data && Object.keys(data).length > 0) {
-      console.log(`[portfolio-images] Successfully fetched ${Object.keys(data).length} image dimensions from API`);
-      return data;
-    } else {
-      console.warn('[portfolio-images] API returned empty dimensions data');
-      return null;
-    }
-  } catch (error) {
-    console.error('[portfolio-images] Error fetching dimensions from API:', error);
-    return null;
-  }
-}
-
 // GET API route
 export const GET: PageServerLoad = async ({ platform, fetch }) => {
+  console.log('[portfolio-images] Endpoint called');
   try {
     let images: PortfolioImage[] = [];
+    
+    // Initialize dimensions map to an empty object to prevent null errors
     let dimensionsMap: DimensionsMap = {};
-
-    // Skip dimension fetching in development mode
+    
+    // In development, use local dimensions for simplicity/speed
     if (dev) {
       dimensionsMap = localDimensionsMap || {};
-      console.log(`[portfolio-images] Using local dimensions in dev mode: ${Object.keys(dimensionsMap).length} entries`);
-    } else {
-      // In production, try to get dimensions
-      try {
-        const apiDimensions = await fetchDimensionsFromAPI(platform, fetch);
-        if (apiDimensions && Object.keys(apiDimensions).length > 0) {
-          dimensionsMap = apiDimensions;
-          console.log(`[portfolio-images] Using ${Object.keys(dimensionsMap).length} dimensions from API/KV`);
-        } else {
-          // Fall back to local dimensions map if API fails
-          dimensionsMap = localDimensionsMap || {};
-          console.log(`[portfolio-images] Falling back to local dimensions map with ${Object.keys(dimensionsMap).length} entries`);
+      console.log(`[portfolio-images] DEV MODE: Using local dimensions: ${Object.keys(dimensionsMap).length} entries`);
+    } 
+    // In production, always try to get dimensions from KV first
+    else {
+      console.log('[portfolio-images] PRODUCTION MODE: Attempting to load dimensions');
+      
+      // Log environment info to diagnose issues
+      console.log('[portfolio-images] Platform available:', !!platform);
+      console.log('[portfolio-images] Platform env available:', !!platform?.env);
+      if (platform?.env) {
+        console.log('[portfolio-images] Available bindings:', Object.keys(platform.env));
+      }
+      
+      // STEP 1: Try to access KV directly (the most reliable in Cloudflare)
+      if (platform?.env?.IMAGE_DIMS_KV) {
+        try {
+          console.log('[portfolio-images] Accessing KV directly...');
+          const listResponse = await platform.env.IMAGE_DIMS_KV.list({ 
+            prefix: 'portfolio/' 
+          });
+          
+          console.log(`[portfolio-images] KV list response received. Found ${listResponse?.keys?.length || 0} keys`);
+          
+          if (listResponse && listResponse.keys && listResponse.keys.length > 0) {
+            // Create a map to store the dimensions
+            const kvDimensions: DimensionsMap = {};
+            
+            // Log first few keys for debugging
+            console.log('[portfolio-images] First few KV keys:', 
+              listResponse.keys.slice(0, 3).map(k => k.name));
+            
+            // Get dimensions in parallel
+            const fetchPromises = listResponse.keys.map(async (key: any) => {
+              try {
+                const value = await platform.env.IMAGE_DIMS_KV.get(key.name);
+                if (value) {
+                  const dims = JSON.parse(value);
+                  kvDimensions[key.name] = dims;
+                }
+              } catch (err) {
+                console.error(`[portfolio-images] Error fetching KV value for ${key.name}:`, err);
+              }
+            });
+            
+            // Wait for all fetches to complete
+            await Promise.all(fetchPromises);
+            
+            const keyCount = Object.keys(kvDimensions).length;
+            if (keyCount > 0) {
+              console.log(`[portfolio-images] Successfully loaded ${keyCount} dimensions from KV`);
+              dimensionsMap = kvDimensions;
+            } else {
+              console.warn('[portfolio-images] No valid dimensions were loaded from KV');
+            }
+          } else {
+            console.warn('[portfolio-images] No keys found in KV store');
+          }
+        } catch (kvError) {
+          console.error('[portfolio-images] Error accessing KV directly:', kvError);
         }
-      } catch (dimError) {
-        console.error('[portfolio-images] Error getting dimensions:', dimError);
-        // Ensure we at least have an empty object
-        dimensionsMap = localDimensionsMap || {};
+      } else {
+        console.warn('[portfolio-images] IMAGE_DIMS_KV binding not available');
+      }
+      
+      // STEP 2: Fall back to local dimensions if KV access failed or returned empty
+      if (Object.keys(dimensionsMap).length === 0 && localDimensionsMap) {
+        console.log('[portfolio-images] Falling back to local dimensions map');
+        dimensionsMap = localDimensionsMap;
+        console.log(`[portfolio-images] Using ${Object.keys(dimensionsMap).length} local dimension entries`);
       }
     }
 
@@ -152,10 +140,8 @@ export const GET: PageServerLoad = async ({ platform, fetch }) => {
           const filePath = path.join(localPortfolioPath, file);
           let width = 0, height = 0;
           try {
-            // --- Read Buffer for imageSize --- 
             const buffer = await devFs.readFile(filePath);
-            const dimensions = imageSize(buffer); // Pass buffer
-            // --- Removed @ts-ignore --- 
+            const dimensions = imageSize(buffer);
             width = dimensions.width ?? 0;
             height = dimensions.height ?? 0;
           } catch (e) {
@@ -168,15 +154,27 @@ export const GET: PageServerLoad = async ({ platform, fetch }) => {
             height
           });
       }
-
-    } else { // Production mode - use R2 bucket and dimensions map
+    } else { 
+      // Production mode - use R2 bucket and dimensions map
       if (!platform?.env?.ASSETSBUCKET) {
         throw new Error('ASSETSBUCKET binding not found');
       }
 
+      console.log('[portfolio-images] Listing objects from R2 bucket');
       const r2Objects = await platform.env.ASSETSBUCKET.list({
         prefix: 'portfolio/',
       });
+      console.log(`[portfolio-images] Found ${r2Objects.objects.length} objects in R2 bucket`);
+
+      // Log dimension info for debugging
+      const dimensionCount = Object.keys(dimensionsMap).length;
+      console.log(`[portfolio-images] Using dimensions map with ${dimensionCount} entries`);
+      if (dimensionCount > 0) {
+        // Log a few sample dimensions
+        const sampleKeys = Object.keys(dimensionsMap).slice(0, 3);
+        console.log('[portfolio-images] Sample dimensions:', 
+          sampleKeys.map(key => `${key}: ${dimensionsMap[key].width}x${dimensionsMap[key].height}`));
+      }
 
       images = r2Objects.objects
         .filter((obj: R2Object) => {
@@ -203,7 +201,7 @@ export const GET: PageServerLoad = async ({ platform, fetch }) => {
             height = dimensionsMap['portfolio/' + filename].height;
           }
           else {
-            console.warn(`Dimensions not found for R2 object: ${obj.key} (filename: ${filename}). Using default 1x1.`);
+            console.warn(`[portfolio-images] No dimensions found for: ${obj.key}`);
           }
           
           width = width || 1;
@@ -218,15 +216,19 @@ export const GET: PageServerLoad = async ({ platform, fetch }) => {
         });
     }
 
-    // Add basic sorting if needed, e.g., by filename
+    // Add basic sorting
     images.sort((a, b) => a.fallback.localeCompare(b.fallback));
-
+    
+    console.log(`[portfolio-images] Returning ${images.length} images`);
     return json(images);
   } catch (error) {
-    console.error('Error listing images:', error);
+    console.error('[portfolio-images] Error listing images:', error);
     // Provide more context in error response if possible
     const message = error instanceof Error ? error.message : 'Unknown error fetching portfolio images';
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ 
+      error: message,
+      timestamp: new Date().toISOString()
+    }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
     });

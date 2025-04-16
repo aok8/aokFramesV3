@@ -2,14 +2,12 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import generatePortfolioDimensionsPlugin from './vite-plugin-generate-dimensions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig({
 	plugins: [
-		generatePortfolioDimensionsPlugin(),
 		sveltekit(),
 		{
 			name: 'copy-worker',

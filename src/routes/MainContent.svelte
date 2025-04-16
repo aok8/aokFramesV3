@@ -62,6 +62,7 @@
   }
 
   function pauseScrolling() {
+    /*
     if (isScrollingPaused) return;
     
     isScrollingPaused = true;
@@ -86,6 +87,7 @@
         isScrollingPaused = false;
       }, 500);
     }, 2000);
+    */
   }
 
   function initializeObserver() {

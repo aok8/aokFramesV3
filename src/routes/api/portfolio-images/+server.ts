@@ -34,6 +34,7 @@ interface PortfolioImage {
   fallback: string;
   width: number;
   height: number;
+  _source?: string; // Optional field for debug information
 }
 
 // Development-only imports
@@ -44,7 +45,7 @@ if (dev) {
 }
 
 // GET API route
-export const GET: PageServerLoad = async ({ platform, fetch }) => {
+export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
   console.log('[portfolio-images] Endpoint called');
   
   // Create a debug log collection 
@@ -63,7 +64,7 @@ export const GET: PageServerLoad = async ({ platform, fetch }) => {
     let dimensionsMap: DimensionsMap = {};
     
     // Diagnostic information to include in response
-    const diagnostics = {
+    const diagnostics: any = {
       timestamp: new Date().toISOString(),
       environment: dev ? 'development' : 'production',
       platform: !!platform,
@@ -268,7 +269,7 @@ export const GET: PageServerLoad = async ({ platform, fetch }) => {
     logEvent(`[portfolio-images] Returning ${images.length} images`);
     
     // In development or when ?debug=true, include diagnostic info
-    const includeDebug = dev || new URL(request.url || "http://localhost").searchParams.has('debug');
+    const includeDebug = dev || (request?.url && new URL(request.url).searchParams.has('debug'));
     
     if (includeDebug) {
       // Include diagnostics directly in the response for debugging

@@ -152,6 +152,9 @@
     p {
       font-size: 1rem;
     }
+    .content-area {
+      padding-top: 6rem;
+    }
   }
 
   /* Styles for image container and image */

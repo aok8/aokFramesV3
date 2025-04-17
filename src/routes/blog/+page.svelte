@@ -302,6 +302,11 @@
     display: flex;
     flex-direction: column;
   }
+  @media (max-width: 768px) {
+    .blog-container {
+      padding-top: 4rem;
+    }
+  }
 
   main {
     flex: 1;

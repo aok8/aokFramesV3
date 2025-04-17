@@ -141,12 +141,13 @@
         position: absolute;
         bottom: 25px; /* Default position (mobile/initial) */
         left: 50%;
-        transform: translateX(-50%); /* Initial transform */
+        transform: translateX(-50%) rotate(0deg); /* Initial transform with explicit rotation */
         width: 35px;
         height: 35px;
         fill: white;
         animation: pulseDown 1.8s infinite ease-in-out; /* Default animation */
-        transition: transform 0.3s ease-out, opacity 0.3s ease-out, left 0.3s ease-out, right 0.3s ease-out, bottom 0.3s ease-out; /* Smooth transitions */
+        animation-name: pulseDown; /* Explicit animation name */
+        transition: transform 0.4s ease-out, opacity 0.3s ease-out, animation-name 0.3s ease-out; /* Added animation-name transition, increased transform duration */
         opacity: 1;
         pointer-events: auto;
     }
@@ -158,12 +159,8 @@
 
     /* Styles for right-pointing arrow (Desktop scrolled state) */
     .cover-arrow.right {
-        /* REMOVED: bottom: 50%; */
-        /* REMOVED: left: auto; */
-        /* REMOVED: right: 25px; */
-        /* Keep bottom: 25px and left: 50% from base .cover-arrow */
         transform: translateX(-50%) rotate(-90deg); /* Center horizontally THEN rotate */
-        animation: pulseRight 1.8s infinite ease-in-out; /* Apply right pulse */
+        animation-name: pulseRight; /* Explicitly set animation name */
     }
 
     /* Keep the h1 padding for spacing */
@@ -178,18 +175,18 @@
            bottom: 25px;
            left: 50%;
            right: auto; /* Override right positioning */
-           transform: translateX(-50%); /* Force centering, remove rotation */
-           animation: pulseDown 1.8s infinite ease-in-out; /* Ensure pulseDown */
+           transform: translateX(-50%) rotate(0deg); /* Force centering, reset rotation for mobile */
+           animation-name: pulseDown; /* Explicitly set animation name for mobile */
         }
     }
 
     @keyframes pulseDown {
         0%, 100% {
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(-50%) rotate(0deg) translateY(0);
             opacity: 0.7;
         }
         50% {
-            transform: translateX(-50%) translateY(10px);
+            transform: translateX(-50%) rotate(0deg) translateY(10px);
             opacity: 1;
         }
     }

@@ -92,6 +92,7 @@
       <a href="/">AOK<span>Frames</span></a>
     </div>
     <ul class="nav-links desktop-links">
+      <li><a href="/">Home</a></li>
       <li><a href="/works">Works</a></li>
       <li><a href="/about">About</a></li>
       <li><a href="/blog">Blog</a></li>
@@ -251,15 +252,12 @@
     }
 
     .nav-content {
-      justify-content: flex-end; /* Push hamburger to the right */
-      padding-right: 1rem; /* Add some padding on the right */
+      justify-content: flex-end; /* Keep flex-end for mobile */
+      padding-right: 1rem; /* Add padding back for mobile */
     }
     
     .logo {
-      padding-left: 1rem;
-    }
-    .logo a {
-      font-size: 1.2rem; 
+      display: none; /* Keep logo hidden on mobile */
     }
 
     .desktop-links {
@@ -297,6 +295,9 @@
 
   /* Hide hamburger on larger screens */
   @media (min-width: 769px) {
+    .logo {
+      display: block; /* Ensure logo is shown on desktop */
+    }
     .mobile-menu-overlay {
         display: none; /* Ensure overlay is hidden */
     }

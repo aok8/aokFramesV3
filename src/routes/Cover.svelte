@@ -166,6 +166,12 @@
         pointer-events: auto;
     }
 
+    /* Remove default focus outline on click/focus */
+    .cover-arrow:focus,
+    .cover-arrow:active {
+      outline: none;
+    }
+
     .cover-arrow.hidden {
        opacity: 0;
        pointer-events: none; /* Prevent interaction when hidden */

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment'; // Import browser check
+  import { theme } from '../../../theme/theme.js'; // Try .js extension as suggested by linter
   import { fade } from 'svelte/transition';
 
   export let backgroundColor: string | undefined = undefined;
@@ -9,6 +10,10 @@
   let isOverPhoto = true;
   let navbar: HTMLElement;
   let isMenuOpen = false;
+
+  // Reactive variables for dynamic mobile menu colors
+  let currentMobileBgColor = theme.background.light; // Default
+  let currentMobileTextColor = theme.text.primary; // Default
 
   function updateNavbarStyle() {
     if (!navbar || textColor || isMenuOpen) return; // Don't update if textColor is provided or menu is open
@@ -23,6 +28,18 @@
   }
 
   function toggleMenu() {
+    // Determine colors BEFORE toggling isMenuOpen
+    const currentTextColor = textColor || (isOverPhoto ? 'white' : theme.text.primary);
+    if (currentTextColor === 'white') {
+      // If text was white (over photo), use inverted colors
+      currentMobileBgColor = theme.text.primary; // Rosy brown background
+      currentMobileTextColor = theme.background.light; // Light gray text
+    } else {
+      // Otherwise, use standard mobile colors
+      currentMobileBgColor = theme.background.light; // Light gray background
+      currentMobileTextColor = theme.text.primary; // Rosy brown text
+    }
+
     isMenuOpen = !isMenuOpen;
     // Prevent background scroll when menu is open, only in browser
     if (browser) { 
@@ -63,9 +80,11 @@
   class="navbar {isMenuOpen ? 'menu-open' : ''}"
   style="
     --bg-color: {backgroundColor || 'transparent'}; 
-    --text-color: {textColor || (isOverPhoto && !isMenuOpen ? 'white' : 'hsl(var(--foreground))')};
-    --mobile-bg-color: hsl(var(--background)); 
-    --mobile-text-color: hsl(var(--foreground));
+    /* Use theme color when not over photo */
+    --text-color: {textColor || (isOverPhoto && !isMenuOpen ? 'white' : theme.text.primary)}; 
+    /* Bind to reactive variables */
+    --mobile-bg-color: {currentMobileBgColor}; 
+    --mobile-text-color: {currentMobileTextColor};
   "
 >
   <div class="nav-content">
@@ -97,6 +116,7 @@
       transition:fade={{ duration: 300 }}
     >
       <ul class="nav-links mobile-links">
+        <li><a href="/" on:click={toggleMenu}>Home</a></li>
         <li><a href="/works" on:click={toggleMenu}>Works</a></li>
         <li><a href="/about" on:click={toggleMenu}>About</a></li>
         <li><a href="/blog" on:click={toggleMenu}>Blog</a></li>
@@ -130,6 +150,7 @@
   .logo {
     padding-left: 1rem;
     z-index: 110; /* Ensure logo stays above overlay background */
+    display: none; /* Hide logo on mobile */
   }
 
   .logo a {
@@ -212,7 +233,8 @@
   }
 
   .mobile-links a {
-    color: var(--mobile-text-color); /* Use specific mobile text color */
+    /* Use dynamic mobile text color variable */
+    color: var(--mobile-text-color); 
     font-size: 1.8rem; /* Larger for touch */
     font-weight: bold;
   }
@@ -227,8 +249,12 @@
     .navbar {
       height: 5rem; /* Thicker navbar */
     }
+
+    .nav-content {
+      justify-content: flex-end; /* Push hamburger to the right */
+      padding-right: 1rem; /* Add some padding on the right */
+    }
     
-    /* Adjust logo size/padding for thicker bar if needed */
     .logo {
       padding-left: 1rem;
     }
@@ -242,6 +268,7 @@
 
     .hamburger-menu {
       display: block; /* Show hamburger */
+      margin-right: 0; /* Remove margin, use padding on parent */
     }
 
     .hamburger-menu.open .line-1 {
@@ -252,11 +279,11 @@
       transform: translateY(-0px) rotate(-45deg); /* Animate to X */
     }
 
-    /* When menu is open, force navbar background */
+    /* When menu is open, force navbar background and text/icon color using dynamic vars */
     .navbar.menu-open {
       background-color: var(--mobile-bg-color); 
     }
-    .navbar.menu-open .logo a, 
+    .navbar.menu-open .logo a, /* Logo is hidden, but keep for potential future use */
     .navbar.menu-open .logo span,
     .navbar.menu-open .hamburger-menu .line {
       color: var(--mobile-text-color); 

@@ -13,7 +13,10 @@
     textColor={theme.background.light}
   />
 
-<main class="min-h-screen blog-post-content">
+<main 
+  class="min-h-screen blog-post-content"
+  style="--theme-secondary: {theme.secondary};"
+>
   <div class="blog-post-inner-container">
     <div class="back-link-wrapper">
       <a
@@ -91,13 +94,13 @@
   .back-link {
     display: inline-flex;
     align-items: center;
-    color: #4b5563;
+    color: var(--theme-secondary);
     text-decoration: none;
     transition: color 0.2s ease;
   }
 
   .back-link:hover {
-    color: #111827;
+    color: color-mix(in srgb, var(--theme-secondary) 60%, black 40%);
     text-decoration: underline;
   }
 

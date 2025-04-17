@@ -3,6 +3,7 @@
   import { marked, Renderer } from 'marked';
   import { onMount, setContext, afterUpdate, tick } from 'svelte';
   import { dev } from '$app/environment';
+  import { theme } from '../../../theme/theme.js'; // Corrected import path
 
   export let post: BlogPost;
   export let isPreview = false;
@@ -109,7 +110,14 @@
 </script>
 
 {#if isPreview}
-  <article class="card-container" data-post-id={post.id}>
+  <article 
+    class="card-container" 
+    data-post-id={post.id}
+    style="
+      --blog-label-bg-color: color-mix(in srgb, {theme.secondary} 70%, white 30%);
+      --blog-label-text-color: {theme.tertiary};
+    "
+  >
     {#if post.image}
       <a href={blogPostUrl} class="block image-link">
          <div class="image-placeholder">
@@ -154,7 +162,7 @@
     {/if}
     <div class="p-6">
       <div class="flex items-center gap-2 mb-4">
-        <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-sm font-medium">
+        <span class="blog-label">
           {post.label}
         </span>
         <time class="text-gray-500 text-sm" datetime={post.published}>
@@ -182,7 +190,13 @@
     </div>
   </article>
 {:else}
-  <article class="prose prose-lg mx-auto">
+  <article 
+    class="prose prose-lg mx-auto" 
+    style="
+      --blog-label-bg-color: color-mix(in srgb, {theme.secondary} 70%, white 30%);
+      --blog-label-text-color: {theme.tertiary};
+    "
+  >
     <header class="mb-8">
       <h1 class="text-4xl font-bold mb-4 font-sans">{post.title}</h1>
       <div class="flex items-center gap-4 text-gray-600">
@@ -196,7 +210,7 @@
           })}
         </time>
         <span>•</span>
-        <span class="bg-gray-100 px-2 py-1 rounded">{post.label}</span>
+        <span class="blog-label">{post.label}</span>
       </div>
     </header>
 
@@ -391,5 +405,16 @@
   }
   .full-post-image.loaded {
      opacity: 1;
+  }
+
+  /* --- Update style for the blog label to use CSS vars --- */
+  .blog-label {
+    background-color: var(--blog-label-bg-color);
+    color: var(--blog-label-text-color);
+    padding: 0.25rem 0.5rem; /* Equivalent to py-1 px-2 */
+    border-radius: 9999px; /* Equivalent to rounded-full */
+    font-size: 0.875rem; /* Equivalent to text-sm */
+    font-weight: 500; /* Equivalent to font-medium */
+    display: inline-block; /* Ensure padding applies correctly */
   }
 </style> 

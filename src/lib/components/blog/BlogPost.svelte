@@ -126,9 +126,7 @@
               src={headerImagePath}
               alt={post.title}
               class="card-image"
-              class:loaded={headerImageLoaded}
               loading="lazy"
-              on:load={() => { headerImageLoaded = true; }}
               on:error={() => {
                 console.log(`Header image failed: ${headerImagePath}, trying fallback: ${headerImageFallbackPath}`);
                 if (dev && headerImageFallbackPath) {
@@ -145,9 +143,7 @@
               src={headerImageFallbackPath}
               alt={post.title}
               class="card-image"
-              class:loaded={headerImageLoaded}
               loading="lazy"
-              on:load={() => { headerImageLoaded = true; }}
               on:error={() => { 
                 console.error(`Header fallback failed: ${headerImageFallbackPath}`); 
               }}
@@ -365,12 +361,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0;
     transition: opacity 0.5s ease-in-out;
-  }
-
-  .card-image.loaded {
-     opacity: 1;
   }
 
   .error-placeholder-text {

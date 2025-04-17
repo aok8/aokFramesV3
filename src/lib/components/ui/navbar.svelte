@@ -216,7 +216,7 @@
     height: 3px; /* Slightly thicker lines */
     background-color: var(--text-color); 
     margin: 5px 0;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease;
   }
 
   .mobile-menu-overlay {
@@ -230,6 +230,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    transition: background-color 0.3s ease;
   }
 
   .mobile-links {

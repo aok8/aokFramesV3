@@ -161,8 +161,8 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
 
     // In development mode, read from local directory
     if (dev && devFs) {
-      // Use lowercase 'portfolio' to match the actual directory path
-      const localPortfolioPath = path.resolve('src/images/portfolio');
+      // Directory is named "Portfolio" with capital P
+      const localPortfolioPath = path.resolve('static/images/Portfolio');
       logEvent(`[portfolio-images] DEV MODE: Looking for images in ${localPortfolioPath}`);
       
       try {
@@ -306,7 +306,7 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
         }
       });
     } else {
-      // Normal production response
+      // Normal production response - return just the images array
       return json(images);
     }
   } catch (error) {

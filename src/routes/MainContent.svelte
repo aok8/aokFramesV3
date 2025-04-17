@@ -143,6 +143,19 @@
         
         // Load portfolio images
         portfolioImages = await getPortfolioImages();
+        console.error('DEBUG: Portfolio images loaded:', portfolioImages);
+        if (portfolioImages && Array.isArray(portfolioImages)) {
+          console.error(`DEBUG: Got ${portfolioImages.length} portfolio images`);
+          // Show first two URLs if available
+          if (portfolioImages.length > 0) {
+            console.error(`DEBUG: First image URL: ${portfolioImages[0].url}`);
+            if (portfolioImages.length > 1) {
+              console.error(`DEBUG: Second image URL: ${portfolioImages[1].url}`);
+            }
+          }
+        } else {
+          console.error('DEBUG: Portfolio images is not an array:', typeof portfolioImages);
+        }
         // Initialize loaded array after images are fetched
         portfolioLoaded = Array(portfolioImages.length).fill(false);
         

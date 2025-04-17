@@ -3,6 +3,7 @@
   import { browser } from '$app/environment'; // Import browser check
   import { theme } from '../../../theme/theme.js'; // Try .js extension as suggested by linter
   import { fade } from 'svelte/transition';
+  import { page } from '$app/stores'; // Import the page store
 
   export let backgroundColor: string | undefined = undefined;
   export let textColor: string | undefined = undefined;
@@ -92,7 +93,9 @@
       <a href="/">AOK<span>Frames</span></a>
     </div>
     <ul class="nav-links desktop-links">
-      <li><a href="/">Home</a></li>
+      {#if $page.url.pathname !== '/'}
+        <li><a href="/">Home</a></li>
+      {/if}
       <li><a href="/works">Works</a></li>
       <li><a href="/about">About</a></li>
       <li><a href="/blog">Blog</a></li>
@@ -117,7 +120,9 @@
       transition:fade={{ duration: 300 }}
     >
       <ul class="nav-links mobile-links">
-        <li><a href="/" on:click={toggleMenu}>Home</a></li>
+        {#if $page.url.pathname !== '/'}
+          <li><a href="/" on:click={toggleMenu}>Home</a></li>
+        {/if}
         <li><a href="/works" on:click={toggleMenu}>Works</a></li>
         <li><a href="/about" on:click={toggleMenu}>About</a></li>
         <li><a href="/blog" on:click={toggleMenu}>Blog</a></li>

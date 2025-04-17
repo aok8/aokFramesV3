@@ -24,63 +24,35 @@ export const GET = (async ({ platform }) => {
       prefix: 'blog/posts/'
     });
 
-    // Check blog images directory
-    const imagesResult = await platform.env.ASSETSBUCKET.list({
-      prefix: 'blog/images/'
-    });
-
-    // Format results to include top-level info
+    // Filter for index.md files and map to basic info
     const postsFormatted = postsResult.objects
-      .filter(obj => obj.key.toLowerCase().endsWith('.md'))
+      .filter(obj => obj.key.toLowerCase().endsWith('/index.md')) // Look for index.md
       .map(obj => ({
         key: obj.key,
         size: obj.size,
         uploaded: obj.uploaded
       }));
-
-    const imagesFormatted = imagesResult.objects
-      .filter(obj => ['jpg', 'jpeg', 'png', 'gif', 'webp'].some(ext => 
-        obj.key.toLowerCase().endsWith('.' + ext)))
-      .map(obj => ({
-        key: obj.key,
-        size: obj.size,
-        uploaded: obj.uploaded
-      }));
-
-    // Match blog posts with images
+      
+    // Extract slugs from the keys that contain index.md
     const postSlugs = postsFormatted.map(post => {
-      const parts = post.key.split('/');
-      const filename = parts[parts.length - 1];
-      return filename.replace(/\.md$/i, '');
-    });
+        const parts = post.key.split('/');
+        // Expects key like blog/posts/slug/index.md, so slug is parts[2]
+        return parts.length >= 4 ? parts[2] : null;
+    }).filter(slug => slug !== null);
 
-    const imageSlugs = imagesFormatted.map(image => {
-      const parts = image.key.split('/');
-      const filename = parts[parts.length - 1];
-      return filename.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
-    });
-
-    // Find posts with and without matching images
-    const postsWithImages = postSlugs.filter(slug => imageSlugs.includes(slug));
-    const postsWithoutImages = postSlugs.filter(slug => !imageSlugs.includes(slug));
-    const unusedImages = imageSlugs.filter(slug => !postSlugs.includes(slug));
+    // Optional: You could list blog/posts/ again to get all image files
+    // Or perform individual HEAD requests later if needed
+    // For now, just return the list of post markdown files found.
 
     return json({
       status: 'success',
       platformStatus,
       blogPosts: {
         count: postsFormatted.length,
-        items: postsFormatted
-      },
-      blogImages: {
-        count: imagesFormatted.length,
-        items: imagesFormatted
-      },
-      matching: {
-        postsWithImages,
-        postsWithoutImages,
-        unusedImages
+        items: postsFormatted, // Contains keys like blog/posts/slug/index.md
+        slugs: postSlugs // Contains extracted slugs like "night-photo"
       }
+      // Removed old image logic for simplicity, add back if needed
     });
   } catch (error) {
     console.error('Error checking blog status:', error);

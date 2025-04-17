@@ -103,9 +103,7 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
 }
 
 export const load: PageLoad = async ({ data, params, fetch }) => {
-  console.log(`-------- Blog Post Page Load Start --------`);
-  console.log(`Raw slug from params: "${params.slug}"`);
-  console.log(`Development mode: ${dev}`);
+  console.log(`[+page.ts Server Load] Post data not available from server, checking client sources...`);
   
   // Define the expected return type for the function
   type LoadResult = { post: BlogPost } | { error: any; status: number }; 
@@ -114,14 +112,14 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
     const { slug } = params;
     const decodedSlug = decodeURIComponent(slug);
     
-    console.log(`Page load running for blog post with slug: "${decodedSlug}", data present:`, !!data);
+    console.log(`[+page.ts Server Load] Page load running for blog post with slug: "${decodedSlug}", data present:`, !!data);
     
     // --- Development Mode Logic --- 
     if (dev) {
         console.log('Running in development mode, attempting local file fetch...');
         try {
             const postPath = `/src/content/blog/posts/${decodedSlug}/index.md`;
-            console.log(`Fetching post from dev path: ${postPath}`);
+            console.log(`[+page.ts Server Load] Fetching post from dev path: ${postPath}`);
             const response = await fetch(postPath);
             
             if (!response.ok) {
@@ -183,23 +181,48 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         return { post: serverPost };
     }
     
-    console.log('Post data not available from server, checking client sources...');
+    console.log('[+page.ts Server Load] Post data not available from server, checking client sources...');
     
     // Try to fetch this specific post directly first (most reliable method in cloud)
     try {
-        console.log(`Attempting direct fetch of slug "${decodedSlug}" from R2`);
+        console.log(`[+page.ts Server Load] Attempting direct fetch of slug "${decodedSlug}" from R2`);
         
         // First, fetch the blog status to identify the exact key
+        console.log('[+page.ts Server Load] Fetching /api/blog-status');
         const statusRes = await fetch('/api/blog-status', {
             headers: {
                 'Accept': 'application/json',
                 'Cache-Control': 'no-cache'
             }
         });
+        console.log(`[+page.ts Server Load] /api/blog-status response status: ${statusRes.status}`);
         
         if (statusRes.ok) {
             const statusData = await statusRes.json();
-            console.log('Blog status API response received successfully');
+            console.log('[+page.ts Server Load] Blog status API response received successfully');
+            console.log('[+page.ts Server Load] R2 slugs from API:', statusData?.blogPosts?.slugs);
+            
+            // --- START REVISED MATCHING LOGIC ---
+            let matchingItem: { key: string } | undefined = undefined;
+            const apiSlugs: string[] = statusData?.blogPosts?.slugs || [];
+            
+            // Find if the requested slug exists in the slugs returned by the API (case-insensitive)
+            const foundSlug = apiSlugs.find(s => s.toLowerCase() === decodedSlug.toLowerCase());
+            
+            if (foundSlug) {
+                console.log(`[+page.ts Server Load] Found slug "${foundSlug}" in API slugs.`);
+                // Reconstruct the expected key for the index.md file
+                const expectedKey = `blog/posts/${foundSlug}/index.md`;
+                // Find the item with this exact key in the API items list
+                matchingItem = statusData.blogPosts.items.find((item: { key: string }) => item.key === expectedKey);
+                 if (!matchingItem) {
+                   console.warn(`[+page.ts Server Load] Slug "${foundSlug}" was in slugs list, but key "${expectedKey}" not found in items list!`);
+                 }
+            } else {
+                console.log(`[+page.ts Server Load] Slug "${decodedSlug}" not found in API slugs list.`);
+            }
+            console.log(`[+page.ts Server Load] Found matchingItem using slugs list: ${!!matchingItem}`);
+            // --- END REVISED MATCHING LOGIC ---
             
             if (statusData.blogPosts?.items?.length > 0) {
                 // Log all filenames for debugging
@@ -209,33 +232,28 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                 });
                 console.log('All post slugs in R2:', allFilenames);
                 
-                // Find the post with this slug (case insensitive)
-                // We need to find the exact case-preserved filename from R2
-                const matchingItem = statusData.blogPosts.items.find((item: { key: string }) => {
-                    const filename = item.key.split('/').pop() || '';
-                    const filenameWithoutExt = filename.replace(/\.md$/i, '');
-                    console.log(`Comparing: "${filenameWithoutExt.toLowerCase()}" to "${decodedSlug.toLowerCase()}"`);
-                    return filenameWithoutExt.toLowerCase() === decodedSlug.toLowerCase();
-                });
-                
                 if (matchingItem) {
-                    console.log('Found direct match for post:', matchingItem.key);
+                    console.log(`[+page.ts Server Load] Found direct match for post object:`, matchingItem);
                     
-                    // Get the exact filename with correct case
-                    const exactFilename = matchingItem.key.split('/').pop() || '';
-                    const exactSlug = exactFilename.replace(/\.md$/i, '');
-                    console.log(`Using exact slug from R2: ${exactSlug}`);
-                    
+                    // --- Use foundSlug (which has correct case) instead of recalculating --- 
+                    // const exactFilename = matchingItem.key.split('/').pop() || '';
+                    // const exactSlug_OLD = exactFilename.replace(/\.md$/i, ''); // This was incorrect
+                    // console.log(`[+page.ts Server Load] Using exact slug from R2: ${exactSlug}`); // Use foundSlug instead
+                    const exactSlug = foundSlug!; // Use the slug identified earlier (assert non-null)
+                    // ---------------------------------------------------------------------
+
                     // Fetch the content directly from R2
-                    console.log(`Fetching post content from R2: ${matchingItem.key}`);
-                    const postResponse = await fetch(`/directr2/${matchingItem.key}`);
+                    const directR2Key = `/directr2/${matchingItem.key}`;
+                    console.log(`[+page.ts Server Load] Fetching post content from R2 via: ${directR2Key}`);
+                    const postResponse = await fetch(directR2Key);
+                    console.log(`[+page.ts Server Load] /directr2 fetch status: ${postResponse.status}`);
+
                     if (postResponse.ok) {
                         const content = await postResponse.text();
                         const { data: frontmatter, content: markdownContent } = parseFrontmatter(content);
                         
-                        // Extract title from first h1
                         const titleMatch = markdownContent.match(/^#\s+(.*)/m);
-                        const title = titleMatch ? titleMatch[1] : exactSlug;
+                        const title = titleMatch ? titleMatch[1] : exactSlug; // Use correct exactSlug
                         
                         // Extract first paragraph after title for summary
                         const lines = markdownContent.split('\n');
@@ -261,22 +279,24 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                         
                         const summary = summaryLines.join(' ') || 'No summary available';
                         
-                        // Check if image exists
-                        const imageKey = `blog/${exactSlug}/header.jpg`;
+                        // Check if image exists using the correct exactSlug
+                        const imageKey = `blog/${exactSlug}/header.jpg`; 
                         let imageExists = false;
                         
                         try {
-                            const imageResponse = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
+                            const imageCheckUrl = `/directr2/${imageKey}`;
+                            console.log(`[+page.ts Server Load] Checking for header image via HEAD: ${imageCheckUrl}`);
+                            const imageResponse = await fetch(imageCheckUrl, { method: 'HEAD' });
                             imageExists = imageResponse.ok;
-                            console.log(`Image exists for post: ${imageExists}`);
+                            console.log(`[+page.ts Server Load] Image exists for post "${exactSlug}": ${imageExists}`);
                         } catch (e) {
-                            console.error('Error checking for image:', e);
+                            console.error(`[+page.ts Server Load] Error checking for image "${imageKey}":`, e);
                             imageExists = false;
                         }
                         
-                        // Create post object
+                        // Create post object using the correct exactSlug for ID
                         const post = {
-                            id: exactSlug, // Using exact slug from R2 is crucial
+                            id: exactSlug, // Use correct exactSlug
                             title,
                             content: markdownContent,
                             summary,
@@ -286,7 +306,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                             image: imageExists ? `/directr2/${imageKey}` : undefined
                         };
                         
-                        console.log(`Successfully created blog post from direct R2 fetch: "${post.title}" with ID "${post.id}"`);
+                        console.log(`[+page.ts Server Load] Successfully created blog post object: "${post.title}" with ID "${post.id}"`);
                         
                         // Update the store with this post
                         const currentPosts = get(posts);
@@ -305,15 +325,24 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                         
                         return { post };
                     } else {
-                        console.error(`Failed to fetch post content from R2: ${postResponse.status}`);
+                        console.error(`[+page.ts Server Load] Failed to fetch post content from R2: ${postResponse.status}`);
+                        // Continue to fallback if direct content fetch fails
                     }
                 } else {
-                    console.log(`No matching file found for slug "${decodedSlug}" in R2 listing`);
+                    console.log(`[+page.ts Server Load] No matching file found for slug "${decodedSlug}" in R2 listing from API.`);
+                    // Continue to fallback
                 }
+            } else {
+              console.log('[+page.ts Server Load] API status reported 0 items.');
+              // Continue to fallback
             }
+        } else {
+            console.error(`[+page.ts Server Load] Fetch to /api/blog-status failed: ${statusRes.status}`);
+            // Continue to fallback
         }
     } catch (directFetchError) {
-        console.error('Error during direct post fetch:', directFetchError);
+        console.error('[+page.ts Server Load] Error during direct post fetch block:', directFetchError);
+        // Continue to fallback
     }
     
     // If direct fetch failed, check sessionStorage
@@ -388,78 +417,73 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         }
     }
     
-    // If we got here, try to load all posts and find the one we need
+    // --- Fallback to fetchAllPosts --- 
     try {
-        console.log('Attempting to load all posts and find target post');
+        console.log('[+page.ts Server Load] Fallback: Attempting to load all posts and find target post');
         
+        // Re-fetch status just in case (could optimize later)
         const statusRes = await fetch('/api/blog-status', {
-            headers: {
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache'
-            }
+            headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' }
         });
-        
+        console.log(`[+page.ts Server Load Fallback] /api/blog-status status: ${statusRes.status}`);
+
         if (!statusRes.ok) {
-            console.error(`Failed to fetch blog status: ${statusRes.status}`);
-            throw error(404, 'Blog post not found');
+            console.error(`[+page.ts Server Load Fallback] Failed to fetch blog status: ${statusRes.status}`);
+            throw error(404, 'Blog post not found (status API failed)');
         }
         
         const statusData = await statusRes.json();
-        console.log('Blog status API returned successfully for all posts fetch');
-        
+        console.log('[+page.ts Server Load Fallback] Blog status API returned successfully');
+        console.log('[+page.ts Server Load Fallback] R2 items from API:', statusData?.blogPosts?.items?.length);
+
         if (!statusData.blogPosts?.items || statusData.blogPosts.items.length === 0) {
-            console.error('No blog posts found in status data');
-            throw error(404, 'Blog post not found');
+            console.error('[+page.ts Server Load Fallback] No blog posts found in status data');
+            throw error(404, 'Blog post not found (no posts in API)');
         }
         
-        console.log(`Blog status contains ${statusData.blogPosts.items.length} posts`);
-        
-        // Load all posts
+        console.log(`[+page.ts Server Load Fallback] Fetching all ${statusData.blogPosts.items.length} posts`);
+        // Load all posts using the HELPER function, NOT the API endpoint
         const allPosts = await fetchAllPosts(statusData.blogPosts.items, fetch);
+        console.log(`[+page.ts Server Load Fallback] fetchAllPosts returned ${allPosts.length} posts`);
+
+        // Store all posts
+        posts.set(allPosts);
         
-        if (allPosts.length > 0) {
-            // Store all posts
-            posts.set(allPosts);
-            
-            // Store in sessionStorage
-            if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
-                try {
-                    sessionStorage.setItem('blogPosts', JSON.stringify(allPosts));
-                    console.log(`Stored ${allPosts.length} posts in sessionStorage`);
-                } catch (e) {
-                    console.error('Error storing posts in sessionStorage:', e);
-                }
+        // Store in sessionStorage
+        if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+            try {
+                sessionStorage.setItem('blogPosts', JSON.stringify(allPosts));
+                console.log(`Stored ${allPosts.length} posts in sessionStorage`);
+            } catch (e) {
+                console.error('Error storing posts in sessionStorage:', e);
             }
-            
-            // Now find our post - first with exact match
-            let targetPost = allPosts.find((p: any) => p.id === decodedSlug);
-            
-            // If no exact match, try case-insensitive match
-            if (!targetPost) {
-                targetPost = allPosts.find((p: any) => 
-                    p.id.toLowerCase() === decodedSlug.toLowerCase()
-                );
-                
-                if (targetPost) {
-                    console.log(`Found case-insensitive match for "${decodedSlug}" as "${targetPost.id}"`);
-                }
-            }
+        }
+        
+        // Now find our post - first with exact match
+        let targetPost = allPosts.find((p: any) => p.id === decodedSlug);
+        
+        // If no exact match, try case-insensitive match
+        if (!targetPost) {
+            targetPost = allPosts.find((p: any) => 
+                p.id.toLowerCase() === decodedSlug.toLowerCase()
+            );
             
             if (targetPost) {
-                console.log(`Found post "${targetPost.title}" with ID "${targetPost.id}" among all loaded posts`);
-                return { post: targetPost };
+                console.log(`Found case-insensitive match for "${decodedSlug}" as "${targetPost.id}"`);
             }
         }
         
-        console.error(`Post with slug "${decodedSlug}" not found among loaded posts`);
-        throw error(404, 'Blog post not found');
+        if (targetPost) {
+            console.log(`Found post "${targetPost.title}" with ID "${targetPost.id}" among all loaded posts`);
+            return { post: targetPost };
+        }
     } catch (e) {
-        console.error('Error loading all posts:', e);
-        throw error(404, 'Blog post not found');
+        console.error('[+page.ts Server Load Fallback] Error loading all posts:', e);
+        throw error(404, 'Blog post not found (fallback error)');
     }
 
   } catch (e) {
-    console.error('-------- Blog Post Page Load CRASHED --------');
+    console.error('[+page.ts Server Load] -------- Blog Post Page Load CRASHED --------');
     console.error('An unexpected error occurred in the page load function:', e);
     // Log params for context
     console.error('Params were:', params);

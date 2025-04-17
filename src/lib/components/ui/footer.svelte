@@ -23,6 +23,7 @@
     .footer {
         padding: 2rem;
         background-color: color-mix(in srgb, var(--bg-color) 80%, black);
+        color: var(--text-color);
     }
 
     .footer-content {
@@ -38,10 +39,11 @@
     .footer-content h3 {
         font-size: 1.5rem;
         font-weight: 300;
+        color: var(--text-color);
     }
 
     .email {
-        color: inherit;
+        color: var(--text-color);
         text-decoration: none;
         transition: color 0.2s;
     }
@@ -51,7 +53,7 @@
     }
 
     .instagram {
-        color: inherit;
+        color: var(--text-color);
         transition: color 0.2s;
     }
 

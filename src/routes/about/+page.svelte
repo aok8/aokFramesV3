@@ -102,7 +102,7 @@
 
   @media (max-width: 768px) {
     .about-content {
-      padding: 2rem 1rem;
+      padding: 6rem 1rem 2rem;
     }
 
     .profile-photo {

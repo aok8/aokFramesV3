@@ -27,7 +27,10 @@ vite.config.ts.timestamp-*
 /docs
 
 # Images
-src/images/Portfolio
 .cloudflare
+static/images/portfolio/
 
 src/content/
+
+# Generated files
+src/lib/data/portfolio-dimensions.ts

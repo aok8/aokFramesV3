@@ -20,3 +20,9 @@ preview_bucket_name = "aokframes-website-assets"
 binding = "ASSETSBUCKET" 
 bucket_name = "aokframes-website-assets"
 preview_bucket_name = "aokframes-website-assets"
+
+# KV Namespace binding for image dimensions
+[[kv_namespaces]]
+binding = "IMAGE_DIMS_KV"
+id = "1b91abdae8064720853c87a34b3bf3d4" 
+preview_id = "1b91abdae8064720853c87a34b3bf3d4"

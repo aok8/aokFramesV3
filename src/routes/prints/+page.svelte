@@ -83,7 +83,7 @@
     </div>
     <div class="section">
       <p>
-        For professional inquiries, collaborations, or to commission a unique custom print, please feel free to contact me at <a href="mailto:alain@aokframes.com">alain@aokframes.com</a>. I look forward to hearing from you!
+        For professional inquiries, collaborations, or to commission a unique custom print, please feel free to contact me at <a href="mailto:aokframes@gmail.com">aokframes@gmail.com</a>. I look forward to hearing from you!
       </p>
     </div>
     <div class="section">

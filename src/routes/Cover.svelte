@@ -77,6 +77,11 @@
     style={`${transformStyle} --primary-color: ${theme.primary};`}
 >
     <h1>AOK<span>Frames</span></h1>
+    
+    <!-- Down arrow for mobile -->
+    <svg class="down-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+    </svg>
 </div>
 
 
@@ -90,6 +95,7 @@
         background-color: var(--primary-color);
         z-index: 10; /* Highest z-index to be above everything initially */
         transition: transform 0.3s ease-out;  /* Slightly longer transition */
+        padding-bottom: 60px; /* Add padding to prevent overlap with arrow */
     }
     .cover h1 {
         color: white;
@@ -106,5 +112,35 @@
     .cover h1 span {
         color: rgb(208, 204, 204);
         font-family: 'Josefin Sans', sans-serif;
+    }
+
+    .down-arrow {
+        position: absolute;
+        bottom: 25px; 
+        left: 50%;
+        transform: translateX(-50%);
+        width: 35px; 
+        height: 35px;
+        fill: white;
+        animation: pulseDown 1.8s infinite ease-in-out;
+        display: none; /* Hidden by default */
+    }
+
+    /* Show only on mobile */
+    @media (max-width: 768px) {
+       .down-arrow { 
+           display: block; 
+        }
+    }
+
+    @keyframes pulseDown {
+        0%, 100% {
+            transform: translateX(-50%) translateY(0);
+            opacity: 0.7;
+        }
+        50% {
+            transform: translateX(-50%) translateY(10px); 
+            opacity: 1;
+        }
     }
 </style>

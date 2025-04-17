@@ -584,27 +584,9 @@
           margin-bottom: 0.5rem;
         }
 
-        /* These were removed as they are now on the wrapper */
-        /* .profile-photo {
-            width: 10vh;
-            height: 10vh;
-            border-radius: 50%;
-            object-fit: cover;
-        } */
-        /* .about-content{
-          gap: 0.5rem;
-        } */
+        .modal-photo {
+          max-width: 100%;
+          max-height: 95vh;
+        }
     }
-
-    /* Removed old error placeholder styles as it's handled differently now */
-    /* .error-placeholder {
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        background-color: rgba(0, 0, 0, 0.1);
-        color: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-    } */
 </style>

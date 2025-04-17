@@ -86,6 +86,16 @@
             arrowDirection = 'down';
         }
     }
+
+    function scrollCoverAway() {
+        if (!browser) return; // Guard against SSR
+        const scrollSensitivity = isMobile ? 8 : 10;
+        const scrollTargetY = scrollSensitivity * 100; // Scroll just enough to trigger 100%
+        window.scrollTo({
+            top: scrollTargetY,
+            behavior: 'smooth'
+        });
+    }
 </script>
 
 <svelte:window bind:scrollY={scrollY} />
@@ -101,6 +111,10 @@
         class:hidden={!showArrow}
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
+        on:click={scrollCoverAway}
+        role="button"
+        tabindex="0"
+        aria-label="Scroll down"
     >
         <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
     </svg>

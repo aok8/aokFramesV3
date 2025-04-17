@@ -256,36 +256,36 @@
   });
 </script>
 
-<div class="blog-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
+<div class="blog-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary}; --secondary-color: {theme.secondary};">
   <Navbar 
     backgroundColor={theme.text.primary}
     textColor={theme.background.light}
   />
 
-  <main class="min-h-screen py-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="max-w-4xl mx-auto mb-12 text-center">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">Blog</h1>
-        <p class="text-lg text-gray-600">
+  <main class="blog-main-content">
+    <div class="content-wrapper">
+      <div class="page-header">
+        <h1 class="page-title">Blog</h1>
+        <p class="page-subtitle">
           Exploring the art of photography, one frame at a time. Join me on my journey.
         </p>
       </div>
 
       {#if isLoading}
-        <div class="flex justify-center items-center py-20">
-          <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
-          <p class="ml-4 text-lg text-gray-700">Loading blog posts...</p>
+        <div class="loading-container">
+          <div class="loading-spinner"></div>
+          <p class="loading-text">Loading blog posts...</p>
         </div>
       {:else if $posts && $posts.length > 0}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="posts-grid">
           {#each $posts as post (post.id)}
             <BlogPostComponent {post} isPreview={true} />
           {/each}
         </div>
       {:else if loadError}
-        <p class="text-red-600 text-center py-10">Failed to load blog posts.</p>
+        <p class="status-text error-text">Failed to load blog posts.</p>
       {:else}
-        <p class="text-gray-600 text-center py-10">No blog posts available yet.</p>
+        <p class="status-text no-posts-text">No blog posts available yet.</p>
       {/if}
     </div>
   </main>
@@ -311,4 +311,119 @@
   main {
     flex: 1;
   }
+
+  .blog-main-content {
+    min-height: 100vh;
+    padding-top: 4rem; /* py-16 */
+    padding-bottom: 4rem; /* py-16 */
+  }
+
+  .content-wrapper {
+    max-width: 80rem; /* max-w-7xl */
+    margin-left: auto; /* mx-auto */
+    margin-right: auto; /* mx-auto */
+    padding-left: 1rem; /* px-4 */
+    padding-right: 1rem; /* px-4 */
+  }
+
+  .page-header {
+    max-width: 64rem; /* max-w-4xl */
+    margin-left: auto; /* mx-auto */
+    margin-right: auto; /* mx-auto */
+    margin-bottom: 3rem; /* mb-12 */
+    text-align: center; /* text-center */
+  }
+
+  .page-title {
+    font-size: 2.25rem; /* text-4xl */
+    line-height: 2.5rem; /* text-4xl */
+    font-weight: 700; /* font-bold */
+    color: color-mix(in srgb, var(--secondary-color) 80%, black); 
+    margin-bottom: 1rem; /* mb-4 */
+  }
+
+  .page-subtitle {
+    font-size: 1.125rem; /* text-lg */
+    line-height: 1.75rem; /* text-lg */
+    color: var(--secondary-color); 
+  }
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-top: 5rem; /* py-20 */
+    padding-bottom: 5rem; /* py-20 */
+  }
+
+  .loading-spinner {
+    height: 3rem; /* h-12 */
+    width: 3rem; /* w-12 */
+    border-top-width: 2px; /* border-t-2 */
+    border-bottom-width: 2px; /* border-b-2 */
+    border-color: rgb(17 24 39); /* border-gray-900 */
+    border-radius: 9999px; /* rounded-full */
+    animation: spin 1s linear infinite;
+  }
+
+  .loading-text {
+    margin-left: 1rem; /* ml-4 */
+    font-size: 1.125rem; /* text-lg */
+    line-height: 1.75rem; /* text-lg */
+    color: var(--secondary-color); 
+  }
+
+  .posts-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr)); /* grid-cols-1 */
+    gap: 2rem; /* gap-8 */
+  }
+
+  .status-text {
+    text-align: center;
+    padding-top: 2.5rem; /* py-10 */
+    padding-bottom: 2.5rem; /* py-10 */
+  }
+
+  .error-text {
+    color: rgb(220 38 38); /* text-red-600 */
+  }
+
+  .no-posts-text {
+     color: var(--secondary-color);
+  }
+
+  /* Responsive styles */
+  @media (min-width: 640px) { /* sm: */
+    .content-wrapper {
+      padding-left: 1.5rem; /* sm:px-6 */
+      padding-right: 1.5rem; /* sm:px-6 */
+    }
+  }
+
+  @media (min-width: 768px) { /* md: */
+    .posts-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)); /* md:grid-cols-2 */
+    }
+  }
+
+  @media (min-width: 1024px) { /* lg: */
+    .content-wrapper {
+      padding-left: 2rem; /* lg:px-8 */
+      padding-right: 2rem; /* lg:px-8 */
+    }
+    .posts-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr)); /* lg:grid-cols-3 */
+    }
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
 </style> 

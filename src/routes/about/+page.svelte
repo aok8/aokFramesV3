@@ -7,7 +7,7 @@
   let profileImageError = false;
 </script>
 
-<div class="about-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
+<div class="about-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary}; --secondary-color: {theme.secondary};">
   <Navbar 
     backgroundColor={theme.text.primary}
     textColor={theme.background.light}
@@ -41,11 +41,11 @@
         including three years immersed in the art of film. 
         Whether in vivid color or classic black and white, he seeks to capture a collection of awe inspiring images.
       </p>
-      <p>
-        I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer. 
+      <p class = "quote">
+        "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer. 
         It's because of this, that I have a hard time categorizing my work, it's more a collection of such. 
         I find joy in being able to see the changes in what caught my eye, and also bring back memories of what exactly it was that excited me. 
-        Hopefully, through this, you'll be excited to see what I've been up to.
+        Hopefully, through this, you'll be excited to see what I've been up to."
       </p>
     </div>
   </div>
@@ -72,6 +72,14 @@
     padding: 4rem 2rem;
     max-width: 800px;
     margin: 0 auto;
+  }
+  .quote{
+    background-color: color-mix(in srgb, var(--secondary-color) 30%, white);
+    color: color-mix(in srgb, var(--secondary-color) 80%, black);
+    border: 1px solid var(--secondary-color);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
   }
 
   .profile-photo {

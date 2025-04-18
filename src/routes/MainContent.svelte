@@ -50,18 +50,6 @@
   let profileLoaded = false;
   $: portfolioLoaded = Array(portfolioImages.length).fill(false); // Reactive
 
-  // Additional function to get cloudflare-specific public URL format if needed
-  // function getCloudflarePublicUrl(key: string): string {
-    // Format for r2 usually includes account ID
-    // return `/directr2/${key}`;
-  // }
-  
-  // Function to handle an image load success - No longer needed for count
-  // function onImageLoad() {
-    // imagesLoaded++;
-    // console.log(`Loaded ${imagesLoaded}/${totalImages} images`);
-  // }
-
   function resetState() {
     isSticky = true;
     isScrollingPaused = false;

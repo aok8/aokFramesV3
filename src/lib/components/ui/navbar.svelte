@@ -1,16 +1,21 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment'; // Import browser check
-  import { theme } from '../../../theme/theme.js'; // Try .js extension as suggested by linter
+  import { theme } from '../../../theme/theme.js'; // Updated theme import
   import { fade } from 'svelte/transition';
   import { page } from '$app/stores'; // Import the page store
 
   export let backgroundColor: string | undefined = undefined;
   export let textColor: string | undefined = undefined;
+  // Accept the scroll state prop
+  // export let hasScrolledPastCover = false; // Removed prop
   
   let isOverPhoto = true;
   let navbar: HTMLElement;
   let isMenuOpen = false;
+
+  // Define CSS variable value based on theme
+  $: navbarScrolledBg = theme.tertiaryTransparent80;
 
   // Reactive variables for dynamic mobile menu colors
   let currentMobileBgColor = theme.background.light; // Default
@@ -79,6 +84,7 @@
 <nav 
   bind:this={navbar}
   class="navbar {isMenuOpen ? 'menu-open' : ''}"
+  class:over-photo={isOverPhoto}
   style="
     --bg-color: {backgroundColor || 'transparent'}; 
     /* Use theme color when not over photo */
@@ -86,6 +92,8 @@
     /* Bind to reactive variables */
     --mobile-bg-color: {currentMobileBgColor}; 
     --mobile-text-color: {currentMobileTextColor};
+    /* Set CSS variable for scrolled background */
+    --navbar-scrolled-bg: {navbarScrolledBg};
   "
 >
   <div class="nav-content">
@@ -140,7 +148,11 @@
     width: 100%;
     height: 4rem;
     z-index: 100;
-    background-color: var(--bg-color);
+    /* Default background color - already transparent via --bg-color */
+    /* background-color: var(--bg-color); */ 
+    /* Use the variable directly for simpler override */
+    background-color: transparent; 
+    /* Ensure transition applies to background */
     transition: background-color 0.3s ease, color 0.3s ease, height 0.3s ease;
   }
 
@@ -312,6 +324,23 @@
     }
     .desktop-links {
         display: flex; /* Ensure desktop links are shown */
+    }
+  }
+
+  /* Desktop-only style for background based on position */
+  @media (min-width: 769px) { /* Or your preferred desktop breakpoint */
+    /* Explicitly set transparent background when over the photo */
+    .navbar.over-photo {
+      background-color: transparent;
+    }
+    /* Apply semi-transparent background when NOT over the photo */
+    .navbar:not(.over-photo) {
+      background-color: var(--navbar-scrolled-bg);
+    }
+
+    /* Ensure logo is visible on desktop */
+    .logo {
+      display: block;
     }
   }
 </style>

@@ -256,7 +256,7 @@
   });
 </script>
 
-<div class="blog-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary}; --secondary-color: {theme.secondary};">
+<div class="blog-container" style="--bg-color: {theme.tertiary}; --text-color: {theme.text.primary}; --secondary-color: {theme.secondary};">
   <Navbar 
     backgroundColor={theme.text.primary}
     textColor={theme.background.light}

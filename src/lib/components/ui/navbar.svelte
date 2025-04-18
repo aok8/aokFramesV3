@@ -85,6 +85,7 @@
   bind:this={navbar}
   class="navbar {isMenuOpen ? 'menu-open' : ''}"
   class:over-photo={isOverPhoto}
+  class:has-bg-prop={!!backgroundColor}
   style="
     --bg-color: {backgroundColor || 'transparent'}; 
     /* Use theme color when not over photo */
@@ -148,10 +149,8 @@
     width: 100%;
     height: 4rem;
     z-index: 100;
-    /* Default background color - already transparent via --bg-color */
-    /* background-color: var(--bg-color); */ 
-    /* Use the variable directly for simpler override */
-    background-color: transparent; 
+    /* Use the CSS variable set inline */
+    background-color: var(--bg-color);
     /* Ensure transition applies to background */
     transition: background-color 0.3s ease, color 0.3s ease, height 0.3s ease;
   }
@@ -329,13 +328,12 @@
 
   /* Desktop-only style for background based on position */
   @media (min-width: 769px) { /* Or your preferred desktop breakpoint */
-    /* Explicitly set transparent background when over the photo */
-    .navbar.over-photo {
-      background-color: transparent;
+    /* Apply dynamic background ONLY when backgroundColor prop is NOT set */
+    .navbar:not(.has-bg-prop).over-photo {
+      background-color: transparent; /* Force transparent when over photo */
     }
-    /* Apply semi-transparent background when NOT over the photo */
-    .navbar:not(.over-photo) {
-      background-color: var(--navbar-scrolled-bg);
+    .navbar:not(.has-bg-prop):not(.over-photo) {
+      background-color: var(--navbar-scrolled-bg); /* Apply scrolled bg when not over photo */
     }
 
     /* Ensure logo is visible on desktop */

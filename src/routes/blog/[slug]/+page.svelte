@@ -6,6 +6,9 @@
   import { theme } from '../../../theme/theme.js';
 
   export let data: { post: BlogPostType };
+
+  // Get tertiary color for inline style
+  $: tertiaryColor = theme.tertiary;
 </script>
 
 <Navbar 
@@ -15,7 +18,7 @@
 
 <main 
   class="min-h-screen blog-post-content"
-  style="--theme-secondary: {theme.secondary};"
+  style="--theme-secondary: {theme.secondary}; background-color: {tertiaryColor};"
 >
   <div class="blog-post-inner-container">
     <div class="back-link-wrapper">
@@ -47,7 +50,6 @@
 
 <style>
   .blog-post-content {
-    background-color: #f9fafb;
     padding-top: 5rem;
     padding-bottom: 4rem;
     min-height: 100vh;

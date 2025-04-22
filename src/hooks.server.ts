@@ -84,6 +84,10 @@ export const handle: Handle = async ({ event, resolve }) => {
                      // Maps constants/Profile_Pic.webp -> public/images/Profile_Pic.webp
                      localFilePath = path.resolve('public', 'images', constantPath);
                      console.log(`[Hook Dev] Mapping constants Profile Pic key "${key}" to: ${localFilePath}`);
+                 } else if (constantPath === 'Prints.webp') { // Prints image
+                     // Maps constants/Prints.webp -> public/images/Prints.webp
+                     localFilePath = path.resolve('public', 'images', constantPath);
+                     console.log(`[Hook Dev] Mapping constants Prints key "${key}" to: ${localFilePath}`);
                  } else if (['favicon.ico', 'apple-touch-icon.png', 'site.webmanifest', 'favicon.png'].includes(constantPath)) { // Root icons/manifest (Assume these ARE in static)
                      // Maps constants/favicon.ico -> static/favicon.ico
                      localFilePath = path.resolve('static', constantPath);
@@ -165,12 +169,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     if (isProdDirectR2Path || isProdAssetPath) {
         // Check if platform is available (only relevant in production)
-        if (!event.platform?.env?.ASSETSBUCKET) {
+                if (!event.platform?.env?.ASSETSBUCKET) {
              console.error('[Hook Prod] R2 bucket binding not available');
-             return new Response('R2 Bucket Not Available', { status: 500 });
-        }
-
-         try {
+                    return new Response('R2 Bucket Not Available', { status: 500 });
+                }
+                
+                try {
              let key: string;
 
              // Map URL path to R2 key (same logic as before, but now only runs in prod)
@@ -194,50 +198,50 @@ export const handle: Handle = async ({ event, resolve }) => {
 
               console.log(`[Hook Prod] Attempting R2 access for key: ${key} via path ${pathname}`);
 
-              const R2Bucket = event.platform.env.ASSETSBUCKET as IR2Bucket;
+                    const R2Bucket = event.platform.env.ASSETSBUCKET as IR2Bucket;
 
               // HEAD Request
               if (event.request.method === 'HEAD') {
-                   const headResult = await R2Bucket.head(key);
-                   if (!headResult) {
+                    const headResult = await R2Bucket.head(key);
+                    if (!headResult) {
                        console.warn(`[Hook Prod] HEAD - Object not found for key: ${key}`);
-                       return new Response(`Object not found: ${key}`, { status: 404 });
-                   }
-                   console.log(`[Hook Prod] HEAD request successful for key: ${key}. Returning 200 OK.`);
-                   const headers = new Headers();
-                   headers.set('etag', headResult.httpEtag);
+                        return new Response(`Object not found: ${key}`, { status: 404 });
+                    }
+                        console.log(`[Hook Prod] HEAD request successful for key: ${key}. Returning 200 OK.`);
+                        const headers = new Headers();
+                        headers.set('etag', headResult.httpEtag);
                    const contentType = getContentType(key);
                    if (contentType) headers.set('Content-Type', contentType);
-                   headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
-                   return new Response(null, { status: 200, headers });
-              }
-
+                        headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+                        return new Response(null, { status: 200, headers });
+                    }
+                    
               // GET Request
-              else if (event.request.method === 'GET') {
-                   const obj = await R2Bucket.get(key);
-                   if (!obj) {
+                    else if (event.request.method === 'GET') {
+                        const obj = await R2Bucket.get(key);
+                        if (!obj) {
                        console.warn(`[Hook Prod] GET - Object not found for key: ${key}`);
                        return new Response(`Object not found: ${key}`, { status: 404 });
-                   }
+                        }
                    console.log(`[Hook Prod] Streaming GET response for key: ${key}`);
-                   const headers = new Headers();
+                        const headers = new Headers();
                    obj.writeHttpMetadata(headers);
-                   headers.set('etag', obj.httpEtag);
-                   headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
-                   return new Response(obj.body, { headers });
-              }
-
+                        headers.set('etag', obj.httpEtag);
+                        headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+                        return new Response(obj.body, { headers });
+                    }
+                    
               // Other methods
-               else {
-                   console.warn(`[Hook Prod] Method ${event.request.method} not allowed for key: ${key}`);
-                   return new Response('Method Not Allowed', { status: 405 });
-               }
+                    else {
+                         console.warn(`[Hook Prod] Method ${event.request.method} not allowed for key: ${key}`);
+                         return new Response('Method Not Allowed', { status: 405 });
+                    }
 
-         } catch (error) {
+                } catch (error) {
               console.error('[Hook Prod] R2 error:', error);
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              return new Response(`Internal Server Error: ${errorMessage}`, { status: 500 });
-         }
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            return new Response(`Internal Server Error: ${errorMessage}`, { status: 500 });
+        }
     }
     // --- END: Production Mode R2 Handling ---
 

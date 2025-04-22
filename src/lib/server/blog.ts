@@ -161,7 +161,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     let fileContent: string;
     let exactSlug = slug; // Store the exact case-sensitive slug
     let imageExists = false;
-    let imageFormat = ''; // Declare the variable at the top level
+    let imageFormat = ''; // Keep outer declaration
 
     if (dev) {
       // Development mode - Load index.md and check for header.webp
@@ -192,8 +192,8 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       }
       
       // Check if header image exists in different formats
-      const imageFormats = ['webp', 'jpg', 'jpeg']; // Check WebP first, then fall back to JPG
-      let imageFormat = '';
+      const imageFormats = ['webp', 'jpg', 'jpeg']; 
+      imageFormat = ''; // Assign empty string initially within this scope
 
       for (const format of imageFormats) {
         const imagePath = path.join(dirPath, `header.${format}`);
@@ -201,7 +201,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
           const stats = await fs.stat(imagePath);
           if (stats.isFile()) {
             imageExists = true;
-            imageFormat = format;
+            imageFormat = format; // Assign to outer scope var
             break;
           }
         } catch (e) {
@@ -244,8 +244,8 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       }
       
       // Check if header image exists in different formats
-      const imageFormats = ['webp', 'jpg', 'jpeg']; // Check WebP first, then fall back to JPG
-      let imageFormat = '';
+      const imageFormats = ['webp', 'jpg', 'jpeg'];
+      imageFormat = ''; // Assign empty string initially within this scope
 
       for (const format of imageFormats) {
         const imageKey = `blog/posts/${exactSlug}/header.${format}`;
@@ -253,7 +253,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
           const exists = await platform.env.ASSETSBUCKET.head(imageKey);
           if (exists) {
             imageExists = true;
-            imageFormat = format;
+            imageFormat = format; // Assign to outer scope var
             break;
           }
         } catch (e) {

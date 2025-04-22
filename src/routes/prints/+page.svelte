@@ -12,8 +12,8 @@
   let imgElement: HTMLImageElement | null = null;
 
   // Image URLs
-  const primaryImageSrc = "/directr2/constants/Prints.jpg";
-  const fallbackImageSrc = "/images/constants/Prints.jpg"; // Local fallback
+  const primaryImageSrc = "/directr2/constants/Prints.webp";
+  const fallbackImageSrc = "/images/constants/Prints.webp"; // Local fallback
 
   // Check completion after updates for fast-loading images
   afterUpdate(() => {

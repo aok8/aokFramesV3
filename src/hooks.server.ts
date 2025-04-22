@@ -90,8 +90,8 @@ export const handle: Handle = async ({ event, resolve }) => {
                 if (parts.length === 1 && requestedFile.endsWith('.jpg')) { 
                     const slug = requestedFile.replace('.jpg', '');
                     // Assume this conventional request means "get the header image for this slug"
-                    // Force the key to point to 'header.jpg' within that slug's assumed directory
-                    key = `blog/${slug}/header.jpg`; 
+                    // Force the key to point to 'header.webp' within that slug's assumed directory
+                    key = `blog/${slug}/header.webp`; 
                     console.log(`[Hook] Mapped conventional request ${pathname} to key ${key}`);
                 } else {
                     // Otherwise, assume the path is relative within the 'blog' namespace
@@ -228,7 +228,7 @@ function getLocalPath(key: string): string | null {
     if (key.startsWith('portfolio/')) {
         return `/src/images/Portfolio/${key.substring('portfolio/'.length)}`;
     } else if (key.startsWith('blog/')) {
-        const blogPath = key.substring('blog/'.length); // Extract path part, e.g., "night-photo/header.jpg"
+        const blogPath = key.substring('blog/'.length); // Extract path part, e.g., "night-photo/header.webp"
         // Construct path relative to the 'posts' directory
         return `/src/content/blog/posts/${blogPath}`;
     } else if (key.startsWith('constants/')) {

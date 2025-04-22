@@ -137,7 +137,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             const title = titleMatch ? titleMatch[1] : decodedSlug;
             
             // Check if image exists
-            const imageKey = `/src/content/blog/posts/${decodedSlug}/header.jpg`;
+            const imageKey = `/src/content/blog/posts/${decodedSlug}/header.webp`;
             let imageExists = false;
             try {
                 const imageResponse = await fetch(imageKey, { method: 'HEAD' });
@@ -280,7 +280,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                         const summary = summaryLines.join(' ') || 'No summary available';
                         
                         // Check if image exists using the correct exactSlug
-                        const imageKey = `blog/${exactSlug}/header.jpg`; 
+                        const imageKey = `blog/${exactSlug}/header.webp`; 
                         let imageExists = false;
                         
                         try {

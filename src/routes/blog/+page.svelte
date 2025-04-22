@@ -180,7 +180,7 @@
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.jpg path
+                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.webp path
                   });
                 } else {
                     console.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);

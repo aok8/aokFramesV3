@@ -164,7 +164,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     let imageFormat = ''; // Declare the variable at the top level
 
     if (dev) {
-      // Development mode - Load index.md and check for header.jpg
+      // Development mode - Load index.md and check for header.webp
       const dirPath = path.join(POSTS_DIR, exactSlug);
       const filePath = path.join(dirPath, 'index.md');
       console.log('loadBlogPost (dev): Attempting to load from:', filePath);
@@ -210,7 +210,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       }
       console.log(`Dev mode image check for ${slug}: ${imageExists ? `Found header.${imageFormat}` : 'No header image found'}`);
     } else {
-      // Production mode - Load index.md and check for header.jpg from R2
+      // Production mode - Load index.md and check for header.webp from R2
       console.log(`loadBlogPost: Production mode for slug "${exactSlug}". Checking R2 bucket...`);
       if (!platform?.env?.ASSETSBUCKET) {
         console.error(`loadBlogPost: ASSETSBUCKET binding not available for slug "${exactSlug}"!`);

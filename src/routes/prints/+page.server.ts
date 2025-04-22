@@ -4,10 +4,10 @@ import { imageSize } from 'image-size';
 import path from 'node:path'; // Import path statically
 
 // Default dimensions in case fetching fails or metadata is missing
-const DEFAULT_WIDTH = 16;
-const DEFAULT_HEIGHT = 9; // Default to 16:9 aspect ratio
-const IMAGE_KEY = 'constants/Prints.jpg';
-const LOCAL_FALLBACK_PATH = 'public/images/Prints.jpg';
+const DEFAULT_WIDTH = 1920;
+const DEFAULT_HEIGHT = 1080;
+const IMAGE_KEY = 'constants/Prints.webp';
+const LOCAL_FALLBACK_PATH = 'public/images/Prints.webp';
 
 // Revert to implicit platform typing via PageServerLoad
 export const load: PageServerLoad = async ({ platform }) => {

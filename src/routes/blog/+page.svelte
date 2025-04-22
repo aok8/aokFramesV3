@@ -161,8 +161,8 @@
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
                   console.log('Extracted tags:', tags);
                   
-                  // Check for header.jpg using HEAD request
-                  const imageKey = `blog/posts/${slug}/header.jpg`;
+                  // Check for header.webp using HEAD request
+                  const imageKey = `blog/posts/${slug}/header.webp`;
                   let imageExists = false;
                   try {
                       const imgRes = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
@@ -180,7 +180,7 @@
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.jpg path
+                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.webp path
                   });
                 } else {
                     console.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);

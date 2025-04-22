@@ -2,8 +2,8 @@
   import { theme } from '../../theme/theme.js';
   import { Footer } from "$lib/components/ui";
   import { Navbar } from "$lib/components/ui";
-  const profileImage = '/directr2/constants/Profile_Pic.jpg';
-  const fallbackProfileImage = '/images/constants/Profile_Pic.jpg';
+  const profileImage = '/directr2/constants/Profile_Pic.webp';
+  const fallbackProfileImage = '/images/constants/Profile_Pic.webp';
   let profileImageError = false;
 </script>
 

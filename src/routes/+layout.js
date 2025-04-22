@@ -10,8 +10,8 @@ export const load = async ({ fetch }) => {
     // In development, preload key images to ensure they're available
     try {
       // First load the essential images
-      await fetch('/images/bg.jpg');
-      await fetch('/images/Profile_Pic.jpg');
+      await fetch('/images/constants/bg.webp');
+      await fetch('/images/constants/Profile_Pic.webp');
       console.log('Preloaded key images for development');
       
       // Then preload portfolio image data

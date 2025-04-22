@@ -12,44 +12,46 @@
   let markdownContainer: HTMLDivElement | null = null;
   let processedMarkdown = false;
   
+  // Header Image Refs
+  let headerImageElementPreview: HTMLImageElement | null = null;
+  let headerImageElementFull: HTMLImageElement | null = null;
+  
+  // Reactive statement to process markdown when post content changes
   $: {
       if (post && post.content) {
           const renderer = new Renderer();
           
+          // Custom image renderer to resolve relative paths within markdown
           renderer.image = ({ href, title, text }: { href: string; title: string | null; text: string }): string => {
             let resolvedHref = href;
+            // If path is relative (doesn't start with / or http), prepend the correct base path
             if (resolvedHref && !resolvedHref.startsWith('/') && !resolvedHref.startsWith('http')) {
-              console.log(`Resolving relative image path: ${resolvedHref} for post: ${post.id}`);
-              if (dev) {
-                  resolvedHref = `/src/content/blog/posts/${post.id}/${resolvedHref}`;
-              } else {
-                  resolvedHref = `/directr2/blog/posts/${post.id}/${resolvedHref}`;
-              }
+              console.log(`Resolving relative image path in markdown: ${resolvedHref} for post: ${post.id}`);
+              // ALWAYS use the /directr2/ prefix, the hook handles dev/prod resolution
+              resolvedHref = `/directr2/blog/posts/${post.id}/${resolvedHref}`;
               console.log(`Resolved relative img path: ${href} -> ${resolvedHref}`);
             }
             const titleAttr = title ? ` title="${title}"` : '';
-            return `<img src="${resolvedHref}" alt="${text}"${titleAttr}>`;
+            // Add lazy loading and styling to markdown images
+            return `<img src="${resolvedHref}" alt="${text}"${titleAttr} loading="lazy" class="markdown-image">`;
           };
       
+          // Parse markdown (only for full post view)
           htmlContent = isPreview ? '' : marked.parse(post.content, {
             renderer: renderer, 
             gfm: true,
             breaks: true,
             async: false
           });
-          processedMarkdown = false;
+          processedMarkdown = false; // Reset processed flag
       } else {
           htmlContent = '';
           processedMarkdown = false;
       }
   }
 
-  // Handle image errors for R2 by using local fallbacks
-  let imageError = false;
-
-  // Convert post.image path to a fallback path if needed
-  $: imagePath = post.image || '';
-  $: imageFallbackPath = imagePath?.replace('/directr2/blog/', '/src/content/blog/posts/');
+  // Get the canonical image path (always /directr2/...)
+  $: headerImagePath = post?.image || ''; // Use optional chaining
 
   // Log post ID for debugging 
   console.log('Creating blog post link for post ID:', post.id);
@@ -59,48 +61,62 @@
   $: blogPostUrl = `/blog/${encodedPostId}`;
   $: console.log('Blog post link URL:', blogPostUrl);
   
-  // Add more detailed logging for image paths
-  $: console.log('Image path for post:', imagePath);
-  $: console.log('Image fallback path for post:', imageFallbackPath);
+  // Log the final image path being used
+  $: console.log('Header image path for post:', headerImagePath);
 
-  // Header Image Handling - Applies to both preview and full post
-  let headerImageError = false;
+  // Header Image Handling - Track loading state
   let headerImageLoaded = false; 
-
-  $: headerImagePath = post?.image || '';
-  $: headerImageFallbackPath = dev ? headerImagePath?.replace('/directr2/blog/posts/', '/src/content/blog/posts/') : ''; 
+  let headerImageErrored = false; // Track if the primary image load failed
 
   onMount(async () => {
     headerImageLoaded = false;
-    headerImageError = false;
+    headerImageErrored = false; // Reset on mount
     console.log(`BlogPost component mounted for post: ${post.id}`);
-    
-    // Wait for initial DOM updates
+
+    // Allow Svelte to render the DOM first
     await tick();
 
-    // Check if header image loaded before listener attached
-    if (!isPreview && post.image) { // Only check in full post view with an image
-      const imageId = !headerImageError ? `post-header-image-${post.id}` : (dev && headerImageFallbackPath ? `post-header-fallback-${post.id}` : null);
-      if (imageId) {
-        const imgElement = document.getElementById(imageId) as HTMLImageElement | null;
-        if (imgElement?.complete && !headerImageLoaded) {
-          console.log(`Header image (${imageId}) already complete on mount. Setting loaded.`);
-          headerImageLoaded = true;
-        }
-      }
+    // Check if the relevant image element is already complete (e.g., from cache)
+    const imgElement = isPreview ? headerImageElementPreview : headerImageElementFull;
+    if (imgElement?.complete && !headerImageErrored) {
+      console.log(`Header image (${imgElement.src}) was already complete on mount.`);
+      handleImageLoad(); // Manually trigger load state if already complete
+    } else if (imgElement) {
+      console.log(`Header image (${imgElement.src}) not complete on mount. Waiting for on:load.`);
     }
   });
 
+  // Function to mark image as loaded
+  function handleImageLoad() {
+    headerImageLoaded = true;
+    headerImageErrored = false; // Reset error if it somehow loads later
+    console.log(`Header image loaded successfully: ${headerImagePath}`);
+  }
+
+  // Function to mark image as errored
+  function handleImageError() {
+    if (!headerImageLoaded) { // Only mark as errored if not already loaded
+        console.error(`Header image failed to load: ${headerImagePath}`);
+        headerImageErrored = true;
+    }
+  }
+
+  // Add lazy loading classes to markdown images after update
   afterUpdate(() => {
      if (!isPreview && markdownContainer && typeof htmlContent === 'string' && htmlContent.length > 0 && !processedMarkdown) {
-       const images = markdownContainer.querySelectorAll('img');
+       const images = markdownContainer.querySelectorAll('.markdown-image'); // Target by class
        images.forEach(img => {
-         img.setAttribute('loading', 'lazy');
-         img.classList.add('markdown-image'); 
-         if (img.complete) {
-           img.classList.add('loaded');
+         // Assert type to HTMLImageElement to access 'complete'
+         const imageElement = img as HTMLImageElement; 
+         if (imageElement.complete) {
+           imageElement.classList.add('loaded');
          } else {
-           img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+           imageElement.addEventListener('load', () => imageElement.classList.add('loaded'), { once: true });
+           // Optional: Add error handling for markdown images if needed
+           imageElement.addEventListener('error', () => {
+               console.error(`Markdown image failed to load: ${imageElement.src}`);
+               imageElement.classList.add('error'); // Add error class for styling
+           }, { once: true });
          }
        });
        processedMarkdown = true;
@@ -110,6 +126,7 @@
 </script>
 
 {#if isPreview}
+  <!-- Preview Card -->
   <article 
     class="card-container" 
     data-post-id={post.id}
@@ -118,45 +135,30 @@
       --blog-label-text-color: {theme.tertiary};
     "
   >
-    {#if post.image}
+    {#if headerImagePath}
       <a href={blogPostUrl} class="block image-link">
-         <div class="image-placeholder">
-          {#if !headerImageError}
-            <img
-              src={headerImagePath}
-              alt={post.title}
-              class="card-image"
-              loading="lazy"
-              on:error={() => {
-                console.log(`Header image failed: ${headerImagePath}, trying fallback: ${headerImageFallbackPath}`);
-                if (dev && headerImageFallbackPath) {
-                  headerImageError = true;
-                  headerImageLoaded = false;
-                } else {
-                   console.error(`Header image failed and no dev fallback available: ${headerImagePath}`);
-                   headerImageError = true;
-                }
-              }}
-            />
-          {:else if dev && headerImageFallbackPath} 
-            <img
-              src={headerImageFallbackPath}
-              alt={post.title}
-              class="card-image"
-              loading="lazy"
-              on:error={() => { 
-                console.error(`Header fallback failed: ${headerImageFallbackPath}`); 
-              }}
-            />
-          {:else}
-             <div class="error-placeholder-text">Image Error</div>
-          {/if}
+         <div class="image-placeholder" class:error={headerImageErrored}>
+            {#if !headerImageErrored}
+              <img
+                bind:this={headerImageElementPreview}
+                src={headerImagePath}
+                alt={post.title}
+                class="card-image" 
+                class:loaded={headerImageLoaded} 
+                loading="lazy"
+                on:load={handleImageLoad}
+                on:error={handleImageError}
+              />
+            {:else}
+              <div class="error-placeholder-text">Image Error</div>
+            {/if}
          </div>
       </a>
     {:else}
        <div class="image-placeholder no-image"></div>
     {/if}
     <div class="p-6">
+      <!-- Card Content (title, meta, summary) -->
       <div class="flex items-center gap-2 mb-4">
         <span class="blog-label">
           {post.label}
@@ -186,6 +188,7 @@
     </div>
   </article>
 {:else}
+  <!-- Full Post View -->
   <article 
     class="prose prose-lg mx-auto" 
     style="
@@ -194,6 +197,7 @@
     "
   >
     <header class="mb-8">
+      <!-- Post Header (title, meta) -->
       <h1 class="text-4xl font-bold mb-4 font-sans">{post.title}</h1>
       <div class="flex items-center gap-4 text-gray-600">
         <span>{post.author}</span>
@@ -210,58 +214,36 @@
       </div>
     </header>
 
-    {#if post.image}
+    {#if headerImagePath}
        <!-- Placeholder container for full post header -->
-       <div class="image-placeholder full-post-header">
-        {#if !headerImageError}
+       <div class="image-placeholder full-post-header" class:error={headerImageErrored}>
+        {#if !headerImageErrored}
           <img
-            id="post-header-image-{post.id}"
+            bind:this={headerImageElementFull}
+            id="post-header-image-{post.id}" 
             src={headerImagePath}
             alt={post.title}
             class="full-post-image"
             class:loaded={headerImageLoaded}
             loading="lazy"
-            on:load={() => { headerImageLoaded = true; }}
-            on:error={() => {
-              console.log(`Header image failed: ${headerImagePath}, trying fallback: ${headerImageFallbackPath}`);
-              if (dev && headerImageFallbackPath) {
-                 headerImageError = true;
-                 headerImageLoaded = false;
-               } else {
-                  console.error(`Header image failed and no dev fallback available: ${headerImagePath}`);
-                  headerImageError = true;
-               }
-             }}
-          />
-        {:else if dev && headerImageFallbackPath}
-          <img
-            id="post-header-fallback-{post.id}"
-            src={headerImageFallbackPath}
-            alt={post.title}
-            class="full-post-image"
-            class:loaded={headerImageLoaded}
-            loading="lazy"
-            on:load={() => { headerImageLoaded = true; }}
-            on:error={() => { 
-              console.error(`Header fallback failed: ${headerImageFallbackPath}`); 
-            }}
+            on:load={handleImageLoad}
+            on:error={handleImageError}
           />
         {:else}
-          <div class="error-placeholder-text">Image Error</div>
+           <div class="error-placeholder-text">Image Error</div>
         {/if}
        </div>
     {/if}
 
-    <!-- Wrapper for Markdown content -->
-    <div bind:this={markdownContainer} class="prose prose-lg prose-headings:font-sans prose-headings:font-semibold prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-4 prose-blockquote:italic prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-100 prose-pre:p-4 prose-pre:rounded-lg">
-       {#await htmlContent}
-         <p>Loading content...</p> 
-       {:then content}
-         {@html content} 
-       {:catch error}
-         <p class="text-red-600">Error rendering content: {error.message}</p>
-       {/await}
-    </div>
+    <!-- Rendered Markdown Content -->
+    {#if typeof htmlContent === 'string'}
+       <div bind:this={markdownContainer} class="markdown-content">
+          {@html htmlContent}
+       </div>
+    {:else}
+        <p>Loading content...</p> 
+    {/if}
+
   </article>
 {/if}
 
@@ -361,7 +343,12 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: 0;
     transition: opacity 0.5s ease-in-out;
+  }
+
+  .card-image.loaded {
+    opacity: 1;
   }
 
   .error-placeholder-text {
@@ -407,5 +394,30 @@
     font-size: 0.875rem; /* Equivalent to text-sm */
     font-weight: 500; /* Equivalent to font-medium */
     display: inline-block; /* Ensure padding applies correctly */
+  }
+
+  .image-placeholder.error {
+    background-color: #fee; /* Light red for error */
+  }
+
+  /* Add styles for markdown images */
+  :global(.markdown-image) {
+    display: block; /* Or inline-block */
+    max-width: 100%;
+    height: auto;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    border-radius: 4px; /* Optional: style consistency */
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+  }
+
+  :global(.markdown-image.loaded) {
+    opacity: 1;
+  }
+
+  :global(.markdown-image.error) {
+     /* Style for failed markdown images */
+     border: 2px dashed red;
   }
 </style> 

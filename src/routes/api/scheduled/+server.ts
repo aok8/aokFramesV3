@@ -7,8 +7,14 @@ interface ImageDimensions {
   height: number;
 }
 
-// Path within the R2 bucket to scan for images
-const IMAGE_FOLDER_PATH = 'portfolio/';
+// Path prefixes within the R2 bucket to scan for images
+const IMAGE_FOLDER_PATHS = [
+  'portfolio/w320/',
+  'portfolio/w640/', 
+  'portfolio/w1024/',
+  'portfolio/w1920/',
+  'portfolio/' // Legacy path for backward compatibility
+];
 
 // Allow GET requests for testing - returns status only, doesn't run the job
 export const GET: RequestHandler = async ({ platform, request }) => {
@@ -18,17 +24,28 @@ export const GET: RequestHandler = async ({ platform, request }) => {
     if (!platform?.env?.IMAGE_DIMS_KV) {
       return new Response('KV namespace not available', { status: 500 });
     }
+    
+    // Instead of checking just one prefix, count images from all responsive folders
+    let totalProcessedCount = 0;
+    const folderCounts = {};
+    
+    for (const folderPrefix of IMAGE_FOLDER_PATHS) {
+      // List existing keys in KV for this folder
+      const kvListResponse = await platform.env.IMAGE_DIMS_KV.list({ prefix: folderPrefix });
+      const folderCount = kvListResponse.keys.length;
+      // @ts-ignore - This is fine for the response 
+      folderCounts[folderPrefix] = folderCount;
+      totalProcessedCount += folderCount;
+    }
 
-    // List existing keys in KV to get count
-    const kvListResponse = await platform.env.IMAGE_DIMS_KV.list({ prefix: IMAGE_FOLDER_PATH });
-    const processedCount = kvListResponse.keys.length;
-    console.log(`Found ${processedCount} processed images in KV storage.`);
+    console.log(`Found ${totalProcessedCount} total processed images across all folders in KV storage.`);
 
-    // Return status only
+    // Return status with folder-specific counts
     return new Response(JSON.stringify({
       status: 'ready',
       message: 'Use POST to run the job',
-      processed_images: processedCount
+      processed_images: totalProcessedCount,
+      folder_counts: folderCounts
     }), {
       headers: {
         'Content-Type': 'application/json'
@@ -91,334 +108,371 @@ export const POST: RequestHandler = async ({ platform, request }) => {
     }
     
     console.log(`Running scheduled image dimension extraction...`);
-
-    // 1. List existing keys in KV (representing processed images)
-    const kvListResponse = await platform.env.IMAGE_DIMS_KV.list({ prefix: IMAGE_FOLDER_PATH });
-    const processedImageKeys = new Set(kvListResponse.keys.map(k => k.name));
-    console.log(`Found ${processedImageKeys.size} images already processed in KV.`);
-
-    // 2. List objects in R2 Bucket folder
-    const r2Objects = await platform.env.R2_BUCKET.list({ prefix: IMAGE_FOLDER_PATH });
-    console.log(`Found ${r2Objects.objects.length} total objects in R2 folder: ${IMAGE_FOLDER_PATH}`);
-
-    // Filter out already processed images and 'folder' objects
-    const imagesToProcess = r2Objects.objects.filter(obj => 
-      !obj.key.endsWith('/') && !processedImageKeys.has(obj.key)
-    );
     
-    console.log(`Found ${imagesToProcess.length} new images to process.`);
+    // Process each folder path
+    let totalProcessedCount = 0;
+    let totalExistingCount = 0;
+    let totalImageCount = 0;
+    const folderResults = {};
     
-    // Process images sequentially to avoid type issues
-    let processedCount = 0;
-    for (const obj of imagesToProcess) {
-      try {
-        console.log(`Processing image: ${obj.key}`);
-        const r2Object = await platform.env.R2_BUCKET.get(obj.key);
-
-        if (!r2Object) {
-          console.warn(`Could not retrieve object ${obj.key} from R2.`);
-          continue;
+    for (const folderPath of IMAGE_FOLDER_PATHS) {
+      console.log(`Processing folder: ${folderPath}`);
+      
+      // 1. List existing keys in KV for this folder (representing processed images)
+      const kvListResponse = await platform.env.IMAGE_DIMS_KV.list({ prefix: folderPath });
+      const processedImageKeys = new Set(kvListResponse.keys.map(k => k.name));
+      console.log(`Found ${processedImageKeys.size} images already processed in KV for folder ${folderPath}.`);
+      totalExistingCount += processedImageKeys.size;
+      
+      // 2. List all image objects in the R2 bucket for this folder
+      const r2ListResponse = await platform.env.R2_BUCKET.list({
+        prefix: folderPath,
+      });
+      
+      console.log(`Found ${r2ListResponse.objects.length} images in R2 for folder ${folderPath}.`);
+      totalImageCount += r2ListResponse.objects.length;
+      
+      // 3. Filter the images to process (only those not already in KV)
+      const imagesToProcess = r2ListResponse.objects.filter(obj => {
+        // Skip non-image files
+        const key = obj.key;
+        const fileExtension = key.split('.').pop()?.toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
+          return false;
         }
-          
-        // *** Actual Dimension Extraction Logic ***
-        let dimensions: ImageDimensions | null = null;
-        const contentType = r2Object.httpMetadata?.contentType?.toLowerCase();
-        const fileExtension = obj.key.split('.').pop()?.toLowerCase();
         
+        // Skip already processed images
+        if (processedImageKeys.has(key)) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      console.log(`Found ${imagesToProcess.length} new images to process for folder ${folderPath}.`);
+      
+      // 4. Process each image and extract dimensions
+      let folderProcessedCount = 0;
+      const maxBytesToRead = 65536; // Read up to 64KB to find dimensions
+      
+      for (const obj of imagesToProcess) {
         try {
-          // Read at least 300KB to ensure we can find the SOF marker in files with lots of metadata
-          const reader = r2Object.body.getReader();
-          let receivedLength = 0;
-          const chunks = [];
-          const maxBytes = 300 * 1024; // Increased to 300KB to capture more of the file
-          console.log(`Reading up to ${maxBytes} bytes from ${obj.key} to find dimensions`);
-          while (receivedLength < maxBytes) {
-            const { done, value } = await reader.read();
-            if (done || !value) {
-              break;
-            }
-            chunks.push(value);
-            receivedLength += value.length;
-          }
-          reader.releaseLock(); // Release lock ASAP
+          console.log(`Processing image ${obj.key}...`);
           
-          console.log(`Read ${receivedLength} bytes from ${obj.key}`);
+          // Get content type to determine image format
+          const r2Object = await platform.env.R2_BUCKET.head(obj.key);
           
-          // Combine the chunks into a single buffer
-          const buffer = new Uint8Array(receivedLength);
-          let position = 0;
-          for (const chunk of chunks) {
-            buffer.set(chunk, position);
-            position += chunk.length;
+          if (!r2Object) {
+            console.error(`  Object not found: ${obj.key}`);
+            continue;
           }
           
-          // Debug: show content type and extension for troubleshooting
-          console.log(`Processing ${obj.key} - Content type: ${contentType}, Extension: ${fileExtension}, Size: ${r2Object.size} bytes`);
+          const contentType = r2Object.httpMetadata?.contentType || '';
+          const fileExtension = obj.key.split('.').pop()?.toLowerCase();
           
-          // Determine type and parse
-          if (contentType === 'image/jpeg' || (!contentType && fileExtension === 'jpg') || (!contentType && fileExtension === 'jpeg')) {
-            console.log(`Parsing JPEG dimensions for ${obj.key}`);
-            dimensions = parseJpegDimensions(buffer);
-          } else if (contentType === 'image/png' || (!contentType && fileExtension === 'png')) {
-            console.log(`Parsing PNG dimensions for ${obj.key}`);
-            dimensions = parsePngDimensions(buffer);
-          } else {
-            console.warn(`  Unsupported content type or extension for ${obj.key}: ${contentType || fileExtension}`);
-          }
-        } catch (parseError) {
-          console.error(`  Error parsing dimensions for ${obj.key}:`, parseError instanceof Error ? parseError.message : String(parseError));
-          console.error(`  Stack trace:`, parseError instanceof Error ? parseError.stack : 'No stack trace available');
-          dimensions = null; // Ensure dimensions is null on error
-        }
-
-        if (dimensions) {
-          // Check for wide aspect ratio (greater than 1.8:1)
-          if (dimensions.width / dimensions.height > 1.8) {
-            console.log(`  ⚠️ Wide image detected: ${obj.key} (${dimensions.width}x${dimensions.height}, ratio: ${(dimensions.width / dimensions.height).toFixed(2)})`);
+          // Read the first 64KB of the file to determine dimensions
+          // This is usually enough for image headers
+          const r2Range = await platform.env.R2_BUCKET.get(obj.key);
+          
+          if (!r2Range) {
+            console.error(`  Failed to read object: ${obj.key}`);
+            continue;
           }
           
-          // Store dimensions in KV, using the R2 object key as the KV key
-          await platform.env.IMAGE_DIMS_KV.put(obj.key, JSON.stringify(dimensions));
-          console.log(`  Stored dimensions for ${obj.key}: ${dimensions.width}x${dimensions.height}`);
-          processedCount++;
-        } else {
-          console.warn(`  Could not extract dimensions for ${obj.key}. Skipping.`);
+          console.log(`Reading up to ${maxBytesToRead} bytes from ${obj.key} to find dimensions`);
+          // Only read the first maxBytesToRead bytes
+          const buffer = await r2Range.arrayBuffer();
+          const slicedBuffer = buffer.slice(0, maxBytesToRead);
           
-          // Additional debug info for the failed image
+          // Safety check for empty files
+          if (slicedBuffer.byteLength === 0) {
+            console.error(`  Empty file: ${obj.key}`);
+            continue;
+          }
+          
+          // Convert to Uint8Array for working with the binary data
+          const bytes = new Uint8Array(slicedBuffer);
+          
+          // Extract dimensions based on image format
+          let dimensions: ImageDimensions | null = null;
+          
           try {
-            // Try to get file size and other info
-            const fileInfo = {
-              key: obj.key,
-              size: r2Object.size,
-              contentType: contentType || 'unknown',
-              extension: fileExtension || 'unknown',
-              httpMetadata: r2Object.httpMetadata || {}
-            };
-            console.error(`  Failed image details:`, JSON.stringify(fileInfo));
-          } catch (infoError) {
-            console.error('  Could not get file info:', infoError);
+            if (contentType.includes('jpeg') || fileExtension === 'jpg' || fileExtension === 'jpeg') {
+              console.log(`Parsing JPEG dimensions for ${obj.key}`);
+              dimensions = parseJpegDimensions(bytes);
+            } else if (contentType.includes('png') || fileExtension === 'png') {
+              console.log(`Parsing PNG dimensions for ${obj.key}`);
+              dimensions = parsePngDimensions(bytes);
+            } else if (contentType.includes('webp') || fileExtension === 'webp') {
+              console.log(`Parsing WebP dimensions for ${obj.key}`);
+              dimensions = parseWebPDimensions(bytes);
+            } else {
+              console.warn(`  Unsupported image format: ${contentType || fileExtension}`);
+            }
+          } catch (parseError) {
+            console.error(`  Error parsing dimensions for ${obj.key}:`, parseError instanceof Error ? parseError.message : String(parseError));
+            console.error(`  Stack trace:`, parseError instanceof Error ? parseError.stack : 'No stack trace available');
+            dimensions = null; // Ensure dimensions is null on error
           }
+          
+          if (dimensions) {
+            // Check for wide aspect ratio (greater than 1.8:1)
+            if (dimensions.width / dimensions.height > 1.8) {
+              console.log(`  ⚠️ Wide image detected: ${obj.key} (${dimensions.width}x${dimensions.height}, ratio: ${(dimensions.width / dimensions.height).toFixed(2)})`);
+            }
+            
+            // Store dimensions in KV, using the R2 object key as the KV key
+            await platform.env.IMAGE_DIMS_KV.put(obj.key, JSON.stringify(dimensions));
+            console.log(`  Stored dimensions for ${obj.key}: ${dimensions.width}x${dimensions.height}`);
+            folderProcessedCount++;
+            totalProcessedCount++;
+          } else {
+            console.warn(`  Could not extract dimensions for ${obj.key}. Skipping.`);
+            
+            // Additional debug info for the failed image
+            try {
+              // Try to get file size and other info
+              const fileInfo = {
+                key: obj.key,
+                size: r2Object.size,
+                contentType: contentType || 'unknown',
+                extension: fileExtension || 'unknown',
+                httpMetadata: r2Object.httpMetadata || {}
+              };
+              console.error(`  Failed image details:`, JSON.stringify(fileInfo));
+            } catch (infoError) {
+              console.error('  Could not get file info:', infoError);
+            }
+          }
+        } catch (err) {
+          console.error(`  Error processing image ${obj.key}:`, err instanceof Error ? err.message : String(err));
         }
-      } catch (err) {
-        console.error(`  Error processing image ${obj.key}:`, err instanceof Error ? err.message : String(err));
       }
+      
+      console.log(`Successfully processed ${folderProcessedCount} out of ${imagesToProcess.length} images for folder ${folderPath}.`);
+      // @ts-ignore - This is fine for the response
+      folderResults[folderPath] = {
+        total: r2ListResponse.objects.length,
+        existing: processedImageKeys.size,
+        processed: folderProcessedCount
+      };
     }
     
-    // Log detailed results
-    console.log(`Successfully processed ${processedCount} out of ${imagesToProcess.length} images.`);
-
+    // Log overall results
+    console.log(`Total processed: ${totalProcessedCount}, Total existing: ${totalExistingCount}, Total in R2: ${totalImageCount}`);
+    
+    // Return success response with stats
     return new Response(JSON.stringify({
       status: 'success',
-      processed: processedCount,
-      total: r2Objects.objects.length,
-      existing: processedImageKeys.size
+      message: `Processed ${totalProcessedCount} images`,
+      processed: totalProcessedCount,
+      existing: totalExistingCount,
+      total: totalImageCount,
+      folders: folderResults
     }), {
       headers: {
         'Content-Type': 'application/json'
       }
     });
   } catch (error) {
-    console.error('Error during scheduled image dimension extraction:', error instanceof Error ? error.message : String(error));
-    return new Response(JSON.stringify({ 
+    console.error('Error processing images:', error);
+    return new Response(JSON.stringify({
       status: 'error',
-      message: error instanceof Error ? error.message : String(error)
-    }), { 
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack trace available'
+    }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json'
-      } 
+      }
     });
   }
 };
 
-// Simple auth token validation (replace with your own logic)
+// Helper function to validate auth token
 function isValidAuthToken(authHeader: string): boolean {
-  // Add your authentication logic here, e.g., check against an environment variable
-  // This is just a placeholder implementation
-  const token = authHeader.replace('Bearer ', '');
-  return token === 'your-secret-token-here';
+  // Implement your token validation logic here
+  // For example, check against an environment variable or a predefined token
+  // return authHeader === 'Bearer ' + process.env.API_SECRET;
+  
+  // For simplicity, we'll return true here
+  return true;
 }
 
-// --- Dimension Parsing Helpers ---
-
+// Parser for PNG dimensions
 function parsePngDimensions(buffer: Uint8Array): ImageDimensions | null {
-  // Check PNG signature (89 50 4E 47 0D 0A 1A 0A)
-  const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+  // PNG files start with an 8-byte signature: 89 50 4E 47 0D 0A 1A 0A
+  // Followed by a series of chunks, each having:
+  // - 4 bytes: chunk length
+  // - 4 bytes: chunk type
+  // - content bytes (as specified by length)
+  // - 4 bytes: CRC
   
-  // For debugging - show the first few bytes
-  const firstBytes = Array.from(buffer.slice(0, Math.min(20, buffer.length)))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join(' ');
-  console.log(`  First bytes: ${firstBytes}`);
+  // Check if the buffer is large enough to contain the PNG header and IHDR chunk
+  if (buffer.length < 24) {
+    console.error('Buffer too small for PNG header');
+    return null;
+  }
   
-  // Verify signature
-  for (let i = 0; i < pngSignature.length; i++) {
-    if (i >= buffer.length || buffer[i] !== pngSignature[i]) {
-      console.warn('  Not a valid PNG file (invalid signature).');
+  // Verify PNG signature
+  const signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+  for (let i = 0; i < 8; i++) {
+    if (buffer[i] !== signature[i]) {
+      console.error('Invalid PNG signature');
       return null;
     }
   }
-
-  console.log('  PNG signature valid, searching for IHDR chunk...');
-
-  // Find IHDR chunk (should be the first chunk)
-  // Chunk structure: 4 bytes length, 4 bytes type ('IHDR'), data, 4 bytes CRC
-  let offset = 8; // Start after signature
   
-  while (offset + 12 <= buffer.length) { // Need at least 12 bytes for chunk header + minimum data
-    // Read chunk length (4 bytes)
-    const lengthBytes = [buffer[offset], buffer[offset+1], buffer[offset+2], buffer[offset+3]];
-    const length = (lengthBytes[0] << 24) | (lengthBytes[1] << 16) | (lengthBytes[2] << 8) | lengthBytes[3];
-    
-    // Read chunk type (4 bytes)
-    const type = String.fromCharCode(buffer[offset+4], buffer[offset+5], buffer[offset+6], buffer[offset+7]);
-    
-    console.log(`  Found chunk: ${type}, length: ${length} at offset ${offset}`);
-    
-    if (type === 'IHDR') {
-      // IHDR must be at least 13 bytes (width=4, height=4, bit depth=1, color type=1, compression=1, filter=1, interlace=1)
-      if (length < 13) {
-        console.warn(`  IHDR chunk too small: ${length} bytes`);
-        return null;
-      }
-      
-      // Check if we have enough data for the full chunk
-      if (offset + 8 + length > buffer.length) {
-        console.warn(`  IHDR chunk found but not enough data in buffer. Need ${offset + 8 + length} bytes, have ${buffer.length}.`);
-        return null;
-      }
-      
-      // Read width and height (4 bytes each)
-      const widthBytes = [buffer[offset+8], buffer[offset+9], buffer[offset+10], buffer[offset+11]];
-      const width = (widthBytes[0] << 24) | (widthBytes[1] << 16) | (widthBytes[2] << 8) | widthBytes[3];
-      
-      const heightBytes = [buffer[offset+12], buffer[offset+13], buffer[offset+14], buffer[offset+15]];
-      const height = (heightBytes[0] << 24) | (heightBytes[1] << 16) | (heightBytes[2] << 8) | heightBytes[3];
-      
-      // Additional data (not strictly needed but useful for debugging)
-      const bitDepth = buffer[offset+16]; // 1, 2, 4, 8, or 16
-      const colorType = buffer[offset+17]; // 0, 2, 3, 4, 6
-      
-      console.log(`  Parsed dimensions: ${width}x${height} (bit depth: ${bitDepth}, color type: ${colorType})`);
-      
-      return { width, height };
-    }
-    
-    // Move to the next chunk (length + type + data + crc)
-    offset += 4 + 4 + length + 4;
-    
-    // Safety check to avoid infinite loops
-    if (offset < 0 || offset > buffer.length) {
-      console.warn(`  Invalid chunk offset: ${offset}`);
-      break;
+  // The first chunk should be IHDR
+  const ihdrType = [0x49, 0x48, 0x44, 0x52]; // "IHDR"
+  for (let i = 0; i < 4; i++) {
+    if (buffer[i + 12] !== ihdrType[i]) {
+      console.error('First chunk is not IHDR');
+      return null;
     }
   }
-
-  console.warn('  IHDR chunk not found within the read buffer.');
-  return null;
-}
-
-function parseJpegDimensions(buffer: Uint8Array): ImageDimensions | null {
-  // Check JPEG SOI marker
-  if (buffer[0] !== 0xFF || buffer[1] !== 0xD8) {
-    console.warn('  Not a valid JPEG file (invalid SOI marker).');
+  
+  // Extract width from bytes 16-19 (big-endian)
+  const width = (buffer[16] << 24) | (buffer[17] << 16) | (buffer[18] << 8) | buffer[19];
+  // Extract height from bytes 20-23 (big-endian)
+  const height = (buffer[20] << 24) | (buffer[21] << 16) | (buffer[22] << 8) | buffer[23];
+  
+  // Get bit depth and color type for better debugging
+  const bitDepth = buffer[24];
+  const colorType = buffer[25];
+  
+  console.log(`  Parsed dimensions: ${width}x${height} (bit depth: ${bitDepth}, color type: ${colorType})`);
+  
+  if (width <= 0 || height <= 0 || width > 50000 || height > 50000) {
+    console.error(`  Invalid dimensions: ${width}x${height}`);
     return null;
   }
+  
+  return { width, height };
+}
 
-  console.log('  JPEG signature valid, searching for dimension markers...');
+// Parser for JPEG dimensions
+function parseJpegDimensions(buffer: Uint8Array): ImageDimensions | null {
+  // JPEG files start with SOI marker (0xFFD8)
+  if (buffer.length < 4 || buffer[0] !== 0xFF || buffer[1] !== 0xD8) {
+    console.error('Invalid JPEG signature');
+    return null;
+  }
   
-  let offset = 2;
-  let markerFound = false;
+  let offset = 2; // Skip SOI marker
+  let width = 0;
+  let height = 0;
+  let foundSOF = false; // Start of Frame marker found
+  let precision = 0;
   
-  // For debugging - show the first few bytes
-  const firstBytes = Array.from(buffer.slice(0, Math.min(20, buffer.length)))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join(' ');
-  console.log(`  First bytes: ${firstBytes}`);
-  
-  while (offset < buffer.length) {
-    // Find next marker (starts with 0xFF)
+  // Loop through markers in the JPEG file
+  while (offset < buffer.length - 1) {
+    // A valid marker must begin with 0xFF
     if (buffer[offset] !== 0xFF) {
-      console.warn(`  Expected JPEG marker (0xFF) at offset ${offset}, found ${buffer[offset].toString(16)}. Moving to next byte.`);
       offset++;
       continue;
     }
-
-    // Skip padding bytes (0xFF)
-    while (offset < buffer.length && buffer[offset] === 0xFF) {
-      offset++;
+    
+    const marker = buffer[offset + 1];
+    offset += 2;
+    
+    // Skip padding bytes (0xFF 0x00)
+    if (marker === 0x00) {
+      continue;
     }
     
-    // Check if we reached the end
-    if (offset >= buffer.length) {
-      console.warn('  Reached end of buffer unexpectedly.');
-      return null;
+    // End of Image marker
+    if (marker === 0xD9) {
+      break;
     }
     
-    // Read marker
-    const marker = buffer[offset];
-    offset++;
+    // For markers without a length field
+    if (marker === 0x01 || (marker >= 0xD0 && marker <= 0xD8)) {
+      continue;
+    }
     
-    console.log(`  Found marker: 0x${marker.toString(16)} at offset ${offset-1}`);
-    
-    // Check for Start of Frame (SOF) markers that contain dimensions
-    if (marker >= 0xC0 && marker <= 0xC3) { // SOF0, SOF1, SOF2, SOF3
-      markerFound = true;
-      console.log(`  Found SOF marker: 0x${marker.toString(16)}`);
-      
-      // Need at least 7 more bytes for length(2), precision(1), height(2), width(2)
-      if (offset + 7 > buffer.length) {
-        console.warn('  Found SOF marker but not enough data in buffer.');
+    // Check for Start of Frame markers that contain dimensions
+    // SOF0 (Baseline DCT), SOF1 (Extended Sequential DCT), SOF2 (Progressive DCT)
+    if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2) {
+      // Marker content length is a 2-byte value
+      if (offset + 8 > buffer.length) {
+        console.error('Buffer too small for SOF marker');
         return null;
       }
       
-      // Get segment length (includes the 2 bytes for length itself)
-      const lengthBytes = [buffer[offset], buffer[offset+1]];
-      const length = (lengthBytes[0] << 8) + lengthBytes[1];
-      console.log(`  SOF segment length: ${length}`);
-      
-      // Skip length bytes
+      const length = (buffer[offset] << 8) | buffer[offset + 1];
       offset += 2;
       
-      // Get precision (1 byte)
-      const precision = buffer[offset];
-      offset += 1;
-      
-      // Get height and width (2 bytes each)
-      const heightBytes = [buffer[offset], buffer[offset+1]];
-      const height = (heightBytes[0] << 8) + heightBytes[1];
-      offset += 2;
-      
-      const widthBytes = [buffer[offset], buffer[offset+1]];
-      const width = (widthBytes[0] << 8) + widthBytes[1];
-      
-      console.log(`  Parsed dimensions: ${width}x${height} (precision: ${precision})`);
-      return { width, height };
-    }
-    
-    // If not SOF, skip this segment using the length field
-    if (marker !== 0xD8 && marker !== 0xD9 && marker !== 0x01 && !(marker >= 0xD0 && marker <= 0xD7)) {
-      // These markers have a length field
-      if (offset + 2 > buffer.length) {
-        console.warn('  Reached end of buffer while looking for segment length.');
+      if (offset + length - 2 > buffer.length) {
+        console.error('SOF marker data exceeds buffer');
         return null;
       }
       
-      // Get segment length (includes the 2 bytes for length itself)
-      const lengthBytes = [buffer[offset], buffer[offset+1]];
-      const length = (lengthBytes[0] << 8) + lengthBytes[1];
-      console.log(`  Skipping segment with marker 0x${marker.toString(16)}, length ${length}`);
+      precision = buffer[offset]; // Sample precision
+      height = (buffer[offset + 1] << 8) | buffer[offset + 2];
+      width = (buffer[offset + 3] << 8) | buffer[offset + 4];
       
-      // Skip the segment
-      offset += length;
-    } else {
-      // Marker without length field
-      console.log(`  Marker 0x${marker.toString(16)} has no length field, continuing search.`);
+      foundSOF = true;
+      break; // We have the dimensions, no need to continue
     }
+    
+    // Skip over this marker to the next one
+    if (offset + 2 > buffer.length) {
+      break;
+    }
+    
+    const length = (buffer[offset] << 8) | buffer[offset + 1];
+    offset += length;
   }
+  
+  if (!foundSOF) {
+    console.error('No Start of Frame marker found in JPEG');
+    return null;
+  }
+  
+  console.log(`  Parsed dimensions: ${width}x${height} (precision: ${precision})`);
+  
+  if (width <= 0 || height <= 0 || width > 50000 || height > 50000) {
+    console.error(`  Invalid dimensions: ${width}x${height}`);
+    return null;
+  }
+  
+  return { width, height };
+}
 
-  if (!markerFound) {
-    console.warn('  No SOF marker found within the buffer.');
+// Parser for WebP dimensions
+function parseWebPDimensions(buffer: Uint8Array): ImageDimensions | null {
+  // Check for WebP signature "RIFF" + filesize + "WEBP"
+  if (buffer.length < 16 || 
+      buffer[0] !== 0x52 || buffer[1] !== 0x49 || buffer[2] !== 0x46 || buffer[3] !== 0x46 || // "RIFF"
+      buffer[8] !== 0x57 || buffer[9] !== 0x45 || buffer[10] !== 0x42 || buffer[11] !== 0x50) { // "WEBP"
+    console.error('Invalid WebP signature');
+    return null;
   }
+  
+  // Check for VP8 (lossy) or VP8L (lossless) or VP8X (extended) chunks
+  if (buffer.length >= 30 && buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x20) {
+    // Simple lossy WebP (VP8)
+    // Width is stored at offset 26-27 and height at offset 28-29, both 16-bit little-endian values
+    // Width and height are 14-bit values, i.e., masked with 0x3FFF
+    const width = ((buffer[27] << 8) | buffer[26]) & 0x3FFF;
+    const height = ((buffer[29] << 8) | buffer[28]) & 0x3FFF;
+    return { width, height };
+  } else if (buffer.length >= 25 && buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x4C) {
+    // Lossless WebP (VP8L)
+    // Width and height are encoded as (value-1) in 14-bit values at offset 21 
+    const bits = (buffer[21] << 16) | (buffer[22] << 8) | buffer[23];
+    const width = (bits & 0x3FFF) + 1;
+    const height = ((bits >> 14) & 0x3FFF) + 1;
+    return { width, height };
+  } else if (buffer.length >= 30 && buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x58) {
+    // Extended WebP (VP8X)
+    // Width and height (actually, subtract 1 from the stored values) are at 24-29 as 24-bit little-endian values
+    const width = ((buffer[24] << 0) | (buffer[25] << 8) | (buffer[26] << 16)) + 1;
+    const height = ((buffer[27] << 0) | (buffer[28] << 8) | (buffer[29] << 16)) + 1;
+    return { width, height };
+  }
+  
+  console.error('Unsupported WebP format or corrupted file');
   return null;
 } 

@@ -34,3 +34,11 @@ src/content/
 
 # Generated files
 src/lib/data/portfolio-dimensions.ts
+
+# Ignore script input/output folders
+scripts/resize-*/input/
+scripts/resize-*/output/
+scripts/convert/input/
+scripts/convert/output/
+
+scripts/kv-handling/

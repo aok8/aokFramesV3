@@ -187,6 +187,9 @@
 
   onMount(() => {
     if (browser) {
+      // Ensure page scrolls to top on initial load and refresh
+      window.scrollTo(0, 0);
+      
       // --- Remove portfolio loading from here ---
       // const loadImages = async () => {
       //   if (typeof window !== 'undefined') {

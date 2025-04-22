@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import path from 'node:path';
 import { imageSize } from 'image-size';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, RequestEvent } from './$types';
 // Import the generated constant from the .ts file as fallback
 // @ts-ignore - Generated file may not exist for TypeScript
 import { dimensionsMap as localDimensionsMap } from '$lib/data/portfolio-dimensions';
@@ -16,9 +16,11 @@ import { dimensionsMapW640 } from '$lib/data/portfolio-dimensions-w640';
 import { dimensionsMapW1024 } from '$lib/data/portfolio-dimensions-w1024';
 // @ts-ignore - Generated files may not exist for TypeScript
 import { dimensionsMapW1920 } from '$lib/data/portfolio-dimensions-w1920';
+// @ts-ignore - Generated files may not exist for TypeScript
+import { dimensionsMapW3000 } from '$lib/data/portfolio-dimensions-w3000.ts';
 // Fallback to legacy dimensions if needed
 // @ts-ignore - Generated file may not exist for TypeScript
-import { dimensionsMap as legacyDimensionsMap } from '$lib/data/portfolio-dimensions';
+import { dimensionsMap as legacyDimensionsMap } from '$lib/data/portfolio-dimensions.ts';
 
 // Define the expected structure of the dimensions JSON
 interface ImageDimensions {
@@ -33,11 +35,12 @@ interface DimensionsMap {
 
 // Define a map of folder prefix to dimensions map
 const dimensionsMaps: Record<string, DimensionsMap> = {
-  'w320': dimensionsMapW320 || {},
-  'w640': dimensionsMapW640 || {},
-  'w1024': dimensionsMapW1024 || {},
-  'w1920': dimensionsMapW1920 || {},
-  'legacy': legacyDimensionsMap || {}
+  'w320': (dimensionsMapW320 as DimensionsMap) || {},
+  'w640': (dimensionsMapW640 as DimensionsMap) || {},
+  'w1024': (dimensionsMapW1024 as DimensionsMap) || {},
+  'w1920': (dimensionsMapW1920 as DimensionsMap) || {},
+  'w3000': (dimensionsMapW3000 as DimensionsMap) || {},
+  'legacy': (legacyDimensionsMap as DimensionsMap) || {}
 };
 
 interface R2Object {
@@ -70,17 +73,22 @@ if (dev) {
 
 // Function to get the appropriate folder and dimensions map based on width
 function getWidthFolder(clientWidth: number): { folder: string, dimensionsMap: DimensionsMap } {
-   if (clientWidth <= 1024) {
-    return { folder: 'w1024', dimensionsMap: dimensionsMaps.w1024 };
+  if (clientWidth <= 640) {
+    return { folder: 'w320', dimensionsMap: dimensionsMaps.w320 };
+  } else if (clientWidth <= 1024) {
+    return { folder: 'w640', dimensionsMap: dimensionsMaps.w640 };
   } else if (clientWidth <= 1920) {
-    return { folder: 'w1920', dimensionsMap: dimensionsMaps.w1920 };
-  } else {
+    return { folder: 'w1024', dimensionsMap: dimensionsMaps.w1024 };
+  } else if (clientWidth <= 3000) {
     return { folder: 'w3000', dimensionsMap: dimensionsMaps.w3000 };
+  } else {
+    // Fallback if wider than 3000? Or just use 3000?
+    return { folder: 'w3000', dimensionsMap: dimensionsMaps.w3000 }; 
   }
 }
 
 // GET API route
-export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
+export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestEvent): Promise<Response> => {
   console.log('[portfolio-images] Endpoint called');
   
   // Create a debug log collection 
@@ -235,42 +243,36 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
           let dimensionSource = 'default';
 
           // Try to get dimensions from the map using various key patterns
-          if (obj.key in dimensionsMap) {
-            width = dimensionsMap[obj.key].width;
-            height = dimensionsMap[obj.key].height;
+          // Check if key/filename exists before accessing
+          if (dimensionsMap && obj.key in dimensionsMap) {
+            const key = obj.key as keyof typeof dimensionsMap; // Assert key type
+            width = dimensionsMap[key].width;
+            height = dimensionsMap[key].height;
             dimensionSource = 'full-key';
-          }
-          // Then try using just the filename
-          else if (filename in dimensionsMap) {
-            width = dimensionsMap[filename].width;
-            height = dimensionsMap[filename].height;
+          } else if (dimensionsMap && filename in dimensionsMap) {
+            const key = filename as keyof typeof dimensionsMap; // Assert key type
+            width = dimensionsMap[key].width;
+            height = dimensionsMap[key].height;
             dimensionSource = 'filename';
-          }
-          // Try with the specific width folder prefix
-          else if ((`portfolio/${folder}/${filename}` in dimensionsMap)) {
-            width = dimensionsMap[`portfolio/${folder}/${filename}`].width;
-            height = dimensionsMap[`portfolio/${folder}/${filename}`].height;
-            dimensionSource = 'width-folder-prefix';
-          }
-          // Finally fall back to the legacy dimensions map if it exists
-          else if (legacyDimensionsMap && filename in legacyDimensionsMap) {
-            width = legacyDimensionsMap[filename].width;
-            height = legacyDimensionsMap[filename].height;
-            dimensionSource = 'legacy-map';
-          }
-          else {
-            logEvent(`[portfolio-images] No dimensions found for: ${obj.key}`);
+          } else if (obj.customMetadata?.width && obj.customMetadata?.height) {
+              // Fallback to R2 custom metadata if available (example)
+              try {
+                width = parseInt(obj.customMetadata.width, 10);
+                height = parseInt(obj.customMetadata.height, 10);
+                dimensionSource = 'metadata';
+              } catch (e) { /* Ignore parsing errors */ }
           }
           
-          width = width || 1;
-          height = height || 1;
-
+          // Ensure width/height are numbers, default to 1 if necessary
+          width = !isNaN(width) && width > 0 ? width : 1;
+          height = !isNaN(height) && height > 0 ? height : 1;
+          
           return {
-            url: `/directr2/${obj.key}`,
-            fallback: `/images/Portfolio/${folder}/${filename}`,
-            width: width,
-            height: height,
-            _source: `${dimensionSource}-${folder}`
+            url: `/directr2/${obj.key}`, // Use R2 key for URL
+            fallback: `/directr2/${obj.key}`, // Same fallback for simplicity
+            width,
+            height,
+            _source: `r2-${folder}-${dimensionSource}` // Add source info
           };
         });
     }

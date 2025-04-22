@@ -40,3 +40,4 @@ scripts/resize-*/input/
 scripts/resize-*/output/
 scripts/convert/input/
 scripts/convert/output/
+/src/lib/data/

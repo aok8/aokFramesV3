@@ -24,11 +24,33 @@
   let photoModalOpen = false;
   let portfolioImages: PortfolioImage[] = []; // Use updated interface
   
+  // Responsive image selection based on screen width
+  let screenWidth = 1920; // Default to largest size
+  
+  function getResponsiveImagePath(baseFolder, filename, isR2 = false) {
+    // Select width based on screen size
+    let sizeDir;
+    
+    if (screenWidth <= 640) {
+      sizeDir = 'w320';
+    } else if (screenWidth <= 1024) {
+      sizeDir = 'w640';
+    } else if (screenWidth <= 1920) {
+      sizeDir = 'w1024';
+    } else {
+      sizeDir = 'w1920';
+    }
+    
+    return isR2 
+      ? `/directr2/${baseFolder}/${sizeDir}/${filename}`
+      : `/images/${baseFolder}/${sizeDir}/${filename}`;
+  }
+  
   // Constants for background and profile image with fallbacks
-  const bgImageConst = '/directr2/constants/bg.jpg';
-  const fallbackBgImageConst = '/images/constants/bg.jpg';
-  const profileImageConst = '/directr2/constants/Profile_Pic.jpg';
-  const fallbackProfileImageConst = '/images/constants/Profile_Pic.jpg';
+  $: bgImageConst = getResponsiveImagePath('constants/bg', 'bg.webp', true);
+  $: fallbackBgImageConst = getResponsiveImagePath('constants/bg', 'bg.webp', false);
+  const profileImageConst = '/directr2/constants/Profile_Pic.webp';
+  const fallbackProfileImageConst = '/images/constants/Profile_Pic.webp';
   
   // Image error handling
   let bgImageError = false;
@@ -156,10 +178,21 @@
 
     loadImages();
 
+    // Initialize screen width
+    screenWidth = window.innerWidth;
+    
+    // Listen for window resize events
+    const handleResize = () => {
+      screenWidth = window.innerWidth;
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
     return () => {
       if (observer) {
         observer.disconnect();
       }
+      window.removeEventListener('resize', handleResize);
     };
   });
 

@@ -159,8 +159,9 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
   
   try {
     let fileContent: string;
+    let exactSlug = slug; // Store the exact case-sensitive slug
     let imageExists = false;
-    const exactSlug = slug; 
+    let imageFormat = ''; // Declare the variable at the top level
 
     if (dev) {
       // Development mode - Load index.md and check for header.jpg
@@ -190,16 +191,24 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
         throw error;
       }
       
-      // Check if header.jpg exists
-      const imagePath = path.join(dirPath, 'header.jpg');
-      try {
-        await fs.access(imagePath);
-        imageExists = true;
-        console.log('loadBlogPost (dev): Header image found:', imagePath);
-      } catch {
-        imageExists = false;
-        console.log('loadBlogPost (dev): No header image found at:', imagePath);
+      // Check if header image exists in different formats
+      const imageFormats = ['webp', 'jpg', 'jpeg']; // Check WebP first, then fall back to JPG
+      let imageFormat = '';
+
+      for (const format of imageFormats) {
+        const imagePath = path.join(dirPath, `header.${format}`);
+        try {
+          const stats = await fs.stat(imagePath);
+          if (stats.isFile()) {
+            imageExists = true;
+            imageFormat = format;
+            break;
+          }
+        } catch (e) {
+          // File doesn't exist, try next format
+        }
       }
+      console.log(`Dev mode image check for ${slug}: ${imageExists ? `Found header.${imageFormat}` : 'No header image found'}`);
     } else {
       // Production mode - Load index.md and check for header.jpg from R2
       console.log(`loadBlogPost: Production mode for slug "${exactSlug}". Checking R2 bucket...`);
@@ -234,19 +243,24 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
         throw textError;
       }
       
-      // Check if header.jpg exists
-      const imageKey = `blog/posts/${exactSlug}/header.jpg`;
-      console.log(`loadBlogPost: Attempting R2 head for image key: "${imageKey}"`);
-      let imageObject;
-      try {
-        imageObject = await platform.env.ASSETSBUCKET.head(imageKey);
-        console.log(`loadBlogPost: R2 head call successful for image key "${imageKey}". Object exists: ${!!imageObject}`);
-        imageExists = imageObject !== null;
-      } catch (r2HeadError) {
-        // Log head errors but don't fail the whole post load
-        console.warn(`loadBlogPost: R2 head call FAILED for image key "${imageKey}". Assuming image doesn't exist. Error:`, r2HeadError);
-        imageExists = false;
+      // Check if header image exists in different formats
+      const imageFormats = ['webp', 'jpg', 'jpeg']; // Check WebP first, then fall back to JPG
+      let imageFormat = '';
+
+      for (const format of imageFormats) {
+        const imageKey = `blog/posts/${exactSlug}/header.${format}`;
+        try {
+          const exists = await platform.env.ASSETSBUCKET.head(imageKey);
+          if (exists) {
+            imageExists = true;
+            imageFormat = format;
+            break;
+          }
+        } catch (e) {
+          // Image doesn't exist in R2, try next format
+        }
       }
+      console.log(`Production mode image check for ${slug}: ${imageExists ? `Found header.${imageFormat}` : 'No header image found'}`);
     }
 
     // Remove BOM if present
@@ -306,7 +320,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     // IMPORTANT: Use the exactSlug derived from the filename for the post ID
     // This was previously just `slug`, ensure it reflects the case from storage
     const post = {
-      id: exactSlug, // ID is the directory name (slug)
+      id: exactSlug,
       title,
       content: markdownContent,
       summary,
@@ -315,8 +329,8 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       label: tags,
       image: imageExists ? 
         (dev ? 
-          `/src/content/blog/posts/${exactSlug}/header.jpg` : 
-          `/directr2/blog/posts/${exactSlug}/header.jpg`
+          `/src/content/blog/posts/${exactSlug}/header.${imageFormat}` : 
+          `/directr2/blog/posts/${exactSlug}/header.${imageFormat}`
         ) : undefined
     };
     

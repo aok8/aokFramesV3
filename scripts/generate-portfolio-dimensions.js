@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import imageSize from 'image-size';
 
-const PORTFOLIO_BASE_DIR = path.resolve('src/images/Portfolio');
+const PORTFOLIO_BASE_DIR = path.resolve('static/images/portfolio');
 const OUTPUT_DIR = path.resolve('src/lib/data');
 const WIDTH_DIR_REGEX = /^w(\d+)$/; // Matches directories like w320, w640 etc.
 

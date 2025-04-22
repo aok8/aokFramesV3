@@ -7,8 +7,12 @@ interface PortfolioImage {
 
 export const getPortfolioImages = async (): Promise<PortfolioImage[]> => {
   try {
-    console.log('Fetching portfolio images from API...');
-    const response = await fetch('/api/portfolio-images');
+    // Get the current screen width for responsive images
+    const screenWidth = window.innerWidth;
+    console.log(`Fetching portfolio images from API with screen width: ${screenWidth}...`);
+    
+    // Pass screen width as a query parameter
+    const response = await fetch(`/api/portfolio-images?width=${screenWidth}`);
     
     if (!response.ok) {
       console.error(`API error: ${response.status} ${response.statusText}`);

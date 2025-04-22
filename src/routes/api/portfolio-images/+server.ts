@@ -7,14 +7,38 @@ import type { PageServerLoad } from './$types';
 // @ts-ignore - Generated file may not exist for TypeScript
 import { dimensionsMap as localDimensionsMap } from '$lib/data/portfolio-dimensions';
 
+// Import dimension maps for different widths
+// @ts-ignore - Generated files may not exist for TypeScript
+import { dimensionsMapW320 } from '$lib/data/portfolio-dimensions-w320';
+// @ts-ignore - Generated files may not exist for TypeScript
+import { dimensionsMapW640 } from '$lib/data/portfolio-dimensions-w640';
+// @ts-ignore - Generated files may not exist for TypeScript
+import { dimensionsMapW1024 } from '$lib/data/portfolio-dimensions-w1024';
+// @ts-ignore - Generated files may not exist for TypeScript
+import { dimensionsMapW1920 } from '$lib/data/portfolio-dimensions-w1920';
+// Fallback to legacy dimensions if needed
+// @ts-ignore - Generated file may not exist for TypeScript
+import { dimensionsMap as legacyDimensionsMap } from '$lib/data/portfolio-dimensions';
+
 // Define the expected structure of the dimensions JSON
 interface ImageDimensions {
   width: number;
   height: number;
 }
+
+// Map to link dimensions maps to width folders
 interface DimensionsMap {
   [filename: string]: ImageDimensions;
 }
+
+// Define a map of folder prefix to dimensions map
+const dimensionsMaps: Record<string, DimensionsMap> = {
+  'w320': dimensionsMapW320 || {},
+  'w640': dimensionsMapW640 || {},
+  'w1024': dimensionsMapW1024 || {},
+  'w1920': dimensionsMapW1920 || {},
+  'legacy': legacyDimensionsMap || {}
+};
 
 interface R2Object {
   key: string;
@@ -44,6 +68,19 @@ if (dev) {
   devFs = await import('node:fs/promises');
 }
 
+// Function to get the appropriate folder and dimensions map based on width
+function getWidthFolder(clientWidth: number): { folder: string, dimensionsMap: DimensionsMap } {
+  if (clientWidth <= 640) {
+    return { folder: 'w320', dimensionsMap: dimensionsMaps.w320 };
+  } else if (clientWidth <= 1024) {
+    return { folder: 'w640', dimensionsMap: dimensionsMaps.w640 };
+  } else if (clientWidth <= 1920) {
+    return { folder: 'w1024', dimensionsMap: dimensionsMaps.w1024 };
+  } else {
+    return { folder: 'w1920', dimensionsMap: dimensionsMaps.w1920 };
+  }
+}
+
 // GET API route
 export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
   console.log('[portfolio-images] Endpoint called');
@@ -58,116 +95,56 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
   logEvent('[portfolio-images] Endpoint called with debug logging');
   
   try {
+    const startTime = Date.now();
     let images: PortfolioImage[] = [];
     
-    // Initialize dimensions map to an empty object to prevent null errors
-    let dimensionsMap: DimensionsMap = {};
+    // Get client width from query parameters (or default to max size)
+    const clientWidth = request?.url 
+      ? parseInt(new URL(request.url).searchParams.get('width') || '1920', 10)
+      : 1920;
     
-    // Diagnostic information to include in response
-    const diagnostics: any = {
+    // Get appropriate folder and dimensions map
+    const { folder, dimensionsMap } = getWidthFolder(clientWidth);
+    
+    logEvent(`[portfolio-images] Request received, client width: ${clientWidth}, using folder: ${folder}`);
+    
+    // Diagnostics to return in debug mode
+    const diagnostics = {
       timestamp: new Date().toISOString(),
-      environment: dev ? 'development' : 'production',
-      platform: !!platform,
-      platformEnv: !!platform?.env,
-      availableBindings: platform?.env ? Object.keys(platform.env) : [],
-      kvAvailable: !!platform?.env?.IMAGE_DIMS_KV,
       r2Available: !!platform?.env?.ASSETSBUCKET,
-      localDimensionsAvailable: !!localDimensionsMap,
-      localDimensionsCount: localDimensionsMap ? Object.keys(localDimensionsMap).length : 0,
-      dimensionsSource: 'none',
-      logs: debugLogs
+      r2ObjectCount: 0,
+      clientWidth,
+      selectedFolder: folder,
+      dimensionsMapSize: Object.keys(dimensionsMap).length,
+      dimensionsSource: 'unknown',
+      localDimensionsAvailable: Object.keys(dimensionsMap).length > 0,
+      localDimensionsCount: Object.keys(dimensionsMap).length,
+      sampleDimensions: {},
+      processingTimeMs: 0
     };
-    
-    // In development, use local dimensions for simplicity/speed
+
+    // In dev environment, try to use fs module (node-specific)
     if (dev) {
-      dimensionsMap = localDimensionsMap || {};
-      logEvent(`[portfolio-images] DEV MODE: Using local dimensions: ${Object.keys(dimensionsMap).length} entries`);
-      diagnostics.dimensionsSource = 'local-dev';
-    } 
-    // In production, always try to get dimensions from KV first
-    else {
-      logEvent('[portfolio-images] PRODUCTION MODE: Attempting to load dimensions');
-      
-      // Log environment info to diagnose issues
-      logEvent(`[portfolio-images] Platform available: ${!!platform}`);
-      logEvent(`[portfolio-images] Platform env available: ${!!platform?.env}`);
-      if (platform?.env) {
-        logEvent(`[portfolio-images] Available bindings: ${Object.keys(platform.env).join(', ')}`);
-      }
-      
-      // STEP 1: Try to access KV directly (the most reliable in Cloudflare)
-      if (platform?.env?.IMAGE_DIMS_KV) {
-        try {
-          logEvent('[portfolio-images] Accessing KV directly...');
-          const listResponse = await platform.env.IMAGE_DIMS_KV.list({ 
-            prefix: 'portfolio/' 
-          });
-          
-          logEvent(`[portfolio-images] KV list response received. Found ${listResponse?.keys?.length || 0} keys`);
-          
-          if (listResponse && listResponse.keys && listResponse.keys.length > 0) {
-            // Create a map to store the dimensions
-            const kvDimensions: DimensionsMap = {};
-            
-            // Log first few keys for debugging
-            if (listResponse.keys.length > 0) {
-              const sampleKeys = listResponse.keys.slice(0, 3).map((k: any) => k.name).join(', ');
-              logEvent(`[portfolio-images] First few KV keys: ${sampleKeys}`);
-            }
-            
-            // Get dimensions in parallel
-            const fetchPromises = listResponse.keys.map(async (key: any) => {
-              try {
-                const value = await platform.env.IMAGE_DIMS_KV.get(key.name);
-                if (value) {
-                  const dims = JSON.parse(value);
-                  kvDimensions[key.name] = dims;
-                }
-              } catch (err) {
-                logEvent(`[portfolio-images] Error fetching KV value for ${key.name}: ${err}`);
-              }
-            });
-            
-            // Wait for all fetches to complete
-            await Promise.all(fetchPromises);
-            
-            const keyCount = Object.keys(kvDimensions).length;
-            if (keyCount > 0) {
-              logEvent(`[portfolio-images] Successfully loaded ${keyCount} dimensions from KV`);
-              dimensionsMap = kvDimensions;
-              diagnostics.dimensionsSource = 'kv';
-            } else {
-              logEvent('[portfolio-images] No valid dimensions were loaded from KV');
-            }
-          } else {
-            logEvent('[portfolio-images] No keys found in KV store');
-          }
-        } catch (kvError) {
-          logEvent(`[portfolio-images] Error accessing KV directly: ${kvError}`);
-          diagnostics.kvError = String(kvError);
-        }
-      } else {
-        logEvent('[portfolio-images] IMAGE_DIMS_KV binding not available');
-      }
-      
-      // STEP 2: Fall back to local dimensions if KV access failed or returned empty
-      if (Object.keys(dimensionsMap).length === 0 && localDimensionsMap) {
-        logEvent('[portfolio-images] Falling back to local dimensions map');
-        dimensionsMap = localDimensionsMap;
-        diagnostics.dimensionsSource = 'local-fallback';
-        logEvent(`[portfolio-images] Using ${Object.keys(dimensionsMap).length} local dimension entries`);
+      try {
+        devFs = await import('node:fs/promises');
+        logEvent('[portfolio-images] Loaded fs module for dev mode');
+      } catch (e) {
+        logEvent('[portfolio-images] Could not load fs module for dev mode, falling back to fetch');
       }
     }
 
+    // Initialize dimensions map to an empty object to prevent null errors
+    // We'll use the appropriate dimensions map based on the width folder
+
     // In development mode, read from local directory
     if (dev && devFs) {
-      // Directory is named "Portfolio" with capital P
-      const localPortfolioPath = path.resolve('static/images/Portfolio');
+      // Directory structure now includes width folders
+      const localPortfolioPath = path.resolve(`static/images/Portfolio/${folder}`);
       logEvent(`[portfolio-images] DEV MODE: Looking for images in ${localPortfolioPath}`);
       
       try {
         const files = await devFs.readdir(localPortfolioPath);
-        logEvent(`[portfolio-images] Found ${files.length} files in local portfolio directory`);
+        logEvent(`[portfolio-images] Found ${files.length} files in local portfolio directory for ${folder}`);
 
         images = [];
         for (const file of files) {
@@ -179,7 +156,7 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
             // First try to get dimensions from our dimensionsMap
             let width = 0, height = 0;
             
-            // Try finding dimensions in the local map
+            // Try finding dimensions in the map
             if (file in dimensionsMap) {
               width = dimensionsMap[file].width;
               height = dimensionsMap[file].height;
@@ -199,29 +176,33 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
             }
             
             images.push({
-              url: `/images/portfolio/${file}`,
-              fallback: `/images/portfolio/${file}`,
+              url: `/images/Portfolio/${folder}/${file}`,
+              fallback: `/images/Portfolio/${folder}/${file}`,
               width,
               height,
-              _source: 'local-dev'
+              _source: `local-dev-${folder}`
             });
         }
         
-        logEvent(`[portfolio-images] DEV MODE: Successfully loaded ${images.length} images from local directory`);
+        logEvent(`[portfolio-images] DEV MODE: Successfully loaded ${images.length} images from local directory ${folder}`);
       } catch (dirError) {
-        logEvent(`[portfolio-images] DEV MODE ERROR: Failed to read local directory: ${dirError}`);
+        logEvent(`[portfolio-images] DEV MODE ERROR: Failed to read local directory ${localPortfolioPath}: ${dirError}`);
       }
     } else { 
-      // Production mode - use R2 bucket and dimensions map
+      // Production mode - use R2 bucket and dimensions map from the appropriate width folder
       if (!platform?.env?.ASSETSBUCKET) {
         throw new Error('ASSETSBUCKET binding not found');
       }
 
-      logEvent('[portfolio-images] Listing objects from R2 bucket');
+      // List objects from the appropriate width folder
+      const r2Prefix = `portfolio/${folder}/`;
+      logEvent(`[portfolio-images] Listing objects from R2 bucket with prefix ${r2Prefix}`);
+      
       const r2Objects = await platform.env.ASSETSBUCKET.list({
-        prefix: 'portfolio/',
+        prefix: r2Prefix,
       });
-      logEvent(`[portfolio-images] Found ${r2Objects.objects.length} objects in R2 bucket`);
+      
+      logEvent(`[portfolio-images] Found ${r2Objects.objects.length} objects in R2 bucket for folder ${folder}`);
 
       // Update diagnostics with R2 info
       diagnostics.r2ObjectCount = r2Objects.objects.length;
@@ -229,7 +210,8 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
       
       // Log dimension info for debugging
       const dimensionCount = Object.keys(dimensionsMap).length;
-      logEvent(`[portfolio-images] Using dimensions map with ${dimensionCount} entries`);
+      logEvent(`[portfolio-images] Using dimensions map with ${dimensionCount} entries for ${folder}`);
+      
       if (dimensionCount > 0) {
         // Log a few sample dimensions
         const sampleKeys = Object.keys(dimensionsMap).slice(0, 3);
@@ -239,21 +221,22 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
         // Add sample to diagnostics
         diagnostics.sampleDimensions = {};
         sampleKeys.forEach(key => {
+          // @ts-ignore - This is fine for diagnostic data
           diagnostics.sampleDimensions[key] = dimensionsMap[key];
         });
       }
 
       images = r2Objects.objects
-        .filter((obj: R2Object) => {
+        .filter((obj: any) => {
           const ext = obj.key.split('.').pop()?.toLowerCase();
           return ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '');
         })
-        .map((obj: R2Object): PortfolioImage => {
+        .map((obj: any): PortfolioImage => {
           let width = 1, height = 1; // Default dimensions
           const filename = obj.key.split('/').pop() || '';
           let dimensionSource = 'default';
 
-          // First try to get dimensions from the map using the full key
+          // Try to get dimensions from the map using various key patterns
           if (obj.key in dimensionsMap) {
             width = dimensionsMap[obj.key].width;
             height = dimensionsMap[obj.key].height;
@@ -265,11 +248,17 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
             height = dimensionsMap[filename].height;
             dimensionSource = 'filename';
           }
-          // Finally, try with the portfolio/ prefix explicitly
-          else if (('portfolio/' + filename) in dimensionsMap) {
-            width = dimensionsMap['portfolio/' + filename].width;
-            height = dimensionsMap['portfolio/' + filename].height;
-            dimensionSource = 'portfolio-prefix';
+          // Try with the specific width folder prefix
+          else if ((`portfolio/${folder}/${filename}` in dimensionsMap)) {
+            width = dimensionsMap[`portfolio/${folder}/${filename}`].width;
+            height = dimensionsMap[`portfolio/${folder}/${filename}`].height;
+            dimensionSource = 'width-folder-prefix';
+          }
+          // Finally fall back to the legacy dimensions map if it exists
+          else if (legacyDimensionsMap && filename in legacyDimensionsMap) {
+            width = legacyDimensionsMap[filename].width;
+            height = legacyDimensionsMap[filename].height;
+            dimensionSource = 'legacy-map';
           }
           else {
             logEvent(`[portfolio-images] No dimensions found for: ${obj.key}`);
@@ -280,16 +269,19 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }) => {
 
           return {
             url: `/directr2/${obj.key}`,
-            fallback: `/images/Portfolio/${filename}`,
+            fallback: `/images/Portfolio/${folder}/${filename}`,
             width: width,
             height: height,
-            _source: dimensionSource // Include source for debugging
+            _source: `${dimensionSource}-${folder}`
           };
         });
     }
 
     // Add basic sorting
     images.sort((a, b) => a.fallback.localeCompare(b.fallback));
+    
+    // Calculate processing time
+    diagnostics.processingTimeMs = Date.now() - startTime;
     
     logEvent(`[portfolio-images] Returning ${images.length} images`);
     

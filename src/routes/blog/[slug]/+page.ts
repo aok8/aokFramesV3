@@ -518,76 +518,152 @@ function updateSessionStorage(post: any) {
 }
 
 // Helper function to fetch all blog posts
-async function fetchAllPosts(items: any[], fetch: any) {
-    console.log(`Fetching ${items.length} posts...`);
-    const loadedPosts = [];
-    
+async function fetchAllPosts(items: any[], fetchFn: typeof fetch): Promise<BlogPost[]> {
+    console.log(`[fetchAllPosts] Fetching ${items.length} posts... Dev mode: ${dev}`);
+    const loadedPosts: BlogPost[] = []; // Use BlogPost[] type
+
     for (const item of items) {
         try {
             const key = item.key;
-            const filename = key.split('/').pop() || '';
-            const slug = filename.replace(/\.md$/i, '');
-            
-            // Direct fetch from R2
-            const response = await fetch(`/directr2/${key}`);
-            if (response.ok) {
-                const text = await response.text();
-                console.log(`Successfully loaded ${slug} directly`);
-                
-                // Parse frontmatter and content
-                const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
-                
-                // Extract title from first h1
-                const titleMatch = markdownContent.match(/^#\s+(.*)/m);
-                const title = titleMatch ? titleMatch[1] : slug;
-                
-                // Extract first paragraph after title for summary
-                const lines = markdownContent.split('\n');
-                let summaryLines = [];
-                let foundTitle = false;
-                
-                for (const line of lines) {
-                    // Skip until we find the title
-                    if (!foundTitle) {
-                        if (line.startsWith('#')) {
-                            foundTitle = true;
-                        }
-                        continue;
+            // Ensure we only process index.md files
+            if (!key.endsWith('/index.md')) {
+                 console.log(`[fetchAllPosts] Skipping non-index.md item: ${key}`);
+                 continue;
+            }
+
+            const pathParts = key.split('/'); // e.g., ['blog', 'posts', 'my-cool-post', 'index.md']
+            if (pathParts.length < 4) {
+                 console.warn(`[fetchAllPosts] Skipping item with unexpected key structure: ${key}`);
+                 continue;
+            }
+            const exactSlug = pathParts[pathParts.length - 2]; // Get the slug from the directory name
+
+            // --- Start Content Fetch ---
+            let text = '';
+            let fetchSource = '';
+            if (dev) {
+                const localPath = `/src/content/${key}`; // Path relative to root for dev fetch
+                try {
+                    const response = await fetchFn(localPath);
+                     if (!response.ok) {
+                        console.error(`[fetchAllPosts Dev] Failed to fetch local ${localPath}: ${response.status}`);
+                        continue; // Skip this post
                     }
-                    
-                    // Skip empty lines after title
-                    if (line.trim() === '') continue;
-                    
-                    // First non-empty line after title is our summary
-                    summaryLines.push(line.trim());
+                    text = await response.text();
+                    fetchSource = `local (${localPath})`;
+                } catch (devFetchError) {
+                     console.error(`[fetchAllPosts Dev] Error fetching local ${localPath}:`, devFetchError);
+                     continue; // Skip this post
+                }
+            } else {
+                // Production: Direct fetch from R2 via hook
+                 const r2Path = `/directr2/${key}`;
+                 try {
+                    const response = await fetchFn(r2Path);
+                    if (!response.ok) {
+                         console.error(`[fetchAllPosts Prod] Failed to fetch R2 ${r2Path}: ${response.status}`);
+                         continue; // Skip this post
+                    }
+                    text = await response.text();
+                    fetchSource = `R2 (${r2Path})`;
+                 } catch (prodFetchError) {
+                    console.error(`[fetchAllPosts Prod] Error fetching R2 ${r2Path}:`, prodFetchError);
+                    continue; // Skip this post
+                 }
+            }
+            console.log(`[fetchAllPosts] Successfully loaded content for slug "${exactSlug}" from ${fetchSource}`);
+            // --- End Content Fetch ---
+
+            // Parse frontmatter and content
+            const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
+
+            // Extract title from first h1
+            const titleMatch = markdownContent.match(/^#\s+(.*)/m);
+            const title = titleMatch ? titleMatch[1] : exactSlug;
+
+            // Extract first paragraph after title for summary (reusing logic)
+            const lines = markdownContent.split('\n');
+            let summaryLines = [];
+            let foundTitle = false;
+            let titleIndex = -1; // Find the index of the first H1
+            for(let i=0; i<lines.length; i++) {
+                if (lines[i].trim().startsWith('# ')) {
+                    foundTitle = true;
+                    titleIndex = i;
                     break;
                 }
-                
-                const summary = summaryLines.join(' ') || 'No summary available';
-                
-                // Get tags from frontmatter
-                const tags = frontmatter.tags || frontmatter.label || 'Photography';
-                
-                // IMPORTANT: Preserve the exact slug from the filename in R2
-                const exactSlug = filename.replace(/\.md$/i, '');
-                
-                // Simplified post object
-                loadedPosts.push({
-                    id: exactSlug, // Preserve the original case from R2
-                    title,
-                    summary,
-                    content: markdownContent,
-                    author: frontmatter.author || 'AOK',
-                    published: frontmatter.published || new Date().toISOString().split('T')[0],
-                    label: tags,
-                    image: `/directr2/blog/images/${exactSlug}.jpg`
-                });
             }
+            if (foundTitle) {
+                 for (let i = titleIndex + 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line === '') continue; // Skip empty lines
+                    if (line.startsWith('#')) break; // Stop if another heading is found
+                    summaryLines.push(line);
+                    break; // Take only the first non-empty line
+                 }
+            }
+            const summary = summaryLines.join(' ') || 'No summary available';
+
+
+            // Get tags from frontmatter
+            const tags = frontmatter.tags || frontmatter.label || 'Photography';
+
+
+            // --- START Image Check ---
+            let imagePath: string | undefined = undefined;
+            const imageR2Key = `blog/posts/${exactSlug}/header.webp`; // R2 key structure
+            const finalImageUrl = `/directr2/${imageR2Key}`; // URL to use in <img> tag
+            // Determine the correct path to check for existence based on environment
+            const imageUrlToCheck = dev 
+                ? `/src/content/blog/posts/${exactSlug}/header.webp` 
+                : finalImageUrl; // In prod, check the final URL directly
+            let imageExists = false;
+
+            console.log(`[fetchAllPosts ${dev ? 'Dev' : 'Prod'}] Checking for image existence via HEAD: ${imageUrlToCheck} (Slug: ${exactSlug})`);
+
+            try {
+                // Use fetch with HEAD to check existence
+                const imgRes = await fetchFn(imageUrlToCheck, { method: 'HEAD' });
+                imageExists = imgRes.ok;
+                if (imageExists) {
+                    imagePath = finalImageUrl; // ALWAYS use the /directr2/ path for the component
+                    console.log(`[fetchAllPosts ${dev ? 'Dev' : 'Prod'}] Found header image for ${exactSlug}. Will use URL: ${imagePath}`);
+                } else {
+                     console.log(`[fetchAllPosts ${dev ? 'Dev' : 'Prod'}] No header image found for ${exactSlug} checking ${imageUrlToCheck} (${imgRes.status})`);
+                }
+            } catch (imgErr) {
+                 // Log specific error only if it's not a 404, as 404 is expected
+                // Add type check for imgErr before accessing status
+                 if (imgErr instanceof Error && 'status' in imgErr && (imgErr as any).status === 404) {
+                     console.log(`[fetchAllPosts ${dev ? 'Dev' : 'Prod'}] HEAD check confirmed no header image found for ${imageUrlToCheck} (404)`);
+                 } else if (imgErr instanceof Response && imgErr.status === 404){
+                     // Handle cases where fetch itself throws a Response error for 404
+                      console.log(`[fetchAllPosts ${dev ? 'Dev' : 'Prod'}] HEAD check confirmed no header image found for ${imageUrlToCheck} (Fetch Response 404)`);
+                 } else {
+                    console.warn(`[fetchAllPosts ${dev ? 'Dev' : 'Prod'}] Error during HEAD check for header image ${imageUrlToCheck}:`, imgErr);
+                 }
+                 imageExists = false;
+            }
+             // --- END Image Check ---
+
+
+            // Create BlogPost object adhering to the type
+            loadedPosts.push({
+                id: exactSlug, // Preserve the original case from R2 directory structure
+                title,
+                summary,
+                content: markdownContent, // Keep raw content
+                author: frontmatter.author || 'AOK',
+                published: frontmatter.published || new Date().toISOString().split('T')[0],
+                label: tags,
+                image: imagePath // Use the determined imagePath (or undefined)
+            });
         } catch (e) {
-            console.error('Error directly loading post:', e);
+             // Catch errors processing a single post, log, and continue with others
+             console.error(`[fetchAllPosts] Error processing item ${item?.key}:`, e);
         }
     }
-    
-    console.log(`Successfully loaded ${loadedPosts.length} posts directly`);
+
+    console.log(`[fetchAllPosts] Successfully processed ${loadedPosts.length} posts.`);
     return loadedPosts;
 } 

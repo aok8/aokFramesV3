@@ -1,5 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import fs from 'node:fs/promises'; // Import fs for local dev file reading
+import path from 'node:path'; // Import path for local dev file reading
 
 // Use a type for diagnostics
 interface DiagnosticResult {
@@ -39,186 +41,209 @@ const USE_LOCAL_IMAGES = dev;
 export const handle: Handle = async ({ event, resolve }) => {
     const pathname = event.url.pathname;
 
-    // Handle image requests and specific root files
-    if (pathname.startsWith('/directr2/') || pathname.startsWith('/images/') || pathname.startsWith('/constants/') || 
-        pathname === '/favicon.ico' || pathname === '/apple-touch-icon.png' || pathname === '/site.webmanifest') { // Added root files
+    // --- START: Development Mode R2 Emulation for /directr2/ ---
+    if (dev && pathname.startsWith('/directr2/')) {
         try {
-            let key;
-            
-            // Handle root level files first
-            if (pathname === '/favicon.ico') {
-                key = 'constants/favicon.ico';
-                console.log(`[Hook] Mapped root request ${pathname} to key ${key}`);
-            } else if (pathname === '/apple-touch-icon.png') {
-                key = 'constants/apple-touch-icon.png';
-                console.log(`[Hook] Mapped root request ${pathname} to key ${key}`);
-            } else if (pathname === '/site.webmanifest') {
-                key = 'constants/site.webmanifest';
-                console.log(`[Hook] Mapped root request ${pathname} to key ${key}`);
-            }
-            // --- START Favicon Handling ---
-            else if (pathname === '/images/favicon.png') {
-                key = 'constants/favicon.png';
-                console.log(`[Hook] Mapped favicon request ${pathname} to key ${key}`);
-            }
-            // --- END Favicon Handling ---
-            // Map the URL path to the correct R2 key
-            if (pathname.startsWith('/directr2/')) {
-                key = pathname.substring('/directr2/'.length);
-                console.log(`[Hook] Intercepting /directr2/ request for path: ${pathname}`);
-                
-                // --- START R2 Key Correction ---
-                // If it's a blog asset, ensure the 'posts' directory is in the key
-                if (key.startsWith('blog/') && !key.startsWith('blog/posts/')) {
-                    const originalKey = key;
-                    key = key.replace('blog/', 'blog/posts/');
-                    console.log(`[Hook] Corrected blog asset key from "${originalKey}" to "${key}"`);
-                }
-                // --- END R2 Key Correction ---
+            const key = pathname.substring('/directr2/'.length);
+            console.log(`[Hook Dev] Intercepting /directr2/ request for key: ${key}`);
 
-                console.log(`[Hook] Using R2 key: ${key}`);
-            } else if (pathname.startsWith('/images/portfolio/')) {
-                key = 'portfolio/' + pathname.substring('/images/portfolio/'.length);
-            } else if (pathname.startsWith('/images/constants/')) {
-                key = 'constants/' + pathname.substring('/images/constants/'.length);
-            } else if (pathname.startsWith('/images/blog/')) {
-                // --- MODIFIED KEY GENERATION LOGIC --- 
-                const requestedFile = pathname.substring('/images/blog/'.length);
-                const parts = requestedFile.split('/');
+            // Determine the local file path based on the key structure
+            let localFilePath: string;
+            if (key.startsWith('blog/posts/')) {
+                // Blog content files are in src/content
+                 const relativePath = key.substring('blog/posts/'.length); // e.g., my-post/index.md
+                 localFilePath = path.resolve('src', 'content', 'blog', 'posts', relativePath);
+            } else if (key.startsWith('blog/')) {
+                 // Might be blog images not under posts, e.g., blog/some-image.webp
+                 // Check if it should map to src/content/blog/posts/<slug>/header.webp
+                 const potentialSlug = key.substring('blog/'.length).replace('/header.webp', '');
+                 const possibleHeaderPath = path.resolve('src', 'content', 'blog', 'posts', potentialSlug, 'header.webp');
+                 if (await fs.stat(possibleHeaderPath).then(() => true).catch(() => false)) {
+                      localFilePath = possibleHeaderPath;
+                      console.log(`[Hook Dev] Mapping blog key "${key}" to header: ${localFilePath}`);
+                 } else {
+                     // Fallback: Assume it's in static/images/blog/...
+                     const relativePath = key.substring('blog/'.length);
+                     localFilePath = path.resolve('static', 'images', 'blog', relativePath);
+                     console.log(`[Hook Dev] Mapping blog key "${key}" to static: ${localFilePath}`);
+                 }
 
-                // Check if the request looks like a direct slug reference, e.g., /images/blog/slug.jpg
-                if (parts.length === 1 && requestedFile.endsWith('.jpg')) { 
-                    const slug = requestedFile.replace('.jpg', '');
-                    // Assume this conventional request means "get the header image for this slug"
-                    // Force the key to point to 'header.webp' within that slug's assumed directory
-                    key = `blog/${slug}/header.webp`; 
-                    console.log(`[Hook] Mapped conventional request ${pathname} to key ${key}`);
-                } else {
-                    // Otherwise, assume the path is relative within the 'blog' namespace
-                    // e.g., /images/blog/night-photo/mamiya6.jpg -> blog/night-photo/mamiya6.jpg
-                    key = 'blog/' + requestedFile;
-                     console.log(`[Hook] Mapped direct blog image request ${pathname} to key ${key}`);
-                }
-                // --- END MODIFIED KEY GENERATION LOGIC ---
-            } else if (pathname.startsWith('/constants/')) {
-                key = 'constants/' + pathname.substring('/constants/'.length);
+            } else if (key.startsWith('portfolio/')) {
+                // Portfolio images are in static/images/Portfolio
+                const relativePath = key.substring('portfolio/'.length); // e.g., w1920/image.webp
+                localFilePath = path.resolve('static', 'images', 'Portfolio', relativePath);
+            } else if (key.startsWith('constants/')) {
+                 // Constants images have specific paths
+                 const constantPath = key.substring('constants/'.length); // e.g., "w1024/bg.webp" or "Profile_Pic.webp"
+
+                 if (constantPath.includes('/bg.webp')) { // Background image
+                     // Maps constants/w1024/bg.webp -> public/images/bg/w1024/bg.webp
+                     localFilePath = path.resolve('public', 'images', 'bg', constantPath);
+                     console.log(`[Hook Dev] Mapping constants BG key "${key}" to: ${localFilePath}`);
+                 } else if (constantPath === 'Profile_Pic.webp') { // Profile picture
+                     // Maps constants/Profile_Pic.webp -> public/images/Profile_Pic.webp
+                     localFilePath = path.resolve('public', 'images', constantPath);
+                     console.log(`[Hook Dev] Mapping constants Profile Pic key "${key}" to: ${localFilePath}`);
+                 } else if (['favicon.ico', 'apple-touch-icon.png', 'site.webmanifest', 'favicon.png'].includes(constantPath)) { // Root icons/manifest (Assume these ARE in static)
+                     // Maps constants/favicon.ico -> static/favicon.ico
+                     localFilePath = path.resolve('static', constantPath);
+                     console.log(`[Hook Dev] Mapping constants Root Asset key "${key}" to: ${localFilePath}`);
+                 } else {
+                     // Fallback for any other constants keys? 
+                     // Where should other constants map in dev?
+                     console.warn(`[Hook Dev] Unhandled constants key "${key}". Passing to SvelteKit.`);
+                     return resolve(event); // Let SvelteKit handle if structure is unknown
+                 }
             } else {
-                console.error(`URL pattern not recognized: ${pathname}`);
-                return new Response('Not Found', { status: 404 });
+                console.warn(`[Hook Dev] Unhandled R2 key structure for local mapping: ${key}`);
+                return resolve(event); // Let SvelteKit handle if structure is unknown
             }
 
-            console.log(`Development mode: ${dev}, Using local images: ${USE_LOCAL_IMAGES}`);
-            console.log(`Looking for ${USE_LOCAL_IMAGES ? 'local' : 'R2'} object with key: ${key}`);
+            console.log(`[Hook Dev] Attempting to read local file: ${localFilePath}`);
 
-            // In production or when not using local images, use R2
-            if (!USE_LOCAL_IMAGES) {
-                // Check if platform is available
-                if (!event.platform?.env?.ASSETSBUCKET) {
-                    console.error('R2 bucket binding not available');
-                    return new Response('R2 Bucket Not Available', { status: 500 });
-                }
-                
-                try {
-                    // Assert type for R2 Bucket
-                    const R2Bucket = event.platform.env.ASSETSBUCKET as IR2Bucket;
-
-                    // First check if the object exists using head (which is faster)
-                    console.log(`[Hook Prod] Attempting R2 head for key: ${key}`);
-                    const headResult = await R2Bucket.head(key);
-                    
-                    if (!headResult) {
-                        console.warn(`[Hook Prod] Object not found via HEAD for key: ${key}`);
-                        return new Response(`Object not found: ${key}`, { status: 404 });
-                    }
-                    
-                    // --- START Explicit HEAD Method Handling ---
-                    if (event.request.method === 'HEAD') {
-                        console.log(`[Hook Prod] HEAD request successful for key: ${key}. Returning 200 OK.`);
-                        const headers = new Headers();
-                        // Copy metadata if possible and needed (check R2 documentation for headResult properties)
-                        // headResult.writeHttpMetadata(headers); // Example if available
-                        headers.set('etag', headResult.httpEtag);
-                        
-                        // Set content-type based on file extension
-                        const fileExtension = key.split('.').pop()?.toLowerCase();
-                        const contentTypes: Record<string, string> = {
-                            'jpg': 'image/jpeg',
-                            'jpeg': 'image/jpeg',
-                            'png': 'image/png',
-                            'gif': 'image/gif',
-                            'webp': 'image/webp',
-                            'svg': 'image/svg+xml',
-                            'md': 'text/markdown'
-                        };
-                        if (fileExtension && contentTypes[fileExtension]) {
-                            headers.set('Content-Type', contentTypes[fileExtension]);
-                        }
-                        // Add caching headers
-                        headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
-                        
-                        return new Response(null, { status: 200, headers });
-                    }
-                    // --- END Explicit HEAD Method Handling ---
-                    
-                    // --- START Explicit GET Method Handling ---
-                    else if (event.request.method === 'GET') {
-                        // Object exists, now get it (for GET requests)
-                        console.log(`[Hook Prod] GET request: Found object via HEAD, retrieving: ${key}`);
-                        const obj = await R2Bucket.get(key);
-                        
-                        if (!obj) {
-                            // Should be rare if HEAD succeeded, but handle defensively
-                            console.error(`[Hook Prod] Object retrieval failed for key: ${key} after HEAD success`);
-                            return new Response(`Object retrieval failed: ${key}`, { status: 404 });
-                        }
-                        
-                        // Set up appropriate headers
-                        const headers = new Headers();
-                        obj.writeHttpMetadata(headers); // Standard way to copy headers from R2Object
-                        headers.set('etag', obj.httpEtag);
-                        headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
-                        
-                        // Return the object body with headers
-                        console.log(`[Hook Prod] Streaming GET response for key: ${key}`);
-                        return new Response(obj.body, { headers });
-                    }
-                    // --- END Explicit GET Method Handling ---
-                    
-                    else {
-                         // Handle other methods (POST, PUT, DELETE, etc.) if necessary
-                         console.warn(`[Hook Prod] Method ${event.request.method} not allowed for key: ${key}`);
-                         return new Response('Method Not Allowed', { status: 405 });
-                    }
-
-                } catch (error) {
-                    console.error('R2 error:', error);
-                    const errorMessage = error instanceof Error ? error.message : String(error);
-                    return new Response(`Internal Server Error: ${errorMessage}`, { status: 500 });
-                }
+            // Check if file exists
+            try {
+                 await fs.access(localFilePath); // Check existence first
+            } catch (accessError) {
+                 console.warn(`[Hook Dev] Local file not found or inaccessible: ${localFilePath}`);
+                 return new Response('Not Found (Local Dev)', { status: 404 });
             }
 
-            // In development with local images, redirect to the static file
-            // This will be handled by Vite's dev server
-            const localPath = getLocalPath(key);
-            if (!localPath) {
-                return new Response(`Local file path not found for key: ${key}`, { status: 404 });
+
+            // Handle HEAD request for existence check
+            if (event.request.method === 'HEAD') {
+                 console.log(`[Hook Dev] HEAD request successful for local file: ${localFilePath}`);
+                 const stats = await fs.stat(localFilePath);
+                 const headers = new Headers();
+                 headers.set('Content-Length', stats.size.toString());
+                 const contentType = getContentType(localFilePath); // Use helper
+                 if (contentType) {
+                    headers.set('Content-Type', contentType);
+                 }
+                 headers.set('Accept-Ranges', 'bytes');
+                 // Add other headers like ETag if needed, based on file stats
+                 return new Response(null, { status: 200, headers });
             }
 
-            // Redirect to the static file
-            return new Response(null, {
-                status: 302,
-                headers: {
-                    'Location': localPath
-                }
-            });
+            // Handle GET request to serve the file content
+            if (event.request.method === 'GET') {
+                console.log(`[Hook Dev] GET request: Reading local file: ${localFilePath}`);
+                 const fileContent = await fs.readFile(localFilePath);
+                 const headers = new Headers();
+                 const contentType = getContentType(localFilePath); // Use helper
+                 if (contentType) {
+                    headers.set('Content-Type', contentType);
+                 }
+                 headers.set('Content-Length', fileContent.length.toString());
+                 // Add Cache-Control, ETag etc. if desired for dev
+                 console.log(`[Hook Dev] Serving local file ${localFilePath} with type ${contentType}`);
+                 return new Response(fileContent, { status: 200, headers });
+            }
+
+             // Method not allowed for local files via this hook
+            console.warn(`[Hook Dev] Method ${event.request.method} not allowed for local file: ${localFilePath}`);
+            return new Response('Method Not Allowed (Local Dev)', { status: 405 });
+
         } catch (error) {
-            console.error('Error handling request:', error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            return new Response(`Internal Server Error: ${errorMessage}`, { status: 500 });
+            console.error('[Hook Dev] Error serving local file:', error);
+            return new Response('Internal Server Error (Local Dev Hook)', { status: 500 });
         }
     }
+    // --- END: Development Mode R2 Emulation for /directr2/ ---
 
-    // For all other requests, proceed normally
+    // --- START: Production Mode R2 Handling ---
+    // Handle R2 requests ONLY in production OR if not specifically a /directr2/ dev request
+    // This block now handles paths like /images/, /constants/ etc. ONLY in production
+    const isProdAssetPath = !dev && (
+        pathname.startsWith('/images/') ||
+        pathname.startsWith('/constants/') ||
+        pathname === '/favicon.ico' ||
+        pathname === '/apple-touch-icon.png' ||
+        pathname === '/site.webmanifest'
+    );
+    const isProdDirectR2Path = !dev && pathname.startsWith('/directr2/');
+
+    if (isProdDirectR2Path || isProdAssetPath) {
+        // Check if platform is available (only relevant in production)
+        if (!event.platform?.env?.ASSETSBUCKET) {
+             console.error('[Hook Prod] R2 bucket binding not available');
+             return new Response('R2 Bucket Not Available', { status: 500 });
+        }
+
+         try {
+             let key: string;
+
+             // Map URL path to R2 key (same logic as before, but now only runs in prod)
+              if (pathname === '/favicon.ico') key = 'constants/favicon.ico';
+              else if (pathname === '/apple-touch-icon.png') key = 'constants/apple-touch-icon.png';
+              else if (pathname === '/site.webmanifest') key = 'constants/site.webmanifest';
+              else if (pathname === '/images/favicon.png') key = 'constants/favicon.png';
+              else if (pathname.startsWith('/directr2/')) key = pathname.substring('/directr2/'.length);
+              else if (pathname.startsWith('/images/portfolio/')) key = 'portfolio/' + pathname.substring('/images/portfolio/'.length);
+              else if (pathname.startsWith('/images/constants/')) key = 'constants/' + pathname.substring('/images/constants/'.length);
+              else if (pathname.startsWith('/images/blog/')) {
+                   const requestedFile = pathname.substring('/images/blog/'.length);
+                   key = 'blog/' + requestedFile; // Simpler mapping for prod
+              }
+              else if (pathname.startsWith('/constants/')) key = 'constants/' + pathname.substring('/constants/'.length);
+              else {
+                   // Should not happen given the isProdAssetPath check, but good to have a fallback
+                  console.error(`[Hook Prod] URL pattern not recognized: ${pathname}`);
+                  return new Response('Not Found', { status: 404 });
+              }
+
+              console.log(`[Hook Prod] Attempting R2 access for key: ${key} via path ${pathname}`);
+
+              const R2Bucket = event.platform.env.ASSETSBUCKET as IR2Bucket;
+
+              // HEAD Request
+              if (event.request.method === 'HEAD') {
+                   const headResult = await R2Bucket.head(key);
+                   if (!headResult) {
+                       console.warn(`[Hook Prod] HEAD - Object not found for key: ${key}`);
+                       return new Response(`Object not found: ${key}`, { status: 404 });
+                   }
+                   console.log(`[Hook Prod] HEAD request successful for key: ${key}. Returning 200 OK.`);
+                   const headers = new Headers();
+                   headers.set('etag', headResult.httpEtag);
+                   const contentType = getContentType(key);
+                   if (contentType) headers.set('Content-Type', contentType);
+                   headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+                   return new Response(null, { status: 200, headers });
+              }
+
+              // GET Request
+              else if (event.request.method === 'GET') {
+                   const obj = await R2Bucket.get(key);
+                   if (!obj) {
+                       console.warn(`[Hook Prod] GET - Object not found for key: ${key}`);
+                       return new Response(`Object not found: ${key}`, { status: 404 });
+                   }
+                   console.log(`[Hook Prod] Streaming GET response for key: ${key}`);
+                   const headers = new Headers();
+                   obj.writeHttpMetadata(headers);
+                   headers.set('etag', obj.httpEtag);
+                   headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+                   return new Response(obj.body, { headers });
+              }
+
+              // Other methods
+               else {
+                   console.warn(`[Hook Prod] Method ${event.request.method} not allowed for key: ${key}`);
+                   return new Response('Method Not Allowed', { status: 405 });
+               }
+
+         } catch (error) {
+              console.error('[Hook Prod] R2 error:', error);
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              return new Response(`Internal Server Error: ${errorMessage}`, { status: 500 });
+         }
+    }
+    // --- END: Production Mode R2 Handling ---
+
+
+    // For all other requests (including static assets in dev), proceed normally
+    console.log(`[Hook] Passing request through: ${pathname}`);
     const response = await resolve(event);
     return response;
 };
@@ -235,4 +260,37 @@ function getLocalPath(key: string): string | null {
         return `/public/images/${key.substring('constants/'.length)}`;
     }
     return null;
+}
+
+// Helper function to determine Content-Type from file extension
+function getContentType(filePathOrKey: string): string | undefined {
+    const ext = filePathOrKey.split('.').pop()?.toLowerCase();
+    const types: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'svg': 'image/svg+xml',
+        'ico': 'image/x-icon',
+        'webmanifest': 'application/manifest+json',
+        'md': 'text/markdown; charset=utf-8'
+        // Add more types as needed
+    };
+    return types[ext || ''];
+}
+
+// Removed the unused getLocalPath function
+// --- END Helper Functions ---
+
+// --- START Diagnostics Endpoint (Optional) ---
+// You might want to keep or remove this depending on your needs
+async function handleDiagnostics({ event }: { event: any }): Promise<Response> {
+    console.log("[Diagnostics] Running diagnostics...");
+    // Add actual diagnostic logic here
+    const diagnosticsData = { message: "Diagnostics endpoint needs implementation." }; 
+    return new Response(JSON.stringify(diagnosticsData), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+    });
 } 

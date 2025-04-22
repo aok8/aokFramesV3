@@ -328,10 +328,8 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       published: data.published || new Date().toISOString().split('T')[0],
       label: tags,
       image: imageExists ? 
-        (dev ? 
-          `/src/content/blog/posts/${exactSlug}/header.${imageFormat}` : 
-          `/directr2/blog/posts/${exactSlug}/header.${imageFormat}`
-        ) : undefined
+        `/directr2/blog/posts/${exactSlug}/header.${imageFormat}` :
+         undefined
     };
     
     console.log(`loadBlogPost: Successfully created object for id: ${post.id}`);

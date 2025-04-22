@@ -162,7 +162,7 @@
                   console.log('Extracted tags:', tags);
                   
                   // Check for header.jpg using HEAD request
-                  const imageKey = `blog/posts/${slug}/header.jpg`;
+                  const imageKey = `blog/posts/${slug}/header.webp`;
                   let imageExists = false;
                   try {
                       const imgRes = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });

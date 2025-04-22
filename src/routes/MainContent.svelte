@@ -5,6 +5,7 @@
   import { Button } from '$lib/components/ui/button/index.js';
   import { Footer, Navbar, Modal } from '$lib/components/ui/index.js';
   import { getPortfolioImages } from '$lib/utils/images';
+  import { browser } from '$app/environment'; // Import browser check
 
   // Define the expected image structure including dimensions
   interface PortfolioImage {
@@ -25,12 +26,15 @@
   let portfolioImages: PortfolioImage[] = []; // Use updated interface
   
   // Responsive image selection based on screen width
-  let screenWidth = 1920; // Default to largest size
+  let screenWidth: number | null = null; // Initialize as null
+  let bgImageConst = ''; // Initialize bg path
+  let fallbackBgImageConst = ''; // Initialize fallback
   
-  function getResponsiveImagePath(baseFolder: string, filename: string, isR2 = false) {
+  function updateBgImagePaths() {
+    if (screenWidth === null) return; // Don't run if width not set
+
     // Select width based on screen size
     let sizeDir;
-    
     if (screenWidth <= 640) {
       sizeDir = 'w320';
     } else if (screenWidth <= 1024) {
@@ -41,14 +45,18 @@
       sizeDir = 'w1920';
     }
     
-    return isR2 
-      ? `/directr2/${baseFolder}/${sizeDir}/${filename}`
-      : `/images/${baseFolder}/${sizeDir}/${filename}`;
+    // Update the state variables directly
+    bgImageConst = `/directr2/constants/${sizeDir}/bg.webp`;
+    fallbackBgImageConst = `/images/constants/${sizeDir}/bg.webp`;
+    console.log(`Updated background image path for width ${screenWidth}: ${bgImageConst}`);
+  }
+
+  // Recalculate paths whenever screenWidth changes AFTER it's been initially set
+  $: if (browser && screenWidth !== null) {
+      updateBgImagePaths();
   }
   
-  // Constants for background and profile image with fallbacks
-  $: bgImageConst = getResponsiveImagePath('constants', 'bg.webp', true);
-  $: fallbackBgImageConst = getResponsiveImagePath('constants', 'bg.webp', false);
+  // Constants for profile image with fallbacks (these don't depend on width)
   const profileImageConst = '/directr2/constants/Profile_Pic.webp';
   const fallbackProfileImageConst = '/images/constants/Profile_Pic.webp';
   
@@ -143,57 +151,62 @@
   }
 
   onMount(() => {
-    const loadImages = async () => {
-      if (typeof window !== 'undefined') {
-        // Force scroll to top
-        window.scrollTo(0, 0);
-        
-        // Reset all state
-        resetState();
-        
-        // Load portfolio images
-        portfolioImages = await getPortfolioImages();
-        console.error('DEBUG: Portfolio images loaded:', portfolioImages);
-        if (portfolioImages && Array.isArray(portfolioImages)) {
-          console.error(`DEBUG: Got ${portfolioImages.length} portfolio images`);
-          // Show first two URLs if available
-          if (portfolioImages.length > 0) {
-            console.error(`DEBUG: First image URL: ${portfolioImages[0].url}`);
-            if (portfolioImages.length > 1) {
-              console.error(`DEBUG: Second image URL: ${portfolioImages[1].url}`);
+    // Ensure this runs only in the browser
+    if (browser) {
+      const loadImages = async () => {
+        if (typeof window !== 'undefined') {
+          // Force scroll to top
+          window.scrollTo(0, 0);
+          
+          // Reset all state
+          resetState();
+          
+          // Load portfolio images
+          portfolioImages = await getPortfolioImages();
+          console.error('DEBUG: Portfolio images loaded:', portfolioImages);
+          if (portfolioImages && Array.isArray(portfolioImages)) {
+            console.error(`DEBUG: Got ${portfolioImages.length} portfolio images`);
+            // Show first two URLs if available
+            if (portfolioImages.length > 0) {
+              console.error(`DEBUG: First image URL: ${portfolioImages[0].url}`);
+              if (portfolioImages.length > 1) {
+                console.error(`DEBUG: Second image URL: ${portfolioImages[1].url}`);
+              }
             }
+          } else {
+            console.error('DEBUG: Portfolio images is not an array:', typeof portfolioImages);
           }
-        } else {
-          console.error('DEBUG: Portfolio images is not an array:', typeof portfolioImages);
+          // Initialize loaded array after images are fetched
+          portfolioLoaded = Array(portfolioImages.length).fill(false);
+          
+          // Initialize observer after a small delay to ensure DOM is ready
+          setTimeout(() => {
+            initializeObserver();
+          }, 100);
         }
-        // Initialize loaded array after images are fetched
-        portfolioLoaded = Array(portfolioImages.length).fill(false);
-        
-        // Initialize observer after a small delay to ensure DOM is ready
-        setTimeout(() => {
-          initializeObserver();
-        }, 100);
-      }
-    };
+      };
 
-    loadImages();
+      loadImages();
 
-    // Initialize screen width
-    screenWidth = window.innerWidth;
-    
-    // Listen for window resize events
-    const handleResize = () => {
+      // Initialize screen width and set initial image paths
       screenWidth = window.innerWidth;
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      if (observer) {
-        observer.disconnect();
-      }
-      window.removeEventListener('resize', handleResize);
-    };
+      updateBgImagePaths(); // Call initially after setting screenWidth
+      
+      // Listen for window resize events
+      const handleResize = () => {
+        screenWidth = window.innerWidth; // Update triggers reactive statement
+      };
+      
+      window.addEventListener('resize', handleResize);
+      
+      return () => {
+        if (observer) {
+          observer.disconnect();
+        }
+        window.removeEventListener('resize', handleResize);
+      };
+    } // end if(browser)
+    return () => {}; // Return empty cleanup if not in browser
   });
 
   // Add back afterUpdate logic for checking .complete

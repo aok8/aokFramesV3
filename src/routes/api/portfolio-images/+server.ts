@@ -70,14 +70,12 @@ if (dev) {
 
 // Function to get the appropriate folder and dimensions map based on width
 function getWidthFolder(clientWidth: number): { folder: string, dimensionsMap: DimensionsMap } {
-  if (clientWidth <= 640) {
-    return { folder: 'w320', dimensionsMap: dimensionsMaps.w320 };
-  } else if (clientWidth <= 1024) {
-    return { folder: 'w640', dimensionsMap: dimensionsMaps.w640 };
-  } else if (clientWidth <= 1920) {
+   if (clientWidth <= 1024) {
     return { folder: 'w1024', dimensionsMap: dimensionsMaps.w1024 };
-  } else {
+  } else if (clientWidth <= 1920) {
     return { folder: 'w1920', dimensionsMap: dimensionsMaps.w1920 };
+  } else {
+    return { folder: 'w3000', dimensionsMap: dimensionsMaps.w3000 };
   }
 }
 

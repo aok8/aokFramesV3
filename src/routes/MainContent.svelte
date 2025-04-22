@@ -39,14 +39,12 @@
 
     // Select width based on screen size
     let sizeDir;
-    if (screenWidth <= 640) {
-      sizeDir = 'w320';
-    } else if (screenWidth <= 1024) {
-      sizeDir = 'w640';
-    } else if (screenWidth <= 1920) {
+    if (screenWidth <= 1024) {
       sizeDir = 'w1024';
-    } else {
+    } else if (screenWidth <= 1920) {
       sizeDir = 'w1920';
+    } else {
+      sizeDir = 'w3000';
     }
     
     // Update the state variables directly

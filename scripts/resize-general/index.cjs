@@ -4,8 +4,8 @@ const sharp = require('sharp');
 
 const INPUT_DIR = path.resolve(__dirname, 'input');
 const OUTPUT_BASE = path.resolve(__dirname, 'output');
-const WIDTHS = [320, 640, 1024, 1920];
-const WEBP_QUALITY = 80;
+const WIDTHS = [1024, 1920, 3000];
+const WEBP_QUALITY = 85;
 const EXT_REGEX = /\.(jpe?g|png|webp)$/i; // Accept jpg, png, webp
 
 async function processDirectory(srcDir, rel = '') {
@@ -39,9 +39,9 @@ async function resizeImage(srcPath, rel, filename) {
 
     await Promise.all(
       WIDTHS.map(async (w) => {
+        // Log warning if upscaling, but DO NOT skip
         if (meta.width && w >= meta.width) {
-          console.log(`Skipping ${filename} for width ${w}px (image is smaller or equal)`);
-          return; // Don't resize if target width is larger or equal
+          console.log(`⚠ Upscaling ${filename} to width ${w}px (image original width: ${meta.width}px)`);
         }
 
         // Output directory structure mirrors input structure
@@ -52,7 +52,7 @@ async function resizeImage(srcPath, rel, filename) {
         try {
           await img
             .clone() // Use clone to avoid modifying the original sharp instance
-            .resize({ width: w }) // height adjusts automatically
+            .resize({ width: w }) // height adjusts automatically, will upscale if needed
             .webp({ quality: WEBP_QUALITY })
             .toFile(outPath);
           // Log relative path within the output structure

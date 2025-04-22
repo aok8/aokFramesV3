@@ -1,9 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import imageSize from 'image-size';
+import { fileURLToPath } from 'node:url';
 
-const PORTFOLIO_BASE_DIR = path.resolve('static/images/portfolio');
-const OUTPUT_DIR = path.resolve('src/lib/data');
+// Get the directory name in an ES module context
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PORTFOLIO_BASE_DIR = path.resolve(__dirname, '..', 'static/images/portfolio');
+const OUTPUT_DIR = path.resolve(__dirname, '..', 'src/lib/data');
 const WIDTH_DIR_REGEX = /^w(\d+)$/; // Matches directories like w320, w640 etc.
 
 async function generateDimensionsForWidth(widthDir, width) {

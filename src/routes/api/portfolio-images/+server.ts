@@ -9,18 +9,14 @@ import { dimensionsMap as localDimensionsMap } from '$lib/data/portfolio-dimensi
 
 // Import dimension maps for different widths
 // @ts-ignore - Generated files may not exist for TypeScript
-import { dimensionsMapW320 } from '$lib/data/portfolio-dimensions-w320';
-// @ts-ignore - Generated files may not exist for TypeScript
-import { dimensionsMapW640 } from '$lib/data/portfolio-dimensions-w640';
-// @ts-ignore - Generated files may not exist for TypeScript
 import { dimensionsMapW1024 } from '$lib/data/portfolio-dimensions-w1024';
 // @ts-ignore - Generated files may not exist for TypeScript
 import { dimensionsMapW1920 } from '$lib/data/portfolio-dimensions-w1920';
 // @ts-ignore - Generated files may not exist for TypeScript
-import { dimensionsMapW3000 } from '$lib/data/portfolio-dimensions-w3000.ts';
+import { dimensionsMapW3000 } from '$lib/data/portfolio-dimensions-w3000';
 // Fallback to legacy dimensions if needed
 // @ts-ignore - Generated file may not exist for TypeScript
-import { dimensionsMap as legacyDimensionsMap } from '$lib/data/portfolio-dimensions.ts';
+import { dimensionsMap as legacyDimensionsMap } from '$lib/data/portfolio-dimensions';
 
 // Define the expected structure of the dimensions JSON
 interface ImageDimensions {
@@ -35,8 +31,6 @@ interface DimensionsMap {
 
 // Define a map of folder prefix to dimensions map
 const dimensionsMaps: Record<string, DimensionsMap> = {
-  'w320': (dimensionsMapW320 as DimensionsMap) || {},
-  'w640': (dimensionsMapW640 as DimensionsMap) || {},
   'w1024': (dimensionsMapW1024 as DimensionsMap) || {},
   'w1920': (dimensionsMapW1920 as DimensionsMap) || {},
   'w3000': (dimensionsMapW3000 as DimensionsMap) || {},
@@ -73,16 +67,12 @@ if (dev) {
 
 // Function to get the appropriate folder and dimensions map based on width
 function getWidthFolder(clientWidth: number): { folder: string, dimensionsMap: DimensionsMap } {
-  if (clientWidth <= 640) {
-    return { folder: 'w320', dimensionsMap: dimensionsMaps.w320 };
-  } else if (clientWidth <= 1024) {
-    return { folder: 'w640', dimensionsMap: dimensionsMaps.w640 };
-  } else if (clientWidth <= 1920) {
+  if (clientWidth <= 1024) {
+    // Use w1024 as the smallest size (removed w320 and w640)
     return { folder: 'w1024', dimensionsMap: dimensionsMaps.w1024 };
-  } else if (clientWidth <= 3000) {
-    return { folder: 'w3000', dimensionsMap: dimensionsMaps.w3000 };
+  } else if (clientWidth <= 1920) {
+    return { folder: 'w1920', dimensionsMap: dimensionsMaps.w1920 };
   } else {
-    // Fallback if wider than 3000? Or just use 3000?
     return { folder: 'w3000', dimensionsMap: dimensionsMaps.w3000 }; 
   }
 }

@@ -40,3 +40,5 @@ scripts/resize-*/input/
 scripts/resize-*/output/
 scripts/convert/input/
 scripts/convert/output/
+
+scripts/kv-handling/

@@ -161,7 +161,7 @@
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
                   console.log('Extracted tags:', tags);
                   
-                  // Check for header.jpg using HEAD request
+                  // Check for header.webp using HEAD request
                   const imageKey = `blog/posts/${slug}/header.webp`;
                   let imageExists = false;
                   try {

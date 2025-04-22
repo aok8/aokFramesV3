@@ -70,12 +70,12 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
         }
     }
 
-    // Check for header.jpg
-    const imageKey = `/src/content/blog/posts/${slug}/header.jpg`;
+    // Check for header.webp
+    const imageKey = `/src/content/blog/posts/${slug}/header.webp`;
     let imagePath: string | undefined = undefined;
     let imageExists = false;
     if (dev) {
-        imagePath = `/src/content/blog/posts/${slug}/header.jpg`;
+        imagePath = `/src/content/blog/posts/${slug}/header.webp`;
         try {
             const imgRes = await fetchFn(imagePath, { method: 'HEAD' });
             imageExists = imgRes.ok;

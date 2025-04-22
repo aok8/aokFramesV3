@@ -27,7 +27,7 @@
   // Responsive image selection based on screen width
   let screenWidth = 1920; // Default to largest size
   
-  function getResponsiveImagePath(baseFolder, filename, isR2 = false) {
+  function getResponsiveImagePath(baseFolder: string, filename: string, isR2 = false) {
     // Select width based on screen size
     let sizeDir;
     
@@ -47,8 +47,8 @@
   }
   
   // Constants for background and profile image with fallbacks
-  $: bgImageConst = getResponsiveImagePath('constants/bg', 'bg.webp', true);
-  $: fallbackBgImageConst = getResponsiveImagePath('constants/bg', 'bg.webp', false);
+  $: bgImageConst = getResponsiveImagePath('constants', 'bg.webp', true);
+  $: fallbackBgImageConst = getResponsiveImagePath('constants', 'bg.webp', false);
   const profileImageConst = '/directr2/constants/Profile_Pic.webp';
   const fallbackProfileImageConst = '/images/constants/Profile_Pic.webp';
   

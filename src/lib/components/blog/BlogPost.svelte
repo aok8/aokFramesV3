@@ -12,6 +12,10 @@
   let markdownContainer: HTMLDivElement | null = null;
   let processedMarkdown = false;
   
+  // Header Image Refs
+  let headerImageElementPreview: HTMLImageElement | null = null;
+  let headerImageElementFull: HTMLImageElement | null = null;
+  
   // Reactive statement to process markdown when post content changes
   $: {
       if (post && post.content) {
@@ -64,10 +68,22 @@
   let headerImageLoaded = false; 
   let headerImageErrored = false; // Track if the primary image load failed
 
-  onMount(() => {
+  onMount(async () => {
     headerImageLoaded = false;
     headerImageErrored = false; // Reset on mount
     console.log(`BlogPost component mounted for post: ${post.id}`);
+
+    // Allow Svelte to render the DOM first
+    await tick();
+
+    // Check if the relevant image element is already complete (e.g., from cache)
+    const imgElement = isPreview ? headerImageElementPreview : headerImageElementFull;
+    if (imgElement?.complete && !headerImageErrored) {
+      console.log(`Header image (${imgElement.src}) was already complete on mount.`);
+      handleImageLoad(); // Manually trigger load state if already complete
+    } else if (imgElement) {
+      console.log(`Header image (${imgElement.src}) not complete on mount. Waiting for on:load.`);
+    }
   });
 
   // Function to mark image as loaded
@@ -90,14 +106,16 @@
      if (!isPreview && markdownContainer && typeof htmlContent === 'string' && htmlContent.length > 0 && !processedMarkdown) {
        const images = markdownContainer.querySelectorAll('.markdown-image'); // Target by class
        images.forEach(img => {
-         if (img.complete) {
-           img.classList.add('loaded');
+         // Assert type to HTMLImageElement to access 'complete'
+         const imageElement = img as HTMLImageElement; 
+         if (imageElement.complete) {
+           imageElement.classList.add('loaded');
          } else {
-           img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+           imageElement.addEventListener('load', () => imageElement.classList.add('loaded'), { once: true });
            // Optional: Add error handling for markdown images if needed
-           img.addEventListener('error', () => {
-               console.error(`Markdown image failed to load: ${img.getAttribute('src')}`);
-               img.classList.add('error'); // Add error class for styling
+           imageElement.addEventListener('error', () => {
+               console.error(`Markdown image failed to load: ${imageElement.src}`);
+               imageElement.classList.add('error'); // Add error class for styling
            }, { once: true });
          }
        });
@@ -122,6 +140,7 @@
          <div class="image-placeholder" class:error={headerImageErrored}>
             {#if !headerImageErrored}
               <img
+                bind:this={headerImageElementPreview}
                 src={headerImagePath}
                 alt={post.title}
                 class="card-image" 
@@ -200,6 +219,7 @@
        <div class="image-placeholder full-post-header" class:error={headerImageErrored}>
         {#if !headerImageErrored}
           <img
+            bind:this={headerImageElementFull}
             id="post-header-image-{post.id}" 
             src={headerImagePath}
             alt={post.title}

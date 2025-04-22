@@ -30,6 +30,10 @@
   let bgImageConst = ''; // Initialize bg path
   let fallbackBgImageConst = ''; // Initialize fallback
   
+  // Flag to prevent rapid re-fetching on resize
+  let portfolioFetchDebounceTimer: any = null;
+  let isFetchingPortfolio = false; // Prevent concurrent fetches
+
   function updateBgImagePaths() {
     if (screenWidth === null) return; // Don't run if width not set
 
@@ -53,7 +57,16 @@
 
   // Recalculate paths whenever screenWidth changes AFTER it's been initially set
   $: if (browser && screenWidth !== null) {
-      updateBgImagePaths();
+      console.log(`Screen width changed to: ${screenWidth}. Updating paths and triggering portfolio fetch.`);
+      // Update background paths immediately
+      updateBgImagePaths(); 
+
+      // Debounce portfolio image fetching
+      clearTimeout(portfolioFetchDebounceTimer);
+      portfolioFetchDebounceTimer = setTimeout(() => {
+        loadAndSetPortfolioImages(screenWidth as number); // Type assertion safe here
+      }, 500); // Adjust debounce delay (ms) as needed
+
   }
   
   // Constants for profile image with fallbacks (these don't depend on width)
@@ -150,47 +163,51 @@
     }
   }
 
+  // --- New function to load portfolio images ---
+  async function loadAndSetPortfolioImages(width: number) {
+    if (isFetchingPortfolio) {
+      console.log('Already fetching portfolio images, skipping.');
+      return; 
+    }
+    console.log(`Triggering portfolio image fetch for width: ${width}`);
+    isFetchingPortfolio = true;
+    try {
+      const newImages = await getPortfolioImages(width);
+      portfolioImages = newImages; // Update the state
+      // Reset error states when new images are loaded
+      imageErrors = Array(newImages.length).fill(false);
+      imageFallbackErrors = Array(newImages.length).fill(false);
+      portfolioLoaded = Array(newImages.length).fill(false);
+      console.log(`Successfully updated portfolio images state with ${newImages.length} images.`);
+    } catch (error) {
+        console.error('Error loading and setting portfolio images:', error);
+        portfolioImages = []; // Clear images on error
+    } finally {
+        isFetchingPortfolio = false;
+    }
+  }
+
   onMount(() => {
-    // Ensure this runs only in the browser
     if (browser) {
-      const loadImages = async () => {
-        if (typeof window !== 'undefined') {
-          // Force scroll to top
-          window.scrollTo(0, 0);
-          
-          // Reset all state
-          resetState();
-          
-          // Load portfolio images
-          portfolioImages = await getPortfolioImages();
-          console.error('DEBUG: Portfolio images loaded:', portfolioImages);
-          if (portfolioImages && Array.isArray(portfolioImages)) {
-            console.error(`DEBUG: Got ${portfolioImages.length} portfolio images`);
-            // Show first two URLs if available
-            if (portfolioImages.length > 0) {
-              console.error(`DEBUG: First image URL: ${portfolioImages[0].url}`);
-              if (portfolioImages.length > 1) {
-                console.error(`DEBUG: Second image URL: ${portfolioImages[1].url}`);
-              }
-            }
-          } else {
-            console.error('DEBUG: Portfolio images is not an array:', typeof portfolioImages);
-          }
-          // Initialize loaded array after images are fetched
-          portfolioLoaded = Array(portfolioImages.length).fill(false);
-          
-          // Initialize observer after a small delay to ensure DOM is ready
-          setTimeout(() => {
-            initializeObserver();
-          }, 100);
-        }
-      };
+      // --- Remove portfolio loading from here ---
+      // const loadImages = async () => {
+      //   if (typeof window !== 'undefined') {
+      //     // ... resetState ...
+      //     // portfolioImages = await getPortfolioImages(); // <--- REMOVED
+      //     // ... console logs ...
+      //     // portfolioLoaded = Array(portfolioImages.length).fill(false);
+      //     // ... setTimeout initializeObserver ...
+      //   }
+      // };
+      // loadImages(); // <--- REMOVED
 
-      loadImages();
+      // Just reset state initially
+      resetState();
 
-      // Initialize screen width and set initial image paths
-      screenWidth = window.innerWidth;
-      updateBgImagePaths(); // Call initially after setting screenWidth
+      // Initialize screen width - This will trigger the reactive statement ($:) for the first time
+      screenWidth = window.innerWidth; 
+      // updateBgImagePaths(); // Still called by reactive statement
+      // loadAndSetPortfolioImages(screenWidth); // Also called by reactive statement
       
       // Listen for window resize events
       const handleResize = () => {
@@ -199,14 +216,20 @@
       
       window.addEventListener('resize', handleResize);
       
+      // Initialize observer (can happen independently)
+       setTimeout(() => {
+          initializeObserver();
+       }, 100);
+
       return () => {
         if (observer) {
           observer.disconnect();
         }
         window.removeEventListener('resize', handleResize);
+        clearTimeout(portfolioFetchDebounceTimer); // Clear timeout on unmount
       };
-    } // end if(browser)
-    return () => {}; // Return empty cleanup if not in browser
+    } 
+    return () => {};
   });
 
   // Add back afterUpdate logic for checking .complete

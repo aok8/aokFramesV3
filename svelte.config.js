@@ -20,6 +20,15 @@ const config = {
 		// Add proper handling for client-side routes
 		paths: {
 			base: ''
+		},
+		prerender: {
+			handleHttpError: ({ path, referrer, message }) => {
+				// Log all prerendering errors
+				console.warn(`PRERENDER ERROR [${path}] (referred from ${referrer}): ${message}`);
+				
+				// Don't fail build on HTTP errors
+				return false;
+			}
 		}
 	},
 

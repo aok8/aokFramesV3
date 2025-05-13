@@ -178,7 +178,9 @@
       </div>
       
       <!-- Description -->
-      <div class="px-4 py-2 text-white/80">
+      <div class="px-4 py-2 text-sm sm:text-base"
+      style="color: {theme.secondary};"
+      >
         {selectedWork.description}
       </div>
       

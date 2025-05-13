@@ -72,9 +72,27 @@
         scale = 0.6;
         rotateY = 30;
         opacity = 0.4;
-      } else {
-        // Hide other items
+      } else if (relativeIndex === 3 || relativeIndex === -works.length + 3) {
+        // Entering from far right
+        xPos = 650;
+        yPos = 150;
+        scale = 0.4;
+        rotateY = -45;
         opacity = 0;
+      } else if (relativeIndex === -3 || relativeIndex === works.length - 3) {
+        // Leaving to far left
+        xPos = -650;
+        yPos = 150;
+        scale = 0.4;
+        rotateY = 45;
+        opacity = 0;
+      } else {
+        // Hide other items but keep them in the flow
+        xPos = relativeIndex > 0 ? 800 : -800;
+        yPos = 200;
+        scale = 0.2;
+        opacity = 0;
+        rotateY = relativeIndex > 0 ? -60 : 60;
       }
       
       // Apply special styling for the opening animation
@@ -94,7 +112,7 @@
         zIndex,
         active: relativeIndex === 0,
         relativeIndex,
-        visible: Math.abs(relativeIndex) <= 2 || Math.abs(relativeIndex) >= works.length - 2
+        visible: Math.abs(relativeIndex) <= 3 || Math.abs(relativeIndex) >= works.length - 3
       };
     });
   }
@@ -278,11 +296,13 @@
     transform-style: preserve-3d;
     perspective: 1000px;
     backface-visibility: hidden;
+    transition: transform 0.5s ease-out, opacity 0.5s ease-out;
   }
   
   /* Add some perspective to the container */
   .carousel-container {
     perspective: 1000px;
+    overflow: visible;
   }
   
   /* Disable buttons during rotation */

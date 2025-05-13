@@ -1,6 +1,6 @@
 <!-- Works Carousel -->
 <script lang="ts">
-  import { onMount, tick, afterUpdate } from 'svelte';
+  import { onMount, tick, afterUpdate, createEventDispatcher } from 'svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import { fade } from 'svelte/transition';
@@ -9,17 +9,15 @@
   
   export let works: Work[] = [];
   export let onWorkClick: (work: Work) => void;
+  export let currentIndex = 0; // Accept external index
+  
+  // Setup event dispatcher
+  const dispatch = createEventDispatcher<{
+    indexChange: number;
+  }>();
   
   // State variables
-  let currentIndex = 0;
-  let carouselItems: {
-    work: Work;
-    style: string;
-    zIndex: number;
-    active: boolean;
-    relativeIndex: number;
-    visible: boolean;
-  }[] = [];
+  $: carouselItems = updateCarouselItemsCalc(currentIndex);
   let isRotating = false;
   let openingAnimation = false;
   let openingWorkId: string | null = null;
@@ -90,9 +88,9 @@
   });
 
   // Calculate positions for carousel items
-  function updateCarouselItems() {
-    carouselItems = works.map((work, index) => {
-      const relativeIndex = (index - currentIndex + works.length) % works.length;
+  function updateCarouselItemsCalc(index: number) {
+    return works.map((work, workIndex) => {
+      const relativeIndex = (workIndex - index + works.length) % works.length;
       let zIndex = 5 - Math.min(Math.abs(relativeIndex), 2);
       
       // Calculate position and rotation
@@ -202,13 +200,13 @@
   function nextWork() {
     if (isRotating) return;
     currentIndex = (currentIndex + 1) % works.length;
-    updateCarouselItems();
+    dispatch('indexChange', currentIndex);
   }
 
   function prevWork() {
     if (isRotating) return;
     currentIndex = (currentIndex - 1 + works.length) % works.length;
-    updateCarouselItems();
+    dispatch('indexChange', currentIndex);
   }
   
   // Function to rotate to a specific work
@@ -243,7 +241,7 @@
       
       // Set the final index directly
       currentIndex = targetIndex;
-      updateCarouselItems();
+      dispatch('indexChange', currentIndex);
       
       // Wait for the animation to complete
       await new Promise(resolve => setTimeout(resolve, rotationDuration));
@@ -281,7 +279,7 @@
     openingScale.set(1.5);
     
     // Fade out other works
-    updateCarouselItems();
+    dispatch('indexChange', currentIndex);
     
     // Wait for animation to complete
     await tick();
@@ -296,7 +294,8 @@
 
   // Initialize carousel
   onMount(() => {
-    updateCarouselItems();
+    dispatch('indexChange', currentIndex);
+    updateCarouselItemsCalc(currentIndex);
     initializeAllLoadingStates();
     
     // Only run client-side code in browser
@@ -342,7 +341,8 @@
 
   // Update carousel when works change or force update triggers
   $: if (works || forceUpdateCounter) {
-    updateCarouselItems();
+    dispatch('indexChange', currentIndex);
+    updateCarouselItemsCalc(currentIndex);
     if (works && works.length > 0 && Object.keys(loadingStates).length === 0) {
       initializeAllLoadingStates();
       preloadImages();

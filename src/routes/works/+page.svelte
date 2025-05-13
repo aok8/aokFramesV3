@@ -18,6 +18,10 @@
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
+  
+  // References for scrolling
+  let thumbnailContainerRef: HTMLDivElement;
+  let thumbnailButtonRefs: HTMLButtonElement[] = [];
 
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
@@ -32,6 +36,18 @@
     });
   } else {
     sortedImages = [];
+  }
+  
+  // When selectedImageIndex changes, scroll the thumbnail into view
+  $: if (browser && selectedWork && thumbnailButtonRefs[selectedImageIndex]) {
+    // Use setTimeout to ensure DOM has updated
+    setTimeout(() => {
+      thumbnailButtonRefs[selectedImageIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }, 50);
   }
 
   // Loading state tracking
@@ -60,6 +76,9 @@
     
     // Reset loading states for the new work's images
     resetImageLoadingStates();
+    
+    // Reset thumbnail refs array
+    thumbnailButtonRefs = [];
   }
 
   function resetImageLoadingStates() {
@@ -70,6 +89,7 @@
     thumbnailLoading = Array(sortedImages.length).fill(true);
     thumbnailLoaded = Array(sortedImages.length).fill(false);
     thumbnailElements = Array(sortedImages.length).fill(null);
+    thumbnailButtonRefs = Array(sortedImages.length).fill(null);
     
     // Preload all images if in browser environment
     if (browser) {
@@ -340,11 +360,15 @@
           
           <!-- Thumbnails -->
           <div class="mt-2 md:mt-4 fixed bottom-4 left-0 right-0 flex justify-center">
-            <div class="inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4 max-w-[90vw] w-auto mx-auto">
-              <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent max-w-full" style="scrollbar-width: thin;">
+            <div class="inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4 px-4 max-w-[90vw] w-auto mx-auto">
+              <div 
+                bind:this={thumbnailContainerRef}
+                class="flex gap-2 overflow-x-auto scroll-smooth scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent max-w-full snap-x snap-mandatory" 
+                style="scrollbar-width: thin;">
                 {#each sortedImages as image, i}
                   <button 
-                    class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
+                    bind:this={thumbnailButtonRefs[i]}
+                    class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative snap-center"
                     class:border-white={i === selectedImageIndex}
                     class:border-transparent={i !== selectedImageIndex}
                     on:click={() => selectedImageIndex = i}

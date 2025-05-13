@@ -102,60 +102,78 @@
       let opacity = 1;
       let rotateY = 0;
       
-      if (relativeIndex === 0) {
-        // Center item
-        xPos = 0;
-        yPos = 0;
-        scale = 1;
-      } else if (relativeIndex === 1 || relativeIndex === -works.length + 1) {
-        // Right item
-        xPos = 250;
-        yPos = 50;
-        scale = 0.8;
-        rotateY = -15;
-        opacity = 0.7;
-      } else if (relativeIndex === -1 || relativeIndex === works.length - 1) {
-        // Left item
-        xPos = -250;
-        yPos = 50;
-        scale = 0.8;
-        rotateY = 15;
-        opacity = 0.7;
-      } else if (relativeIndex === 2 || relativeIndex === -works.length + 2) {
-        // Far right item
-        xPos = 450;
-        yPos = 100;
-        scale = 0.6;
-        rotateY = -30;
-        opacity = 0.4;
-      } else if (relativeIndex === -2 || relativeIndex === works.length - 2) {
-        // Far left item
-        xPos = -450;
-        yPos = 100;
-        scale = 0.6;
-        rotateY = 30;
-        opacity = 0.4;
-      } else if (relativeIndex === 3 || relativeIndex === -works.length + 3) {
-        // Entering from far right
-        xPos = 650;
-        yPos = 150;
-        scale = 0.4;
-        rotateY = -45;
-        opacity = 0;
-      } else if (relativeIndex === -3 || relativeIndex === works.length - 3) {
-        // Leaving to far left
-        xPos = -650;
-        yPos = 150;
-        scale = 0.4;
-        rotateY = 45;
-        opacity = 0;
+      // Special positioning for exactly 2 cards to make them symmetrical
+      if (works.length === 2) {
+        if (relativeIndex === 0) {
+          // Move first card slightly left
+          xPos = -150;
+          yPos = 0;
+          scale = 0.9;
+          rotateY = 5;
+        } else if (relativeIndex === 1 || relativeIndex === -1) {
+          // Move second card slightly right
+          xPos = 150;
+          yPos = 0;
+          scale = 0.9;
+          rotateY = -5;
+        }
       } else {
-        // Hide other items but keep them in the flow
-        xPos = relativeIndex > 0 ? 800 : -800;
-        yPos = 200;
-        scale = 0.2;
-        opacity = 0;
-        rotateY = relativeIndex > 0 ? -60 : 60;
+        // Standard positioning for 3+ cards
+        if (relativeIndex === 0) {
+          // Center item
+          xPos = 0;
+          yPos = 0;
+          scale = 1;
+        } else if (relativeIndex === 1 || relativeIndex === -works.length + 1) {
+          // Right item
+          xPos = 250;
+          yPos = 50;
+          scale = 0.8;
+          rotateY = -15;
+          opacity = 0.7;
+        } else if (relativeIndex === -1 || relativeIndex === works.length - 1) {
+          // Left item
+          xPos = -250;
+          yPos = 50;
+          scale = 0.8;
+          rotateY = 15;
+          opacity = 0.7;
+        } else if (relativeIndex === 2 || relativeIndex === -works.length + 2) {
+          // Far right item
+          xPos = 450;
+          yPos = 100;
+          scale = 0.6;
+          rotateY = -30;
+          opacity = 0.4;
+        } else if (relativeIndex === -2 || relativeIndex === works.length - 2) {
+          // Far left item
+          xPos = -450;
+          yPos = 100;
+          scale = 0.6;
+          rotateY = 30;
+          opacity = 0.4;
+        } else if (relativeIndex === 3 || relativeIndex === -works.length + 3) {
+          // Entering from far right
+          xPos = 650;
+          yPos = 150;
+          scale = 0.4;
+          rotateY = -45;
+          opacity = 0;
+        } else if (relativeIndex === -3 || relativeIndex === works.length - 3) {
+          // Leaving to far left
+          xPos = -650;
+          yPos = 150;
+          scale = 0.4;
+          rotateY = 45;
+          opacity = 0;
+        } else {
+          // Hide other items but keep them in the flow
+          xPos = relativeIndex > 0 ? 800 : -800;
+          yPos = 200;
+          scale = 0.2;
+          opacity = 0;
+          rotateY = relativeIndex > 0 ? -60 : 60;
+        }
       }
       
       // Apply special styling for the opening animation
@@ -173,9 +191,9 @@
           opacity: ${opacity};
         `,
         zIndex,
-        active: relativeIndex === 0,
+        active: relativeIndex === 0 || (works.length === 2 && (relativeIndex === 0 || relativeIndex === 1 || relativeIndex === -1)),
         relativeIndex,
-        visible: Math.abs(relativeIndex) <= 3 || Math.abs(relativeIndex) >= works.length - 3
+        visible: works.length === 2 || Math.abs(relativeIndex) <= 3 || Math.abs(relativeIndex) >= works.length - 3
       };
     });
   }
@@ -239,6 +257,14 @@
   async function handleWorkClick(item: typeof carouselItems[0]) {
     if (isRotating || openingAnimation) return;
     
+    // Special handling for two-card layout - both cards are considered "active"
+    if (works.length === 2) {
+      // Directly open the clicked card
+      openWorkWithAnimation(item.work);
+      return;
+    }
+    
+    // Normal handling for 3+ cards
     if (item.active) {
       // If center item, open it directly with animation
       openWorkWithAnimation(item.work);

@@ -10,9 +10,9 @@
   textColor={theme.background.light}
 />
 
-<main class="min-h-screen py-16" style="background-color: {theme.background.light}; color: {theme.text.primary};">
+<main class="min-h-screen py-16 pt-24 md:pt-20" style="background-color: {theme.background.light}; color: {theme.text.primary};">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8">
+    <div class="mb-8 mt-4 md:mt-0">
       <a
         href="/blog"
         class="inline-flex items-center hover:opacity-80"

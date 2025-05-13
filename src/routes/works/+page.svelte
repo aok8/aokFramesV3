@@ -255,10 +255,10 @@
     <div class="fixed inset-0 z-[100] flex flex-col" style="background-color: {darkerTertiary};">
       <!-- Header with title and close button -->
       <div class="p-4 flex items-center justify-between" style="background-color: {theme.secondary};">
-        <div>
-          <h2 class="text-2xl font-bold text-white">{selectedWork.title}</h2>
-          <div class="flex items-center gap-4 text-white/80 text-sm mt-1">
-            <time datetime={selectedWork.published}>
+        <div class="overflow-hidden">
+          <h2 class="text-2xl font-bold text-white truncate">{selectedWork.title}</h2>
+          <div class="flex items-center text-white/80 text-sm mt-1 space-x-2">
+            <time datetime={selectedWork.published} class="flex-shrink-0">
               {new Date(selectedWork.published).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -266,17 +266,17 @@
               })}
             </time>
             {#if selectedWork.tags.length > 0}
-              <span>•</span>
-              <div class="flex gap-2">
+              <span class="flex-shrink-0">•</span>
+              <div class="flex gap-2 overflow-x-auto pb-1 snap-x scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent max-w-[calc(100vw-12rem)]">
                 {#each selectedWork.tags as tag}
-                  <span class="bg-white/10 px-2 py-0.5 rounded">{tag}</span>
+                  <span class="bg-white/10 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 snap-start">{tag}</span>
                 {/each}
               </div>
             {/if}
           </div>
         </div>
         <button 
-          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white flex-shrink-0"
           on:click={closeWorkDetail}
           aria-label="Close detail view"
         >

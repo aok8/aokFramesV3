@@ -162,16 +162,8 @@
       // If center item, open it directly with animation
       openWorkWithAnimation(item.work);
     } else if (item.visible) {
-      // If not center but visible, rotate to center first
-      const success = await rotateToWork(item.work.id);
-      if (success) {
-        // After rotation, open the work
-        await tick();
-        const centerItem = carouselItems.find(i => i.active);
-        if (centerItem) {
-          openWorkWithAnimation(centerItem.work);
-        }
-      }
+      // If not center but visible, just rotate to center
+      await rotateToWork(item.work.id);
     }
   }
   

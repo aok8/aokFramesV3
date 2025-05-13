@@ -2,6 +2,18 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import matter from 'gray-matter';
 
+// Polyfill Buffer for Cloudflare Workers environment
+if (typeof Buffer === 'undefined') {
+  // @ts-ignore - Intentionally creating a minimal Buffer polyfill for Cloudflare Workers
+  globalThis.Buffer = {
+    // @ts-ignore - This is a simplified version just for our use case
+    from: function(string, encoding) {
+      if (encoding === 'base64') return atob(string);
+      return string;
+    }
+  };
+}
+
 // Simple frontmatter parser as a fallback when gray-matter fails
 function parseYamlFrontmatter(content: string): { data: Record<string, any>, content: string } {
   try {

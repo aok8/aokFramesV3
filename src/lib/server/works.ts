@@ -6,7 +6,7 @@ import matter from 'gray-matter';
 // Polyfill Buffer for Cloudflare Workers environment
 if (typeof Buffer === 'undefined') {
   // @ts-ignore - Intentionally creating a minimal Buffer polyfill for Cloudflare Workers
-  global.Buffer = {
+  globalThis.Buffer = {
     // @ts-ignore - This is a simplified version just for our use case
     from: function(string, encoding) {
       if (encoding === 'base64') return atob(string);

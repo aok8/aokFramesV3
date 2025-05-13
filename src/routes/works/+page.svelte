@@ -325,18 +325,19 @@
   bind:open={showNsfwWarning}
   onClose={handleNsfwCancel}
 >
-  <div class="p-6">
-    <h3 class="text-lg font-semibold mb-4">NSFW Content Warning</h3>
-    <p class="mb-6">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
+  <div class="p-6 rounded-lg" style="background-color: {theme.secondary};">
+    <h3 class="text-lg font-semibold mb-4 text-white">NSFW Content Warning</h3>
+    <p class="mb-6 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
     <div class="flex justify-end gap-4">
       <button
-        class="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 transition-colors"
+        class="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
         on:click={handleNsfwCancel}
       >
         Cancel
       </button>
       <button
-        class="px-4 py-2 rounded bg-red-600 hover:bg-red-700 transition-colors"
+        class="px-4 py-2 rounded transition-colors hover:brightness-110"
+        style="background-color: {theme.tertiary}; color: {theme.secondary};"
         on:click={handleNsfwConfirm}
       >
         Proceed

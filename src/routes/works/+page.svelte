@@ -74,15 +74,19 @@
     // Preload all images if in browser environment
     if (browser) {
       // Preload main image
-      const mainImg = new Image();
-      mainImg.onload = () => handleMainImageLoad();
-      mainImg.src = sortedImages[selectedImageIndex].src;
+      if (sortedImages.length > 0 && sortedImages[selectedImageIndex]) {
+        const mainImg = new Image();
+        mainImg.onload = () => handleMainImageLoad();
+        mainImg.src = sortedImages[selectedImageIndex].src;
+      }
       
       // Preload thumbnails
       sortedImages.forEach((image, i) => {
-        const thumbImg = new Image();
-        thumbImg.onload = () => handleThumbnailLoad(i);
-        thumbImg.src = image.src;
+        if (image && image.src) {
+          const thumbImg = new Image();
+          thumbImg.onload = () => handleThumbnailLoad(i);
+          thumbImg.src = image.src;
+        }
       });
     }
   }
@@ -335,36 +339,38 @@
           </div>
           
           <!-- Thumbnails -->
-          <div class="mt-4 inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4">
-            <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-              {#each sortedImages as image, i}
-                <button 
-                  class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
-                  class:border-white={i === selectedImageIndex}
-                  class:border-transparent={i !== selectedImageIndex}
-                  on:click={() => selectedImageIndex = i}
-                >
-                  <!-- Thumbnail loading skeleton -->
-                  {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
-                    <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
-                  {/if}
-                  
-                  <!-- Thumbnail image -->
-                  <img 
-                    bind:this={thumbnailElements[i]}
-                    src={image.src} 
-                    alt={`Thumbnail ${i+1}`} 
-                    class="h-full w-full object-cover transition-opacity duration-300"
-                    class:opacity-0={!thumbnailLoaded[i]}
-                    class:opacity-100={thumbnailLoaded[i]}
-                    on:load={() => handleThumbnailLoad(i)}
-                    on:error={() => {
-                      thumbnailLoading[i] = false;
-                      thumbnailLoading = [...thumbnailLoading];
-                    }}
-                  />
-                </button>
-              {/each}
+          <div class="mt-2 md:mt-4 fixed bottom-4 left-0 right-0 flex justify-center">
+            <div class="inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4 max-w-[90vw] w-auto mx-auto">
+              <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent max-w-full" style="scrollbar-width: thin;">
+                {#each sortedImages as image, i}
+                  <button 
+                    class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
+                    class:border-white={i === selectedImageIndex}
+                    class:border-transparent={i !== selectedImageIndex}
+                    on:click={() => selectedImageIndex = i}
+                  >
+                    <!-- Thumbnail loading skeleton -->
+                    {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
+                      <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                    {/if}
+                    
+                    <!-- Thumbnail image -->
+                    <img 
+                      bind:this={thumbnailElements[i]}
+                      src={image.src} 
+                      alt={`Thumbnail ${i+1}`} 
+                      class="h-full w-full object-cover transition-opacity duration-300"
+                      class:opacity-0={!thumbnailLoaded[i]}
+                      class:opacity-100={thumbnailLoaded[i]}
+                      on:load={() => handleThumbnailLoad(i)}
+                      on:error={() => {
+                        thumbnailLoading[i] = false;
+                        thumbnailLoading = [...thumbnailLoading];
+                      }}
+                    />
+                  </button>
+                {/each}
+              </div>
             </div>
           </div>
         {:else}

@@ -252,21 +252,23 @@
           </div>
           
           <!-- Thumbnails -->
-          <div class="mt-4 flex gap-2 overflow-x-auto pb-2">
-            {#each selectedWork.images as image, i}
-              <button 
-                class="flex-shrink-0 h-20 w-20 rounded overflow-hidden transition-all duration-200 border-2"
-                class:border-white={i === selectedImageIndex}
-                class:border-transparent={i !== selectedImageIndex}
-                on:click={() => selectedImageIndex = i}
-              >
-                <img 
-                  src={image.src} 
-                  alt={`Thumbnail ${i+1}`} 
-                  class="h-full w-full object-cover"
-                />
-              </button>
-            {/each}
+          <div class="mt-4 inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4">
+            <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+              {#each selectedWork.images as image, i}
+                <button 
+                  class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110"
+                  class:border-white={i === selectedImageIndex}
+                  class:border-transparent={i !== selectedImageIndex}
+                  on:click={() => selectedImageIndex = i}
+                >
+                  <img 
+                    src={image.src} 
+                    alt={`Thumbnail ${i+1}`} 
+                    class="h-full w-full object-cover"
+                  />
+                </button>
+              {/each}
+            </div>
           </div>
         {:else}
           <!-- Enlarged image view -->

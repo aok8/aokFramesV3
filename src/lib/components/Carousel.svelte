@@ -1,8 +1,10 @@
 <!-- Works Carousel -->
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, afterUpdate } from 'svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
+  import { fade } from 'svelte/transition';
+  import { browser } from '$app/environment';
   import type { Work } from '$lib/types/works.js';
   
   export let works: Work[] = [];
@@ -26,6 +28,67 @@
     easing: cubicOut
   });
   
+  // Add loading state tracking for each card
+  let loadingStates: { [key: string]: boolean } = {}; // Tracks if loading has started
+  let loadedStates: { [key: string]: boolean } = {};  // Tracks if loading has finished
+
+  // Store references to image elements
+  let imageElements: (HTMLImageElement | null)[] = [];
+  
+  // Force update flag - will trigger a refresh
+  let forceUpdateCounter = 0;
+
+  async function handleImageLoad(workId: string) {
+    if (!loadedStates[workId]) { // Prevent multiple calls
+      console.log(`Image loaded for work: ${workId}`);
+      loadedStates = { ...loadedStates, [workId]: true };
+      await tick(); 
+    }
+  }
+
+  function handleImageStartLoad(workId: string) {
+    loadingStates = { ...loadingStates, [workId]: true };
+    loadedStates = { ...loadedStates, [workId]: false };
+  }
+
+  function initializeAllLoadingStates() {
+    const newLoadingStates: { [key: string]: boolean } = {};
+    const newLoadedStates: { [key: string]: boolean } = {};
+    // Initialize imageElements array with the same length as works
+    imageElements = new Array(works.length).fill(null);
+    works.forEach((work, index) => {
+      newLoadingStates[work.id] = true; 
+      newLoadedStates[work.id] = false; 
+    });
+    loadingStates = newLoadingStates;
+    loadedStates = newLoadedStates;
+  }
+  
+  // Preload images manually
+  function preloadImages() {
+    if (!browser) return;
+    
+    works.forEach((work) => {
+      const img = new Image();
+      img.onload = () => {
+        console.log(`Preloaded image for work: ${work.id}`);
+        handleImageLoad(work.id);
+      };
+      img.src = work.coverImage;
+    });
+  }
+
+  afterUpdate(() => {
+    if (works.length === 0) return;
+    works.forEach((work, index) => {
+      const imgElement = imageElements[index];
+      if (imgElement && imgElement.complete && !loadedStates[work.id]) {
+        console.log(`Image ${work.id} found complete in afterUpdate`);
+        handleImageLoad(work.id);
+      }
+    });
+  });
+
   // Calculate positions for carousel items
   function updateCarouselItems() {
     carouselItems = works.map((work, index) => {
@@ -208,17 +271,61 @@
   // Initialize carousel
   onMount(() => {
     updateCarouselItems();
+    initializeAllLoadingStates();
+    
+    // Only run client-side code in browser
+    if (browser) {
+      // Preload images
+      preloadImages();
+      
+      // Force a reactivity trigger after a small delay
+      setTimeout(() => {
+        console.log('Forcing reactivity update');
+        forceUpdateCounter += 1;
+      }, 500);
+      
+      // Set up a polling mechanism to check image status every 250ms
+      const checkImagesInterval = setInterval(() => {
+        let allLoaded = true;
+        works.forEach((work, index) => {
+          if (!loadedStates[work.id]) {
+            allLoaded = false;
+            // Try to find the image element
+            const imgElement = imageElements[index];
+            if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
+              console.log(`Poll detected loaded image for work: ${work.id}`);
+              handleImageLoad(work.id);
+            }
+          }
+        });
+        
+        if (allLoaded || forceUpdateCounter > 5) {
+          console.log('All images loaded or max retries reached, clearing interval');
+          clearInterval(checkImagesInterval);
+        } else {
+          forceUpdateCounter += 1;
+        }
+      }, 250);
+      
+      // Safety cleanup
+      return () => {
+        clearInterval(checkImagesInterval);
+      };
+    }
   });
 
-  // Update carousel when works change
-  $: if (works) {
+  // Update carousel when works change or force update triggers
+  $: if (works || forceUpdateCounter) {
     updateCarouselItems();
+    if (works && works.length > 0 && Object.keys(loadingStates).length === 0) {
+      initializeAllLoadingStates();
+      preloadImages();
+    }
   }
 </script>
 
 <div class="carousel-container relative h-[500px] w-full flex items-center justify-center">
   {#each carouselItems as item (item.work.id)}
-    <!-- Only render visible items -->
     {#if item.visible}
       <div 
         class="carousel-item absolute transition-all duration-500 ease-out"
@@ -235,20 +342,37 @@
         tabindex="0"
       >
         <div class="relative overflow-hidden rounded-lg shadow-xl h-[400px] w-[300px]">
-          <!-- Cover Image with NSFW blur if needed -->
+          {#if !loadedStates[item.work.id]}
+            <!-- Loading skeleton -->
+            <div 
+              class="absolute inset-0 bg-gray-200 animate-pulse z-10"
+              aria-hidden="true"
+            ></div>
+          {/if}
+          
+          <!-- Cover Image (always rendered, visibility controlled by opacity) -->
           <img 
+            bind:this={imageElements[works.findIndex(w => w.id === item.work.id)]} 
             src={item.work.coverImage} 
             alt={item.work.title}
-            class="w-full h-full object-cover transition-all duration-300"
+            class="w-full h-full object-cover z-20 transition-opacity duration-300"
             class:blur-md={item.work.nsfw}
+            class:opacity-0={!loadedStates[item.work.id]}
+            class:opacity-100={loadedStates[item.work.id]}
+            class:pointer-events-none={!loadedStates[item.work.id]}
+            on:load={() => handleImageLoad(item.work.id)}
           />
-          
-          <!-- Title overlay -->
-          <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+
+          <!-- Title overlay (always rendered, visibility controlled by opacity) -->
+          <div 
+            class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 z-30 transition-opacity duration-300 delay-100"
+            class:opacity-0={!loadedStates[item.work.id]}
+            class:opacity-100={loadedStates[item.work.id]}
+            class:pointer-events-none={!loadedStates[item.work.id]}
+          >
             <h2 class="text-xl font-bold">{item.work.title}</h2>
-            
-            <!-- NSFW warning -->
             {#if item.work.nsfw}
+              <!-- NSFW warning -->
               <div class="flex items-center mt-1 text-red-400 text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
                   <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
@@ -315,5 +439,14 @@
   .highlight-on-hover:hover {
     filter: brightness(1.2);
     transform: scale(1.05);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 </style> 

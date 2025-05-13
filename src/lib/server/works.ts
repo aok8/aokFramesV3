@@ -222,7 +222,7 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       console.log(`loadWork: Production mode for slug "${exactSlug}". Checking R2 bucket...`);
       if (!platform?.env?.ASSETSBUCKET) {
         console.error(`loadWork: ASSETSBUCKET binding not available for slug "${exactSlug}"!`);
-        throw new Error('ASSETSBUCKET binding not found');
+        throw new Error('ASSETSBUCKET binding not available');
       }
       
       const r2Key = `works/${exactSlug}/index.md`;
@@ -254,32 +254,68 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       const { data } = matter(fileContent);
 
       // List all objects in the work's directory to find images
-      const listResult = await platform.env.ASSETSBUCKET.list({
-        prefix: `works/${exactSlug}/`
-      });
+      const imagePrefix = `works/${exactSlug}/`;
+      console.log(`loadWork: Listing objects with prefix "${imagePrefix}" to find images...`);
+      let listResult;
+      try {
+        listResult = await platform.env.ASSETSBUCKET.list({
+          prefix: imagePrefix
+        });
+        console.log(`loadWork: Listed ${listResult.objects.length} objects with prefix "${imagePrefix}"`);
+        
+        if (listResult.objects.length <= 1) { // Only index.md or nothing
+          console.warn(`loadWork: Found ${listResult.objects.length} objects for "${exactSlug}" - may be missing images`);
+          console.log(`loadWork: Objects: ${JSON.stringify(listResult.objects.map(obj => obj.key))}`);
+        }
+        
+        // Log the first few objects to help debug
+        if (listResult.objects.length > 0) {
+          console.log(`loadWork: First few object keys: ${JSON.stringify(listResult.objects.slice(0, 3).map(obj => obj.key))}`);
+        }
+      } catch (listError) {
+        console.error(`loadWork: Failed to list objects with prefix "${imagePrefix}"!`, listError);
+        throw listError;
+      }
 
       const images = listResult.objects
-        .filter(obj => /\.(jpg|jpeg|png|webp)$/i.test(obj.key) && !obj.key.endsWith('index.md'))
-        .map(obj => ({
-          src: `/directr2/${obj.key}`,
-          alt: obj.key.split('/').pop()?.split('.')[0] || '' // Use filename without extension as alt text
-        }));
+        .filter(obj => {
+          const isImage = /\.(jpg|jpeg|png|webp)$/i.test(obj.key);
+          const isNotIndexMd = !obj.key.endsWith('index.md');
+          return isImage && isNotIndexMd;
+        })
+        .map(obj => {
+          const imagePath = `/directr2/${obj.key}`;
+          console.log(`loadWork: Adding image path: ${imagePath}`);
+          return {
+            src: imagePath,
+            alt: obj.key.split('/').pop()?.split('.')[0] || '' // Use filename without extension as alt text
+          };
+        });
+      
+      console.log(`loadWork: Found ${images.length} images for work "${exactSlug}"`);
 
-      return {
+      const coverImage = data.coverImage.startsWith('/')
+        ? `/directr2/works/${exactSlug}${data.coverImage}`
+        : `/directr2/works/${exactSlug}/${data.coverImage}`;
+      
+      console.log(`loadWork: Cover image path: "${coverImage}"`);
+      
+      const result = {
         id: exactSlug,
         title: data.title,
         description: data.description,
         published: data.published,
-        coverImage: data.coverImage.startsWith('/')
-          ? `/directr2/works/${exactSlug}${data.coverImage}`
-          : `/directr2/works/${exactSlug}/${data.coverImage}`,
+        coverImage,
         nsfw: data.nsfw || false,
         tags: data.tags || [],
         images
       };
+      
+      console.log(`loadWork: Successfully created work object for "${exactSlug}"`);
+      return result;
     }
   } catch (error) {
     console.error(`loadWork: Error loading work "${slug}":`, error);
     return null;
   }
-} 
+}

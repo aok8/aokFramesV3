@@ -8,10 +8,11 @@ import type { RequestHandler } from './$types.js';
  * This catch-all route handles static file requests in development mode
  * Specifically for portfolio images that might have path issues
  */
-export const GET: RequestHandler = async ({ params }: { params: { path: string } }) => {
+export const GET: RequestHandler = async ({ params, request }: { params: { path: string }, request: Request }) => {
   // Only use this route in development mode
   if (!dev) {
-    throw error(404, 'Not found');
+    // Instead of throwing an error, return a Response that lets SvelteKit handle it
+    return new Response('Not found', { status: 404 });
   }
 
   // Extract the path from the params
@@ -19,7 +20,8 @@ export const GET: RequestHandler = async ({ params }: { params: { path: string }
   
   // Only handle portfolio image requests
   if (!requestPath.startsWith('images/Portfolio/')) {
-    throw error(404, 'Not found');
+    // Return a Response that will let SvelteKit continue with its normal routing
+    return new Response('Not found', { status: 404 });
   }
 
   try {
@@ -46,6 +48,7 @@ export const GET: RequestHandler = async ({ params }: { params: { path: string }
     });
   } catch (err) {
     console.error(`[Static Server] Error serving file: ${err}`);
-    throw error(404, 'File not found');
+    // Return a Response instead of throwing an error
+    return new Response('File not found', { status: 404 });
   }
 }; 

@@ -333,6 +333,44 @@
      border-radius: 0.5rem; /* Match prose img style */
   }
 
+  /* Mobile-specific styling */
+  @media (max-width: 768px) {
+    .image-placeholder {
+      aspect-ratio: 16 / 10; /* Slightly shorter for mobile */
+      margin-bottom: 1rem; /* Less spacing on mobile */
+    }
+    
+    .p-6 {
+      padding: 1rem !important; /* Override padding for mobile */
+    }
+    
+    .card-container {
+      max-width: 100%; /* Make sure it fits on screen */
+      margin: 0 auto; /* Center it */
+    }
+    
+    /* Make text smaller on mobile */
+    .text-xl {
+      font-size: 1.1rem !important;
+    }
+    
+    .mb-3 {
+      margin-bottom: 0.5rem !important; /* Less margin under title */
+    }
+    
+    .mb-4 {
+      margin-bottom: 0.75rem !important; /* Less margin under meta */
+    }
+    
+    /* Limit height of summary text on mobile */
+    .line-clamp-3 {
+      -webkit-line-clamp: 2;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;  
+      overflow: hidden;
+    }
+  }
+
   .image-placeholder.no-image {
   }
 

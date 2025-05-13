@@ -426,4 +426,20 @@
     }
   }
 
+  /* Mobile-specific adjustment for grid */
+  @media (max-width: 768px) {
+    .posts-grid {
+      gap: 1rem; /* Tighter spacing for mobile */
+    }
+    
+    .blog-main-content {
+      padding-top: 2rem; /* Reduce padding on mobile */
+      padding-bottom: 2rem;
+    }
+    
+    .page-header {
+      margin-bottom: 1.5rem; /* Less margin under header on mobile */
+    }
+  }
+
 </style> 

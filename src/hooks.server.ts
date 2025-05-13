@@ -253,6 +253,20 @@ export const handle: Handle = async ({ event, resolve }) => {
     return resolve(event);
 };
 
+// Add explicit error handling
+export const handleError = async ({ error, event }) => {
+  console.error('[handleError] SvelteKit error handler invoked with:', {
+    error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    url: event.url.pathname,
+    routeId: event.route.id
+  });
+  
+  // Return an object that conforms to App.Error
+  return {
+    message: error instanceof Error ? error.message : 'An unexpected error occurred'
+  };
+};
+
 // Helper function to get the local path for a key
 function getLocalPath(key: string): string | null {
     if (key.startsWith('portfolio/')) {

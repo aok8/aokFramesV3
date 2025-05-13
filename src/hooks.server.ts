@@ -56,7 +56,9 @@ export const handle: Handle = async ({ event, resolve }) => {
             } else if (key.startsWith('works/')) {
                 // Works images are in src/content/works
                 const relativePath = key.substring('works/'.length);
-                localFilePath = path.resolve('src', 'content', 'works', relativePath);
+                // Decode URL-encoded paths (for spaces in folder names like "Boxing%20Tournament")
+                const decodedPath = decodeURIComponent(relativePath);
+                localFilePath = path.resolve('src', 'content', 'works', decodedPath);
             } else if (key.startsWith('blog/')) {
                  // Might be blog images not under posts, e.g., blog/some-image.webp
                  // Check if it should map to src/content/blog/posts/<slug>/header.webp
@@ -185,7 +187,19 @@ export const handle: Handle = async ({ event, resolve }) => {
               else if (pathname === '/apple-touch-icon.png') key = 'constants/apple-touch-icon.png';
               else if (pathname === '/site.webmanifest') key = 'constants/site.webmanifest';
               else if (pathname === '/images/favicon.png') key = 'constants/favicon.png';
-              else if (pathname.startsWith('/directr2/')) key = pathname.substring('/directr2/'.length);
+              else if (pathname.startsWith('/directr2/')) {
+                let rawKey = pathname.substring('/directr2/'.length);
+                // Decode URL-encoded paths in the key if it's for works
+                if (rawKey.startsWith('works/')) {
+                  // We don't decode the full key, just the portion after 'works/'
+                  const prefix = 'works/';
+                  const relativePath = rawKey.substring(prefix.length);
+                  const decodedPath = decodeURIComponent(relativePath);
+                  key = prefix + decodedPath;
+                } else {
+                  key = rawKey;
+                }
+              }
               else if (pathname.startsWith('/images/portfolio/')) key = 'portfolio/' + pathname.substring('/images/portfolio/'.length);
               else if (pathname.startsWith('/images/constants/')) key = 'constants/' + pathname.substring('/images/constants/'.length);
               else if (pathname.startsWith('/images/blog/')) {

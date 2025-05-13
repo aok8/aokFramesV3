@@ -284,13 +284,13 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
 
       // Fix cover image path for development mode
       const coverImage = data.coverImage.startsWith('/')
-        ? `/directr2/works/${exactSlug}${data.coverImage}`
-        : `/directr2/works/${exactSlug}/${data.coverImage}`;
+        ? `/directr2/works/${encodeURIComponent(exactSlug)}${data.coverImage}`
+        : `/directr2/works/${encodeURIComponent(exactSlug)}/${data.coverImage}`;
 
       const images = imageFiles.map((file: string) => ({
-        src: `/directr2/works/${exactSlug}/${file}`,
+        src: `/directr2/works/${encodeURIComponent(exactSlug)}/${file}`,
         alt: file.split('.')[0], // Use filename without extension as alt text
-        fallback: `/directr2/works/${exactSlug}/${file}` // Add fallback path
+        fallback: `/directr2/works/${encodeURIComponent(exactSlug)}/${file}` // Add fallback path
       }));
 
       return {
@@ -410,8 +410,8 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       console.log(`loadWork: Found ${images.length} images for work "${exactSlug}"`);
 
       const coverImage = data.coverImage.startsWith('/')
-        ? `/directr2/works/${exactSlug}${data.coverImage}`
-        : `/directr2/works/${exactSlug}/${data.coverImage}`;
+        ? `/directr2/works/${encodeURIComponent(exactSlug)}${data.coverImage}`
+        : `/directr2/works/${encodeURIComponent(exactSlug)}/${data.coverImage}`;
       
       console.log(`loadWork: Cover image path: "${coverImage}"`);
       

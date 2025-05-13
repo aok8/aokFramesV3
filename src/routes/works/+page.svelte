@@ -325,18 +325,18 @@
   bind:open={showNsfwWarning}
   onClose={handleNsfwCancel}
 >
-  <div class="p-6 rounded-lg" style="background-color: {theme.secondary};">
-    <h3 class="text-lg font-semibold mb-4 text-white">NSFW Content Warning</h3>
-    <p class="mb-6 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
-    <div class="flex justify-end gap-4">
+  <div class="p-4 sm:p-6 rounded-lg w-[90vw] sm:w-auto max-w-md mx-auto" style="background-color: {theme.secondary};">
+    <h3 class="text-lg font-semibold mb-3 sm:mb-4 text-white">NSFW Content Warning</h3>
+    <p class="mb-4 sm:mb-6 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
+    <div class="flex justify-end gap-3 sm:gap-4">
       <button
-        class="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
+        class="px-3 sm:px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-sm sm:text-base"
         on:click={handleNsfwCancel}
       >
         Cancel
       </button>
       <button
-        class="px-4 py-2 rounded transition-colors hover:brightness-110"
+        class="px-3 sm:px-4 py-2 rounded transition-colors hover:brightness-110 text-sm sm:text-base"
         style="background-color: {theme.tertiary}; color: {theme.secondary};"
         on:click={handleNsfwConfirm}
       >
@@ -354,39 +354,46 @@
     color: var(--text-color);
     display: flex;
     flex-direction: column;
+    overflow-x: hidden; /* Prevent horizontal scroll */
   }
 
   .works-main-content {
     flex: 1;
-    padding-top: 4rem;
-    padding-bottom: 4rem;
+    display: flex;
+    flex-direction: column;
+    padding: 4rem 0;
   }
 
   .content-wrapper {
+    width: 100%;
     max-width: 80rem;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .works-container {
+      padding-top: 0; /* Remove top padding as navbar handles it */
+    }
+
+    .works-main-content {
+      padding: 6rem 0 2rem; /* Increased top padding for mobile to account for navbar */
+    }
+
+    .content-wrapper {
+      padding: 0 1rem;
+    }
   }
 
   @media (min-width: 640px) {
     .content-wrapper {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
+      padding: 0 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .content-wrapper {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .works-container {
-      padding-top: 4rem;
+      padding: 0 2rem;
     }
   }
 </style> 

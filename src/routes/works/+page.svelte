@@ -18,6 +18,10 @@
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
+  
+  // References for scrolling
+  let thumbnailContainerRef: HTMLDivElement;
+  let thumbnailButtonRefs: HTMLButtonElement[] = [];
 
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
@@ -32,6 +36,18 @@
     });
   } else {
     sortedImages = [];
+  }
+  
+  // When selectedImageIndex changes, scroll the thumbnail into view
+  $: if (browser && selectedWork && thumbnailButtonRefs[selectedImageIndex]) {
+    // Use setTimeout to ensure DOM has updated
+    setTimeout(() => {
+      thumbnailButtonRefs[selectedImageIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }, 50);
   }
 
   // Loading state tracking
@@ -60,6 +76,9 @@
     
     // Reset loading states for the new work's images
     resetImageLoadingStates();
+    
+    // Reset thumbnail refs array
+    thumbnailButtonRefs = [];
   }
 
   function resetImageLoadingStates() {
@@ -70,19 +89,24 @@
     thumbnailLoading = Array(sortedImages.length).fill(true);
     thumbnailLoaded = Array(sortedImages.length).fill(false);
     thumbnailElements = Array(sortedImages.length).fill(null);
+    thumbnailButtonRefs = Array(sortedImages.length).fill(null);
     
     // Preload all images if in browser environment
     if (browser) {
       // Preload main image
-      const mainImg = new Image();
-      mainImg.onload = () => handleMainImageLoad();
-      mainImg.src = sortedImages[selectedImageIndex].src;
+      if (sortedImages.length > 0 && sortedImages[selectedImageIndex]) {
+        const mainImg = new Image();
+        mainImg.onload = () => handleMainImageLoad();
+        mainImg.src = sortedImages[selectedImageIndex].src;
+      }
       
       // Preload thumbnails
       sortedImages.forEach((image, i) => {
-        const thumbImg = new Image();
-        thumbImg.onload = () => handleThumbnailLoad(i);
-        thumbImg.src = image.src;
+        if (image && image.src) {
+          const thumbImg = new Image();
+          thumbImg.onload = () => handleThumbnailLoad(i);
+          thumbImg.src = image.src;
+        }
       });
     }
   }
@@ -231,10 +255,10 @@
     <div class="fixed inset-0 z-[100] flex flex-col" style="background-color: {darkerTertiary};">
       <!-- Header with title and close button -->
       <div class="p-4 flex items-center justify-between" style="background-color: {theme.secondary};">
-        <div>
-          <h2 class="text-2xl font-bold text-white">{selectedWork.title}</h2>
-          <div class="flex items-center gap-4 text-white/80 text-sm mt-1">
-            <time datetime={selectedWork.published}>
+        <div class="overflow-hidden">
+          <h2 class="text-2xl font-bold text-white truncate">{selectedWork.title}</h2>
+          <div class="flex items-center text-white/80 text-sm mt-1 space-x-2">
+            <time datetime={selectedWork.published} class="flex-shrink-0">
               {new Date(selectedWork.published).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -242,17 +266,17 @@
               })}
             </time>
             {#if selectedWork.tags.length > 0}
-              <span>•</span>
-              <div class="flex gap-2">
+              <span class="flex-shrink-0">•</span>
+              <div class="flex gap-2 overflow-x-auto pb-1 snap-x scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent max-w-[calc(100vw-12rem)]">
                 {#each selectedWork.tags as tag}
-                  <span class="bg-white/10 px-2 py-0.5 rounded">{tag}</span>
+                  <span class="bg-white/10 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 snap-start">{tag}</span>
                 {/each}
               </div>
             {/if}
           </div>
         </div>
         <button 
-          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white flex-shrink-0"
           on:click={closeWorkDetail}
           aria-label="Close detail view"
         >
@@ -335,36 +359,42 @@
           </div>
           
           <!-- Thumbnails -->
-          <div class="mt-4 inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4">
-            <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-              {#each sortedImages as image, i}
-                <button 
-                  class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
-                  class:border-white={i === selectedImageIndex}
-                  class:border-transparent={i !== selectedImageIndex}
-                  on:click={() => selectedImageIndex = i}
-                >
-                  <!-- Thumbnail loading skeleton -->
-                  {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
-                    <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
-                  {/if}
-                  
-                  <!-- Thumbnail image -->
-                  <img 
-                    bind:this={thumbnailElements[i]}
-                    src={image.src} 
-                    alt={`Thumbnail ${i+1}`} 
-                    class="h-full w-full object-cover transition-opacity duration-300"
-                    class:opacity-0={!thumbnailLoaded[i]}
-                    class:opacity-100={thumbnailLoaded[i]}
-                    on:load={() => handleThumbnailLoad(i)}
-                    on:error={() => {
-                      thumbnailLoading[i] = false;
-                      thumbnailLoading = [...thumbnailLoading];
-                    }}
-                  />
-                </button>
-              {/each}
+          <div class="mt-2 md:mt-4 fixed bottom-4 left-0 right-0 flex justify-center">
+            <div class="inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4 px-4 max-w-[90vw] w-auto mx-auto">
+              <div 
+                bind:this={thumbnailContainerRef}
+                class="flex gap-2 overflow-x-auto scroll-smooth scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent max-w-full snap-x snap-mandatory" 
+                style="scrollbar-width: thin;">
+                {#each sortedImages as image, i}
+                  <button 
+                    bind:this={thumbnailButtonRefs[i]}
+                    class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative snap-center"
+                    class:border-white={i === selectedImageIndex}
+                    class:border-transparent={i !== selectedImageIndex}
+                    on:click={() => selectedImageIndex = i}
+                  >
+                    <!-- Thumbnail loading skeleton -->
+                    {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
+                      <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                    {/if}
+                    
+                    <!-- Thumbnail image -->
+                    <img 
+                      bind:this={thumbnailElements[i]}
+                      src={image.src} 
+                      alt={`Thumbnail ${i+1}`} 
+                      class="h-full w-full object-cover transition-opacity duration-300"
+                      class:opacity-0={!thumbnailLoaded[i]}
+                      class:opacity-100={thumbnailLoaded[i]}
+                      on:load={() => handleThumbnailLoad(i)}
+                      on:error={() => {
+                        thumbnailLoading[i] = false;
+                        thumbnailLoading = [...thumbnailLoading];
+                      }}
+                    />
+                  </button>
+                {/each}
+              </div>
             </div>
           </div>
         {:else}
@@ -478,6 +508,13 @@
 
     .content-wrapper {
       padding: 0 1rem;
+    }
+  }
+
+  /* Tablet-specific adjustments */
+  @media (min-width: 769px) and (max-width: 1023px) {
+    .works-main-content {
+      padding-bottom: 2rem; /* Reduce space below carousel for tablets */
     }
   }
 

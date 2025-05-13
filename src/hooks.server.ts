@@ -248,11 +248,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
     // --- END: Production Mode R2 Handling ---
 
-
-    // For all other requests (including static assets in dev), proceed normally
-    console.log(`[Hook] Passing request through: ${pathname}`);
-    const response = await resolve(event);
-    return response;
+    // If none of the above conditions were met, let SvelteKit handle the request normally
+    console.log(`[Hook] Path "${pathname}" not handled by custom R2 logic, passing to SvelteKit resolver.`);
+    return resolve(event);
 };
 
 // Helper function to get the local path for a key

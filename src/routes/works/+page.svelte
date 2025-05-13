@@ -18,6 +18,7 @@
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
+  let carouselIndex = 0; // Track current carousel position
   
   // Sort works by published date (newest first)
   $: sortedWorks = [...(data.works || [])].sort((a, b) => {
@@ -92,6 +93,12 @@
   }
 
   function openWorkDetail(work: Work) {
+    // Find the index of the work to store before showing details
+    const workIndex = sortedWorks.findIndex(w => w.id === work.id);
+    if (workIndex >= 0) {
+      carouselIndex = workIndex;
+    }
+    
     selectedWork = work;
     selectedImageIndex = 0;
     document.body.style.overflow = 'hidden';
@@ -137,6 +144,7 @@
     selectedWork = null;
     enlargedImage = null;
     document.body.style.overflow = '';
+    // carouselIndex is preserved now and will be used when Carousel is re-rendered
   }
 
   function nextImage() {
@@ -224,7 +232,7 @@
     });
   });
 
-  onMount(() => {
+    onMount(() => {
     // Ensure page scrolls to top on initial load
     window.scrollTo(0, 0);
     // Add keyboard event listener
@@ -263,6 +271,8 @@
         <Carousel 
           works={sortedWorks} 
           onWorkClick={handleWorkClick}
+          currentIndex={carouselIndex}
+          on:indexChange={(e) => carouselIndex = e.detail}
         />
       {/if}
     </div>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { theme } from '../theme/theme.js';
-  import { Footer } from "$lib/components/ui";
-  import { Navbar } from "$lib/components/ui";
+  import Footer from "$lib/components/ui/footer.svelte";
+  import Navbar from "$lib/components/ui/navbar.svelte";
 </script>
 
 <div class="error-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">

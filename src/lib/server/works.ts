@@ -270,7 +270,9 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
         title: data.title,
         description: data.description,
         published: data.published,
-        coverImage: data.coverImage,
+        coverImage: data.coverImage.startsWith('/')
+          ? `/directr2/works/${exactSlug}${data.coverImage}`
+          : `/directr2/works/${exactSlug}/${data.coverImage}`,
         nsfw: data.nsfw || false,
         tags: data.tags || [],
         images

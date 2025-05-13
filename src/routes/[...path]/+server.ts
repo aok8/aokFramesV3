@@ -11,8 +11,8 @@ import type { RequestHandler } from './$types.js';
 export const GET: RequestHandler = async ({ params, request }: { params: { path: string }, request: Request }) => {
   // Only use this route in development mode
   if (!dev) {
-    // Instead of throwing an error, return a Response that lets SvelteKit handle it
-    return new Response('Not found', { status: 404 });
+    console.log(`[Catch-all] Non-dev mode, throwing 404 error for path: ${params.path}`);
+    throw error(404, { message: 'Not found' });
   }
 
   // Extract the path from the params
@@ -20,8 +20,9 @@ export const GET: RequestHandler = async ({ params, request }: { params: { path:
   
   // Only handle portfolio image requests
   if (!requestPath.startsWith('images/Portfolio/')) {
-    // Return a Response that will let SvelteKit continue with its normal routing
-    return new Response('Not found', { status: 404 });
+    console.log(`[Catch-all] Path doesn't match portfolio images pattern: ${requestPath}`);
+    // Let SvelteKit handle the 404 with the error page by throwing error
+    throw error(404, { message: 'Not found' });
   }
 
   try {
@@ -48,7 +49,7 @@ export const GET: RequestHandler = async ({ params, request }: { params: { path:
     });
   } catch (err) {
     console.error(`[Static Server] Error serving file: ${err}`);
-    // Return a Response instead of throwing an error
-    return new Response('File not found', { status: 404 });
+    // For file not found errors, throw a SvelteKit error
+    throw error(404, { message: 'File not found' });
   }
 }; 

@@ -188,7 +188,36 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       }
 
       // Parse frontmatter and content
-      const { data, content } = matter(fileContent);
+      console.log(`loadWork: Attempting to parse frontmatter from file content`);
+      let data;
+      try {
+        const parsed = matter(fileContent);
+        data = parsed.data;
+        console.log(`loadWork: Successfully parsed frontmatter:`, 
+          JSON.stringify({
+            title: data.title,
+            hasDescription: !!data.description, 
+            hasPublished: !!data.published,
+            hasCoverImage: !!data.coverImage
+          })
+        );
+        
+        // Validate required fields
+        if (!data.title || !data.description || !data.published || !data.coverImage) {
+          console.error(`loadWork: Missing required fields in frontmatter for "${exactSlug}":`, 
+            JSON.stringify({
+              title: data.title,
+              description: data.description,
+              published: data.published,
+              coverImage: data.coverImage
+            })
+          );
+        }
+      } catch (parseError) {
+        console.error(`loadWork: Failed to parse frontmatter for "${exactSlug}":`, parseError);
+        console.error(`loadWork: Raw file content (first 100 chars): "${fileContent.substring(0, 100)}..."`);
+        throw parseError;
+      }
       
       // Get list of images in the directory
       const dirContents = await fs.readdir(dirPath);
@@ -251,7 +280,36 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       }
 
       // Parse frontmatter and content
-      const { data } = matter(fileContent);
+      console.log(`loadWork: Attempting to parse frontmatter from file content`);
+      let data;
+      try {
+        const parsed = matter(fileContent);
+        data = parsed.data;
+        console.log(`loadWork: Successfully parsed frontmatter:`, 
+          JSON.stringify({
+            title: data.title,
+            hasDescription: !!data.description, 
+            hasPublished: !!data.published,
+            hasCoverImage: !!data.coverImage
+          })
+        );
+        
+        // Validate required fields
+        if (!data.title || !data.description || !data.published || !data.coverImage) {
+          console.error(`loadWork: Missing required fields in frontmatter for "${exactSlug}":`, 
+            JSON.stringify({
+              title: data.title,
+              description: data.description,
+              published: data.published,
+              coverImage: data.coverImage
+            })
+          );
+        }
+      } catch (parseError) {
+        console.error(`loadWork: Failed to parse frontmatter for "${exactSlug}":`, parseError);
+        console.error(`loadWork: Raw file content (first 100 chars): "${fileContent.substring(0, 100)}..."`);
+        throw parseError;
+      }
 
       // List all objects in the work's directory to find images
       const imagePrefix = `works/${exactSlug}/`;
@@ -300,19 +358,35 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       
       console.log(`loadWork: Cover image path: "${coverImage}"`);
       
-      const result = {
-        id: exactSlug,
-        title: data.title,
-        description: data.description,
-        published: data.published,
-        coverImage,
-        nsfw: data.nsfw || false,
-        tags: data.tags || [],
-        images
-      };
-      
-      console.log(`loadWork: Successfully created work object for "${exactSlug}"`);
-      return result;
+      // Try/catch for work object creation to catch any potential issues
+      try {
+        const result = {
+          id: exactSlug,
+          title: data.title,
+          description: data.description,
+          published: data.published,
+          coverImage,
+          nsfw: data.nsfw || false,
+          tags: data.tags || [],
+          images
+        };
+        
+        console.log(`loadWork: Successfully created work object for "${exactSlug}"`);
+        return result;
+      } catch (objectError) {
+        console.error(`loadWork: Failed to create work object for "${exactSlug}":`, objectError);
+        console.error(`loadWork: Data available:`, JSON.stringify({
+          id: exactSlug,
+          title: data.title?.substring(0, 20),
+          hasDescription: !!data.description,
+          published: data.published,
+          coverImage,
+          nsfw: data.nsfw || false,
+          tagsCount: data.tags?.length || 0,
+          imagesCount: images.length
+        }));
+        throw objectError;
+      }
     }
   } catch (error) {
     console.error(`loadWork: Error loading work "${slug}":`, error);

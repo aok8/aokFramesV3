@@ -511,6 +511,13 @@
     }
   }
 
+  /* Tablet-specific adjustments */
+  @media (min-width: 769px) and (max-width: 1023px) {
+    .works-main-content {
+      padding-bottom: 2rem; /* Reduce space below carousel for tablets */
+    }
+  }
+
   @media (min-width: 640px) {
     .content-wrapper {
       padding: 0 1.5rem;

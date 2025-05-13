@@ -19,6 +19,28 @@
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
   
+  // Sort works by published date (newest first)
+  $: sortedWorks = [...(data.works || [])].sort((a, b) => {
+    // Helper function to check if a date is valid
+    const isValidDate = (dateStr: string | undefined) => {
+      if (!dateStr) return false;
+      const date = new Date(dateStr);
+      return !isNaN(date.getTime());
+    };
+    
+    // Check if both works have valid published dates
+    const aHasValidDate = isValidDate(a.published);
+    const bHasValidDate = isValidDate(b.published);
+    
+    // If either date is invalid, sort accordingly
+    if (!aHasValidDate && !bHasValidDate) return 0; // Both invalid, maintain order
+    if (!aHasValidDate) return 1; // a is invalid, put at end
+    if (!bHasValidDate) return -1; // b is invalid, put at end
+    
+    // Both dates are valid, sort normally
+    return new Date(b.published).getTime() - new Date(a.published).getTime();
+  });
+  
   // References for scrolling
   let thumbnailContainerRef: HTMLDivElement;
   let thumbnailButtonRefs: HTMLButtonElement[] = [];
@@ -239,7 +261,7 @@
       <!-- Main Carousel -->
       {#if !selectedWork && data.works && data.works.length > 0}
         <Carousel 
-          works={data.works} 
+          works={sortedWorks} 
           onWorkClick={handleWorkClick}
         />
       {/if}

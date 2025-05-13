@@ -230,7 +230,7 @@
             src={item.work.coverImage} 
             alt={item.work.title}
             class="w-full h-full object-cover transition-all duration-300"
-            class:blur-md={item.work.nsfw && !item.active}
+            class:blur-md={item.work.nsfw}
           />
           
           <!-- Title overlay -->

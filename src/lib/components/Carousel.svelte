@@ -388,28 +388,30 @@
     {/if}
   {/each}
   
-  <!-- Navigation buttons -->
-  <button 
-    class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-    on:click={prevWork}
-    aria-label="Previous work"
-    disabled={isRotating}
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m15 18-6-6 6-6"></path>
-    </svg>
-  </button>
-  
-  <button 
-    class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-    on:click={nextWork}
-    aria-label="Next work"
-    disabled={isRotating}
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m9 18 6-6-6-6"></path>
-    </svg>
-  </button>
+  <!-- Navigation buttons - only shown when multiple works -->
+  {#if works.length > 1}
+    <button 
+      class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+      on:click={prevWork}
+      aria-label="Previous work"
+      disabled={isRotating}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"></path>
+      </svg>
+    </button>
+    
+    <button 
+      class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+      on:click={nextWork}
+      aria-label="Next work"
+      disabled={isRotating}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9 18 6-6-6-6"></path>
+      </svg>
+    </button>
+  {/if}
 </div>
 
 <style>

@@ -1,6 +1,8 @@
 <!-- Works Page -->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, afterUpdate } from 'svelte';
+  import { fade } from 'svelte/transition';
+  import { browser } from '$app/environment';
   import type { Work } from '$lib/types/works.js';
   import { Modal } from '$lib/components/ui/index.js';
   import { theme } from '../../theme/theme.js';
@@ -19,6 +21,16 @@
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
 
+  // Loading state tracking
+  let mainImageLoading = true;
+  let mainImageLoaded = false;
+  let thumbnailLoading: boolean[] = [];
+  let thumbnailLoaded: boolean[] = [];
+  
+  // References to image elements
+  let mainImageElement: HTMLImageElement | null = null;
+  let thumbnailElements: (HTMLImageElement | null)[] = [];
+
   function handleWorkClick(work: Work) {
     if (work.nsfw) {
       showNsfwWarning = true;
@@ -32,6 +44,34 @@
     selectedWork = work;
     selectedImageIndex = 0;
     document.body.style.overflow = 'hidden';
+    
+    // Reset loading states for the new work's images
+    resetImageLoadingStates();
+  }
+
+  function resetImageLoadingStates() {
+    if (!selectedWork) return;
+    
+    mainImageLoading = true;
+    mainImageLoaded = false;
+    thumbnailLoading = Array(selectedWork.images.length).fill(true);
+    thumbnailLoaded = Array(selectedWork.images.length).fill(false);
+    thumbnailElements = Array(selectedWork.images.length).fill(null);
+    
+    // Preload all images if in browser environment
+    if (browser) {
+      // Preload main image
+      const mainImg = new Image();
+      mainImg.onload = () => handleMainImageLoad();
+      mainImg.src = selectedWork.images[selectedImageIndex].src;
+      
+      // Preload thumbnails
+      selectedWork.images.forEach((image, i) => {
+        const thumbImg = new Image();
+        thumbImg.onload = () => handleThumbnailLoad(i);
+        thumbImg.src = image.src;
+      });
+    }
   }
 
   function closeWorkDetail() {
@@ -43,15 +83,21 @@
   function nextImage() {
     if (!selectedWork) return;
     selectedImageIndex = (selectedImageIndex + 1) % selectedWork.images.length;
+    mainImageLoading = true;
+    mainImageLoaded = false;
   }
 
   function prevImage() {
     if (!selectedWork) return;
     selectedImageIndex = (selectedImageIndex - 1 + selectedWork.images.length) % selectedWork.images.length;
+    mainImageLoading = true;
+    mainImageLoaded = false;
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
     enlargedImage = image;
+    mainImageLoading = true;
+    mainImageLoaded = false;
   }
 
   function closeEnlargedImage() {
@@ -71,6 +117,20 @@
     nsfwWorkToShow = null;
   }
 
+  // Image loading handlers
+  function handleMainImageLoad() {
+    mainImageLoaded = true;
+    mainImageLoading = false;
+  }
+  
+  function handleThumbnailLoad(index: number) {
+    thumbnailLoaded[index] = true;
+    thumbnailLoading[index] = false;
+    // Force reactivity
+    thumbnailLoaded = [...thumbnailLoaded];
+    thumbnailLoading = [...thumbnailLoading];
+  }
+
   // Add keyboard navigation
   function handleKeydown(e: KeyboardEvent) {
     if (!selectedWork) return;
@@ -88,18 +148,22 @@
     }
   }
 
-  let imageLoading = false;
-  let imageError = false;
-
-  function handleImageLoad() {
-    imageLoading = false;
-    imageError = false;
-  }
-
-  function handleImageError() {
-    imageLoading = false;
-    imageError = true;
-  }
+  // Check for images that are already loaded on mount/update
+  afterUpdate(() => {
+    if (!selectedWork) return;
+    
+    // Check main image
+    if (mainImageElement?.complete && mainImageElement?.naturalWidth > 0 && !mainImageLoaded) {
+      handleMainImageLoad();
+    }
+    
+    // Check thumbnails
+    thumbnailElements.forEach((img, i) => {
+      if (img?.complete && img?.naturalWidth > 0 && !thumbnailLoaded[i]) {
+        handleThumbnailLoad(i);
+      }
+    });
+  });
 
   onMount(() => {
     // Ensure page scrolls to top on initial load
@@ -126,8 +190,17 @@
         <h1 class="text-4xl md:text-5xl font-bold mb-12 text-center" style="color: {theme.text.primary};">Works</h1>
       {/if}
       
+      <!-- No works message -->
+      {#if !selectedWork && (!data.works || data.works.length === 0)}
+        <div class="flex flex-col items-center justify-center py-16">
+          <p class="text-xl text-center" style="color: {theme.secondary};">
+            There are currently no works added. Please come back later!
+          </p>
+        </div>
+      {/if}
+      
       <!-- Main Carousel -->
-      {#if !selectedWork}
+      {#if !selectedWork && data.works && data.works.length > 0}
         <Carousel 
           works={data.works} 
           onWorkClick={handleWorkClick}
@@ -200,55 +273,52 @@
                     }
                   }}
                 >
-                  {#if imageLoading}
-                    <div class="absolute inset-0 flex items-center justify-center">
+                  <!-- Loading skeleton -->
+                  {#if mainImageLoading && !mainImageLoaded}
+                    <div class="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse">
                       <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
                     </div>
                   {/if}
-                  {#if imageError}
-                    <div class="absolute inset-0 flex items-center justify-center">
-                      <div class="text-red-400 text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <line x1="15" y1="9" x2="9" y2="15"></line>
-                          <line x1="9" y1="9" x2="15" y2="15"></line>
-                        </svg>
-                        <p>Failed to load image</p>
-                      </div>
-                    </div>
-                  {/if}
+                  
+                  <!-- Main image -->
                   <img 
+                    bind:this={mainImageElement}
                     src={image.src} 
                     alt={image.alt} 
                     class="max-h-full max-w-full object-contain transition-opacity duration-300"
-                    class:opacity-0={imageLoading || imageError}
-                    on:load={handleImageLoad}
-                    on:error={handleImageError}
+                    class:opacity-0={!mainImageLoaded}
+                    class:opacity-100={mainImageLoaded}
+                    on:load={handleMainImageLoad}
+                    on:error={() => {
+                      mainImageLoading = false;
+                    }}
                   />
                 </div>
               {/if}
             {/each}
             
-            <!-- Navigation buttons -->
-            <button 
-              class="absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-              on:click={prevImage}
-              aria-label="Previous image"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m15 18-6-6 6-6"></path>
-              </svg>
-            </button>
-            
-            <button 
-              class="absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-              on:click={nextImage}
-              aria-label="Next image"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m9 18 6-6-6-6"></path>
-              </svg>
-            </button>
+            <!-- Navigation buttons - only shown when multiple images -->
+            {#if selectedWork.images.length > 1}
+              <button 
+                class="absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                on:click={prevImage}
+                aria-label="Previous image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"></path>
+                </svg>
+              </button>
+              
+              <button 
+                class="absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                on:click={nextImage}
+                aria-label="Next image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6"></path>
+                </svg>
+              </button>
+            {/if}
           </div>
           
           <!-- Thumbnails -->
@@ -256,15 +326,29 @@
             <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
               {#each selectedWork.images as image, i}
                 <button 
-                  class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110"
+                  class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
                   class:border-white={i === selectedImageIndex}
                   class:border-transparent={i !== selectedImageIndex}
                   on:click={() => selectedImageIndex = i}
                 >
+                  <!-- Thumbnail loading skeleton -->
+                  {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
+                    <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                  {/if}
+                  
+                  <!-- Thumbnail image -->
                   <img 
+                    bind:this={thumbnailElements[i]}
                     src={image.src} 
                     alt={`Thumbnail ${i+1}`} 
-                    class="h-full w-full object-cover"
+                    class="h-full w-full object-cover transition-opacity duration-300"
+                    class:opacity-0={!thumbnailLoaded[i]}
+                    class:opacity-100={thumbnailLoaded[i]}
+                    on:load={() => handleThumbnailLoad(i)}
+                    on:error={() => {
+                      thumbnailLoading[i] = false;
+                      thumbnailLoading = [...thumbnailLoading];
+                    }}
                   />
                 </button>
               {/each}
@@ -281,30 +365,25 @@
               }
             }}
           >
-            {#if imageLoading}
+            <!-- Loading skeleton -->
+            {#if mainImageLoading && !mainImageLoaded}
               <div class="absolute inset-0 flex items-center justify-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
               </div>
             {/if}
-            {#if imageError}
-              <div class="absolute inset-0 flex items-center justify-center">
-                <div class="text-red-400 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="15" y1="9" x2="9" y2="15"></line>
-                    <line x1="9" y1="9" x2="15" y2="15"></line>
-                  </svg>
-                  <p>Failed to load image</p>
-                </div>
-              </div>
-            {/if}
+            
+            <!-- Enlarged image -->
             <img 
+              bind:this={mainImageElement}
               src={enlargedImage.src} 
               alt={enlargedImage.alt} 
               class="max-h-[90vh] max-w-[90vw] object-contain transition-opacity duration-300"
-              class:opacity-0={imageLoading || imageError}
-              on:load={handleImageLoad}
-              on:error={handleImageError}
+              class:opacity-0={!mainImageLoaded}
+              class:opacity-100={mainImageLoaded}
+              on:load={handleMainImageLoad}
+              on:error={() => {
+                mainImageLoading = false;
+              }}
             />
             
             <button 

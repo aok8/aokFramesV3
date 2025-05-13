@@ -17,9 +17,22 @@
   let enlargedImage: { src: string; alt: string } | null = null;
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
+  let sortedImages: { src: string; alt: string; }[] = [];
 
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
+
+  // Sort images by filename numerically when selectedWork changes
+  $: if (selectedWork) {
+    sortedImages = [...selectedWork.images].sort((a, b) => {
+      // Extract numbers from filenames
+      const aNum = parseInt(a.alt.replace(/\D/g, '')) || 0;
+      const bNum = parseInt(b.alt.replace(/\D/g, '')) || 0;
+      return aNum - bNum;
+    });
+  } else {
+    sortedImages = [];
+  }
 
   // Loading state tracking
   let mainImageLoading = true;
@@ -54,19 +67,19 @@
     
     mainImageLoading = true;
     mainImageLoaded = false;
-    thumbnailLoading = Array(selectedWork.images.length).fill(true);
-    thumbnailLoaded = Array(selectedWork.images.length).fill(false);
-    thumbnailElements = Array(selectedWork.images.length).fill(null);
+    thumbnailLoading = Array(sortedImages.length).fill(true);
+    thumbnailLoaded = Array(sortedImages.length).fill(false);
+    thumbnailElements = Array(sortedImages.length).fill(null);
     
     // Preload all images if in browser environment
     if (browser) {
       // Preload main image
       const mainImg = new Image();
       mainImg.onload = () => handleMainImageLoad();
-      mainImg.src = selectedWork.images[selectedImageIndex].src;
+      mainImg.src = sortedImages[selectedImageIndex].src;
       
       // Preload thumbnails
-      selectedWork.images.forEach((image, i) => {
+      sortedImages.forEach((image, i) => {
         const thumbImg = new Image();
         thumbImg.onload = () => handleThumbnailLoad(i);
         thumbImg.src = image.src;
@@ -82,14 +95,14 @@
 
   function nextImage() {
     if (!selectedWork) return;
-    selectedImageIndex = (selectedImageIndex + 1) % selectedWork.images.length;
+    selectedImageIndex = (selectedImageIndex + 1) % sortedImages.length;
     mainImageLoading = true;
     mainImageLoaded = false;
   }
 
   function prevImage() {
     if (!selectedWork) return;
-    selectedImageIndex = (selectedImageIndex - 1 + selectedWork.images.length) % selectedWork.images.length;
+    selectedImageIndex = (selectedImageIndex - 1 + sortedImages.length) % sortedImages.length;
     mainImageLoading = true;
     mainImageLoaded = false;
   }
@@ -262,7 +275,7 @@
         {#if !enlargedImage}
           <!-- Gallery view -->
           <div class="relative flex items-center justify-center h-[60vh]">
-            {#each selectedWork.images as image, i}
+            {#each sortedImages as image, i}
               {#if i === selectedImageIndex}
                 <div 
                   class="w-full h-full flex items-center justify-center cursor-pointer relative"
@@ -298,7 +311,7 @@
             {/each}
             
             <!-- Navigation buttons - only shown when multiple images -->
-            {#if selectedWork.images.length > 1}
+            {#if sortedImages.length > 1}
               <button 
                 class="absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 on:click={prevImage}
@@ -324,7 +337,7 @@
           <!-- Thumbnails -->
           <div class="mt-4 inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4">
             <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-              {#each selectedWork.images as image, i}
+              {#each sortedImages as image, i}
                 <button 
                   class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
                   class:border-white={i === selectedImageIndex}

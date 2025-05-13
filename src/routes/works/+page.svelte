@@ -5,6 +5,8 @@
   import { Modal } from '$lib/components/ui/index.js';
   import { theme } from '../../theme/theme.js';
   import Carousel from '../../lib/components/Carousel.svelte';
+  import Navbar from '$lib/components/ui/navbar.svelte';
+  import Footer from '$lib/components/ui/footer.svelte';
 
   export let data: { works: Work[] };
   
@@ -13,6 +15,9 @@
   let enlargedImage: { src: string; alt: string } | null = null;
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
+
+  // Calculate a slightly darker tertiary color for the detail view background
+  $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
 
   function handleWorkClick(work: Work) {
     if (work.nsfw) {
@@ -107,25 +112,42 @@
   });
 </script>
 
-<div class="min-h-screen bg-black text-white flex flex-col items-center justify-center relative overflow-hidden p-4">
-  <h1 class="text-4xl md:text-5xl font-bold mb-12 text-center">Works</h1>
-  
-  <!-- Main Carousel -->
+<div class="works-container" style="--bg-color: {theme.tertiary}; --text-color: {theme.text.primary};">
   {#if !selectedWork}
-    <Carousel 
-      works={data.works} 
-      onWorkClick={handleWorkClick}
+    <Navbar 
+      backgroundColor={theme.text.primary}
+      textColor={theme.background.light}
     />
+  {/if}
+
+  <main class="works-main-content">
+    <div class="content-wrapper">
+      {#if !selectedWork}
+        <h1 class="text-4xl md:text-5xl font-bold mb-12 text-center" style="color: {theme.text.primary};">Works</h1>
+      {/if}
+      
+      <!-- Main Carousel -->
+      {#if !selectedWork}
+        <Carousel 
+          works={data.works} 
+          onWorkClick={handleWorkClick}
+        />
+      {/if}
+    </div>
+  </main>
+
+  {#if !selectedWork}
+    <Footer />
   {/if}
   
   <!-- Work Detail View -->
   {#if selectedWork}
-    <div class="fixed inset-0 bg-black z-50 flex flex-col">
+    <div class="fixed inset-0 z-[100] flex flex-col" style="background-color: {darkerTertiary};">
       <!-- Header with title and close button -->
-      <div class="p-4 flex items-center justify-between border-b border-white/10">
+      <div class="p-4 flex items-center justify-between" style="background-color: {theme.secondary};">
         <div>
-          <h2 class="text-2xl font-bold">{selectedWork.title}</h2>
-          <div class="flex items-center gap-4 text-gray-400 text-sm mt-1">
+          <h2 class="text-2xl font-bold text-white">{selectedWork.title}</h2>
+          <div class="flex items-center gap-4 text-white/80 text-sm mt-1">
             <time datetime={selectedWork.published}>
               {new Date(selectedWork.published).toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -144,7 +166,7 @@
           </div>
         </div>
         <button 
-          class="p-2 rounded-full hover:bg-white/10 transition-colors"
+          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white"
           on:click={closeWorkDetail}
           aria-label="Close detail view"
         >
@@ -156,7 +178,7 @@
       </div>
       
       <!-- Description -->
-      <div class="px-4 py-2 text-gray-300">
+      <div class="px-4 py-2 text-white/80">
         {selectedWork.description}
       </div>
       
@@ -324,7 +346,7 @@
 </Modal>
 
 <style>
-  .page-container {
+  .works-container {
     min-height: 100vh;
     width: 100%;
     background-color: var(--bg-color);
@@ -333,44 +355,37 @@
     flex-direction: column;
   }
 
-  .content-area {
-    flex: 1; /* Takes up remaining space */
-    display: flex;
-    flex-direction: column;
-    justify-content: center; /* Center vertically */
-    align-items: center; /* Center horizontally */
-    text-align: center;
-    padding: 2rem;
-    gap: 1rem; /* Add some space between elements */
+  .works-main-content {
+    flex: 1;
+    padding-top: 4rem;
+    padding-bottom: 4rem;
   }
 
-  h1 {
-    font-size: 2.5rem; /* Adjust size as needed */
-    font-weight: 300;
-    margin: 0;
+  .content-wrapper {
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
-  p {
-    font-size: 1.2rem; /* Adjust size as needed */
-    margin-top: 0.5rem;
+  @media (min-width: 640px) {
+    .content-wrapper {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
   }
 
-  /* Optional: Style the icon */
-  .content-area :global(svg) {
-    color: color-mix(in srgb, var(--text-color) 70%, black); /* Example color */
-    margin-bottom: 1rem;
+  @media (min-width: 1024px) {
+    .content-wrapper {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
   }
 
   @media (max-width: 768px) {
-    h1 {
-      font-size: 1.8rem;
-    }
-    p {
-      font-size: 1rem;
-    }
-    .content-area :global(svg) {
-      width: 48px;
-      height: 48px;
+    .works-container {
+      padding-top: 4rem;
     }
   }
 </style> 

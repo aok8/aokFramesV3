@@ -1,32 +1,13 @@
 <script lang="ts">
-  import { theme } from '../theme/theme.js';
-  import { Footer } from "$lib/components/ui";
-  import { Navbar } from "$lib/components/ui";
+  import { page } from '$app/stores';
 </script>
 
-<div class="error-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
-  <Navbar 
-    backgroundColor={theme.text.primary}
-    textColor={theme.background.light}
-  />
-  <div class="error-content">
-    <h1>404</h1>
-    <p>Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
-    <p>You can return home by clicking <a href="/">here</a>.</p>
-  </div>
-  <Footer />
+<div class="error-content">
+  <p> Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
+  <p>You can return home by clicking <a href="/">here</a>.</p>
 </div>
 
 <style>
-  .error-container {
-    min-height: 100vh;
-    width: 100%;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    display: flex;
-    flex-direction: column;
-  }
-
   .error-content {
     flex: 1;
     display: flex;
@@ -35,6 +16,7 @@
     align-items: center;
     text-align: center;
     padding: 2rem;
+    min-height: 80vh;
   }
 
   h1 {
@@ -49,12 +31,12 @@
   }
 
   a {
-    color: color-mix(in srgb, var(--text-color) 80%, black);
+    font-weight: bold;
+    text-decoration: underline;
   }
 
   a:hover {
     opacity: 0.8;
-    text-decoration: underline;
   }
 
   @media (max-width: 768px) {

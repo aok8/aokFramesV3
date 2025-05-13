@@ -1,71 +1,482 @@
+<!-- Works Page -->
 <script lang="ts">
-  import { theme } from '../../theme/theme.js'; // Adjusted path relative to src/routes/works/
-  import { Footer } from "$lib/components/ui";
-  import { Navbar } from "$lib/components/ui";
-  import { Settings } from "lucide-svelte"; // Changed icon to Settings
+  import { onMount, afterUpdate } from 'svelte';
+  import { fade } from 'svelte/transition';
+  import { browser } from '$app/environment';
+  import type { Work } from '$lib/types/works.js';
+  import { Modal } from '$lib/components/ui/index.js';
+  import { theme } from '../../theme/theme.js';
+  import Carousel from '../../lib/components/Carousel.svelte';
+  import Navbar from '$lib/components/ui/navbar.svelte';
+  import Footer from '$lib/components/ui/footer.svelte';
+
+  export let data: { works: Work[] };
+  
+  let selectedWork: Work | null = null;
+  let selectedImageIndex = 0;
+  let enlargedImage: { src: string; alt: string } | null = null;
+  let showNsfwWarning = false;
+  let nsfwWorkToShow: Work | null = null;
+
+  // Calculate a slightly darker tertiary color for the detail view background
+  $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
+
+  // Loading state tracking
+  let mainImageLoading = true;
+  let mainImageLoaded = false;
+  let thumbnailLoading: boolean[] = [];
+  let thumbnailLoaded: boolean[] = [];
+  
+  // References to image elements
+  let mainImageElement: HTMLImageElement | null = null;
+  let thumbnailElements: (HTMLImageElement | null)[] = [];
+
+  function handleWorkClick(work: Work) {
+    if (work.nsfw) {
+      showNsfwWarning = true;
+      nsfwWorkToShow = work;
+    } else {
+      openWorkDetail(work);
+    }
+  }
+
+  function openWorkDetail(work: Work) {
+    selectedWork = work;
+    selectedImageIndex = 0;
+    document.body.style.overflow = 'hidden';
+    
+    // Reset loading states for the new work's images
+    resetImageLoadingStates();
+  }
+
+  function resetImageLoadingStates() {
+    if (!selectedWork) return;
+    
+    mainImageLoading = true;
+    mainImageLoaded = false;
+    thumbnailLoading = Array(selectedWork.images.length).fill(true);
+    thumbnailLoaded = Array(selectedWork.images.length).fill(false);
+    thumbnailElements = Array(selectedWork.images.length).fill(null);
+    
+    // Preload all images if in browser environment
+    if (browser) {
+      // Preload main image
+      const mainImg = new Image();
+      mainImg.onload = () => handleMainImageLoad();
+      mainImg.src = selectedWork.images[selectedImageIndex].src;
+      
+      // Preload thumbnails
+      selectedWork.images.forEach((image, i) => {
+        const thumbImg = new Image();
+        thumbImg.onload = () => handleThumbnailLoad(i);
+        thumbImg.src = image.src;
+      });
+    }
+  }
+
+  function closeWorkDetail() {
+    selectedWork = null;
+    enlargedImage = null;
+    document.body.style.overflow = '';
+  }
+
+  function nextImage() {
+    if (!selectedWork) return;
+    selectedImageIndex = (selectedImageIndex + 1) % selectedWork.images.length;
+    mainImageLoading = true;
+    mainImageLoaded = false;
+  }
+
+  function prevImage() {
+    if (!selectedWork) return;
+    selectedImageIndex = (selectedImageIndex - 1 + selectedWork.images.length) % selectedWork.images.length;
+    mainImageLoading = true;
+    mainImageLoaded = false;
+  }
+
+  function enlargeImage(image: { src: string; alt: string }) {
+    enlargedImage = image;
+    mainImageLoading = true;
+    mainImageLoaded = false;
+  }
+
+  function closeEnlargedImage() {
+    enlargedImage = null;
+  }
+
+  function handleNsfwConfirm() {
+    showNsfwWarning = false;
+    if (nsfwWorkToShow) {
+      openWorkDetail(nsfwWorkToShow);
+      nsfwWorkToShow = null;
+    }
+  }
+
+  function handleNsfwCancel() {
+    showNsfwWarning = false;
+    nsfwWorkToShow = null;
+  }
+
+  // Image loading handlers
+  function handleMainImageLoad() {
+    mainImageLoaded = true;
+    mainImageLoading = false;
+  }
+  
+  function handleThumbnailLoad(index: number) {
+    thumbnailLoaded[index] = true;
+    thumbnailLoading[index] = false;
+    // Force reactivity
+    thumbnailLoaded = [...thumbnailLoaded];
+    thumbnailLoading = [...thumbnailLoading];
+  }
+
+  // Add keyboard navigation
+  function handleKeydown(e: KeyboardEvent) {
+    if (!selectedWork) return;
+    
+    if (e.key === 'ArrowLeft') {
+      prevImage();
+    } else if (e.key === 'ArrowRight') {
+      nextImage();
+    } else if (e.key === 'Escape') {
+      if (enlargedImage) {
+        closeEnlargedImage();
+      } else {
+        closeWorkDetail();
+      }
+    }
+  }
+
+  // Check for images that are already loaded on mount/update
+  afterUpdate(() => {
+    if (!selectedWork) return;
+    
+    // Check main image
+    if (mainImageElement?.complete && mainImageElement?.naturalWidth > 0 && !mainImageLoaded) {
+      handleMainImageLoad();
+    }
+    
+    // Check thumbnails
+    thumbnailElements.forEach((img, i) => {
+      if (img?.complete && img?.naturalWidth > 0 && !thumbnailLoaded[i]) {
+        handleThumbnailLoad(i);
+      }
+    });
+  });
+
+  onMount(() => {
+    // Ensure page scrolls to top on initial load
+    window.scrollTo(0, 0);
+    // Add keyboard event listener
+    window.addEventListener('keydown', handleKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+    };
+  });
 </script>
 
-<div class="page-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};">
-  <Navbar 
-    backgroundColor={theme.text.primary}
-    textColor={theme.background.light}
-  />
-  <div class="content-area">
-    <Settings size={64} strokeWidth={1.5} />
-    <h1>Under Construction</h1>
-    <p>This page is currently being built. Please check back later!</p>
-  </div>
-  <Footer />
+<div class="works-container" style="--bg-color: {theme.tertiary}; --text-color: {theme.text.primary};">
+  {#if !selectedWork}
+    <Navbar 
+      backgroundColor={theme.text.primary}
+      textColor={theme.background.light}
+    />
+  {/if}
+
+  <main class="works-main-content">
+    <div class="content-wrapper">
+      {#if !selectedWork}
+        <h1 class="text-4xl md:text-5xl font-bold mb-12 text-center" style="color: {theme.text.primary};">Works</h1>
+      {/if}
+      
+      <!-- No works message -->
+      {#if !selectedWork && (!data.works || data.works.length === 0)}
+        <div class="flex flex-col items-center justify-center py-16">
+          <p class="text-xl text-center" style="color: {theme.secondary};">
+            There are currently no works added. Please come back later!
+          </p>
+        </div>
+      {/if}
+      
+      <!-- Main Carousel -->
+      {#if !selectedWork && data.works && data.works.length > 0}
+        <Carousel 
+          works={data.works} 
+          onWorkClick={handleWorkClick}
+        />
+      {/if}
+    </div>
+  </main>
+
+  {#if !selectedWork}
+    <Footer />
+  {/if}
+  
+  <!-- Work Detail View -->
+  {#if selectedWork}
+    <div class="fixed inset-0 z-[100] flex flex-col" style="background-color: {darkerTertiary};">
+      <!-- Header with title and close button -->
+      <div class="p-4 flex items-center justify-between" style="background-color: {theme.secondary};">
+        <div>
+          <h2 class="text-2xl font-bold text-white">{selectedWork.title}</h2>
+          <div class="flex items-center gap-4 text-white/80 text-sm mt-1">
+            <time datetime={selectedWork.published}>
+              {new Date(selectedWork.published).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </time>
+            {#if selectedWork.tags.length > 0}
+              <span>•</span>
+              <div class="flex gap-2">
+                {#each selectedWork.tags as tag}
+                  <span class="bg-white/10 px-2 py-0.5 rounded">{tag}</span>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+        <button 
+          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+          on:click={closeWorkDetail}
+          aria-label="Close detail view"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Description -->
+      <div class="px-4 py-2 text-sm sm:text-base"
+      style="color: {theme.secondary};"
+      >
+        {selectedWork.description}
+      </div>
+      
+      <!-- Main content area -->
+      <div class="flex-1 overflow-auto p-4">
+        {#if !enlargedImage}
+          <!-- Gallery view -->
+          <div class="relative flex items-center justify-center h-[60vh]">
+            {#each selectedWork.images as image, i}
+              {#if i === selectedImageIndex}
+                <div 
+                  class="w-full h-full flex items-center justify-center cursor-pointer relative"
+                  on:click={() => enlargeImage(image)}
+                  on:keydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      enlargeImage(image);
+                    }
+                  }}
+                >
+                  <!-- Loading skeleton -->
+                  {#if mainImageLoading && !mainImageLoaded}
+                    <div class="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse">
+                      <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
+                    </div>
+                  {/if}
+                  
+                  <!-- Main image -->
+                  <img 
+                    bind:this={mainImageElement}
+                    src={image.src} 
+                    alt={image.alt} 
+                    class="max-h-full max-w-full object-contain transition-opacity duration-300"
+                    class:opacity-0={!mainImageLoaded}
+                    class:opacity-100={mainImageLoaded}
+                    on:load={handleMainImageLoad}
+                    on:error={() => {
+                      mainImageLoading = false;
+                    }}
+                  />
+                </div>
+              {/if}
+            {/each}
+            
+            <!-- Navigation buttons - only shown when multiple images -->
+            {#if selectedWork.images.length > 1}
+              <button 
+                class="absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                on:click={prevImage}
+                aria-label="Previous image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"></path>
+                </svg>
+              </button>
+              
+              <button 
+                class="absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                on:click={nextImage}
+                aria-label="Next image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6"></path>
+                </svg>
+              </button>
+            {/if}
+          </div>
+          
+          <!-- Thumbnails -->
+          <div class="mt-4 inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4">
+            <div class="flex gap-2 overflow-x-auto px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+              {#each selectedWork.images as image, i}
+                <button 
+                  class="flex-shrink-0 h-20 w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative"
+                  class:border-white={i === selectedImageIndex}
+                  class:border-transparent={i !== selectedImageIndex}
+                  on:click={() => selectedImageIndex = i}
+                >
+                  <!-- Thumbnail loading skeleton -->
+                  {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
+                    <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                  {/if}
+                  
+                  <!-- Thumbnail image -->
+                  <img 
+                    bind:this={thumbnailElements[i]}
+                    src={image.src} 
+                    alt={`Thumbnail ${i+1}`} 
+                    class="h-full w-full object-cover transition-opacity duration-300"
+                    class:opacity-0={!thumbnailLoaded[i]}
+                    class:opacity-100={thumbnailLoaded[i]}
+                    on:load={() => handleThumbnailLoad(i)}
+                    on:error={() => {
+                      thumbnailLoading[i] = false;
+                      thumbnailLoading = [...thumbnailLoading];
+                    }}
+                  />
+                </button>
+              {/each}
+            </div>
+          </div>
+        {:else}
+          <!-- Enlarged image view -->
+          <div 
+            class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
+            on:click={closeEnlargedImage}
+            on:keydown={(e) => {
+              if (e.key === 'Escape') {
+                closeEnlargedImage();
+              }
+            }}
+          >
+            <!-- Loading skeleton -->
+            {#if mainImageLoading && !mainImageLoaded}
+              <div class="absolute inset-0 flex items-center justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
+              </div>
+            {/if}
+            
+            <!-- Enlarged image -->
+            <img 
+              bind:this={mainImageElement}
+              src={enlargedImage.src} 
+              alt={enlargedImage.alt} 
+              class="max-h-[90vh] max-w-[90vw] object-contain transition-opacity duration-300"
+              class:opacity-0={!mainImageLoaded}
+              class:opacity-100={mainImageLoaded}
+              on:load={handleMainImageLoad}
+              on:error={() => {
+                mainImageLoading = false;
+              }}
+            />
+            
+            <button 
+              class="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Close enlarged view"
+              on:click|stopPropagation={closeEnlargedImage}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
+            </button>
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 </div>
 
+<!-- NSFW Warning Modal -->
+<Modal
+  bind:open={showNsfwWarning}
+  onClose={handleNsfwCancel}
+>
+  <div class="p-4 sm:p-6 rounded-lg w-[90vw] sm:w-auto max-w-md mx-auto" style="background-color: {theme.secondary};">
+    <h3 class="text-lg font-semibold mb-3 sm:mb-4 text-white">NSFW Content Warning</h3>
+    <p class="mb-4 sm:mb-6 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
+    <div class="flex justify-end gap-3 sm:gap-4">
+      <button
+        class="px-3 sm:px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-sm sm:text-base"
+        on:click={handleNsfwCancel}
+      >
+        Cancel
+      </button>
+      <button
+        class="px-3 sm:px-4 py-2 rounded transition-colors hover:brightness-110 text-sm sm:text-base"
+        style="background-color: {theme.tertiary}; color: {theme.secondary};"
+        on:click={handleNsfwConfirm}
+      >
+        Proceed
+      </button>
+    </div>
+  </div>
+</Modal>
+
 <style>
-  .page-container {
+  .works-container {
     min-height: 100vh;
     width: 100%;
     background-color: var(--bg-color);
     color: var(--text-color);
     display: flex;
     flex-direction: column;
+    overflow-x: hidden; /* Prevent horizontal scroll */
   }
 
-  .content-area {
-    flex: 1; /* Takes up remaining space */
+  .works-main-content {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center; /* Center vertically */
-    align-items: center; /* Center horizontally */
-    text-align: center;
-    padding: 2rem;
-    gap: 1rem; /* Add some space between elements */
+    padding: 4rem 0;
   }
 
-  h1 {
-    font-size: 2.5rem; /* Adjust size as needed */
-    font-weight: 300;
-    margin: 0;
-  }
-
-  p {
-    font-size: 1.2rem; /* Adjust size as needed */
-    margin-top: 0.5rem;
-  }
-
-  /* Optional: Style the icon */
-  .content-area :global(svg) {
-    color: color-mix(in srgb, var(--text-color) 70%, black); /* Example color */
-    margin-bottom: 1rem;
+  .content-wrapper {
+    width: 100%;
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0 1rem;
   }
 
   @media (max-width: 768px) {
-    h1 {
-      font-size: 1.8rem;
+    .works-container {
+      padding-top: 0; /* Remove top padding as navbar handles it */
     }
-    p {
-      font-size: 1rem;
+
+    .works-main-content {
+      padding: 6rem 0 2rem; /* Increased top padding for mobile to account for navbar */
     }
-    .content-area :global(svg) {
-      width: 48px;
-      height: 48px;
+
+    .content-wrapper {
+      padding: 0 1rem;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .content-wrapper {
+      padding: 0 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .content-wrapper {
+      padding: 0 2rem;
     }
   }
 </style> 

@@ -1,16 +1,21 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
+  import { theme } from '../../../theme/theme.js';
+  import { page } from '$app/stores';
 </script>
 
-<Navbar />
+<Navbar 
+  backgroundColor={theme.text.primary}
+  textColor={theme.background.light}
+/>
 
-<main class="min-h-screen bg-gray-50 py-16">
+<main class="min-h-screen py-16 pt-24 md:pt-20" style="background-color: {theme.background.light}; color: {theme.text.primary};">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8">
+    <div class="mb-8 mt-4 md:mt-0">
       <a
         href="/blog"
-        class="inline-flex items-center text-gray-600 hover:text-gray-900"
+        class="inline-flex items-center hover:opacity-80"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -29,12 +34,18 @@
     </div>
 
     <div class="text-center py-16">
-      <h1 class="text-2xl font-semibold text-gray-900">Post not found</h1>
-      <p class="mt-2 text-gray-600">
+      <p class="text-gray-600">
         The blog post you're looking for doesn't exist.
       </p>
     </div>
   </div>
 </main>
 
-<Footer --bg-color={theme.background.light} --text-color={theme.text.primary}/> 
+<Footer /> 
+
+<style>
+  p {
+    font-size: 1.5rem;
+    margin-top: 1rem;
+  }
+</style>

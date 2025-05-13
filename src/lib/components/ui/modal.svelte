@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fade, scale } from 'svelte/transition';
+  import { fade } from 'svelte/transition';
   import { theme } from '../../../theme/theme.js';
   import { onMount, onDestroy } from 'svelte';
   import { BROWSER } from 'esm-env';
@@ -8,6 +8,23 @@
   export let onClose: () => void;
 
   let closeButton: HTMLButtonElement;
+  let scrollbarWidth: number;
+
+  function getScrollbarWidth() {
+    if (!BROWSER) return 0;
+    const outer = document.createElement('div');
+    outer.style.visibility = 'hidden';
+    outer.style.overflow = 'scroll';
+    document.body.appendChild(outer);
+    
+    const inner = document.createElement('div');
+    outer.appendChild(inner);
+    
+    const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+    outer.parentNode?.removeChild(outer);
+    
+    return scrollbarWidth;
+  }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
@@ -17,7 +34,8 @@
 
   function handleClose() {
     if (BROWSER) {
-      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('--scrollbar-width');
     }
     onClose();
   }
@@ -25,19 +43,21 @@
   onMount(() => {
     if (BROWSER) {
       document.addEventListener('keydown', handleKeydown);
+      scrollbarWidth = getScrollbarWidth();
     }
   });
 
   onDestroy(() => {
     if (BROWSER) {
       document.removeEventListener('keydown', handleKeydown);
-      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('--scrollbar-width');
     }
   });
 
-  $: if (open && BROWSER) {
-    document.body.style.overflow = 'hidden';
-    // Focus the close button when modal opens
+  $: if (BROWSER && open) {
+    document.body.classList.add('modal-open');
+    document.body.style.setProperty('--scrollbar-width', `${scrollbarWidth}px`);
     setTimeout(() => closeButton?.focus(), 0);
   }
 </script>
@@ -56,7 +76,6 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      transition:scale={{ duration: 200, start: 0.95 }}
     >
       <button 
         bind:this={closeButton}
@@ -76,70 +95,58 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     background: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    overflow: hidden;
   }
 
   .modal-container {
-    background: var(--bg-color);
-    padding: 2rem;
-    border-radius: 8px;
     position: relative;
-    max-width: 90%;
+    width: fit-content;
+    height: fit-content;
+    max-width: 90vw;
     max-height: 90vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin: auto;
+    overflow: visible;
   }
 
   .close-button {
     position: absolute;
-    top: 1rem;
+    top: 0.5rem;
     right: 0.5rem;
     background: none;
     border: none;
-    font-size: 24px;
+    font-size: 1.5rem;
     cursor: pointer;
-    color: #999;
-    padding: 0;
-    width: 24px;
-    height: 24px;
+    color: white;
+    padding: 0.25rem;
+    width: 2rem;
+    height: 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s ease;
-    z-index: 1;
+    transition: opacity 0.2s ease;
+    z-index: 1001;
+    opacity: 0.7;
   }
 
   .close-button:hover {
-    color: #333;
-  }
-
-  .close-button:focus {
-    outline: none;
+    opacity: 1;
   }
 
   .modal-content {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: fit-content;
-    height: fit-content;
+    position: relative;
+    width: 100%;
+    height: 100%;
   }
 
-  .modal-content :global(img) {
-    display: block;
-    margin: 0;
-    padding: 0;
-    max-width: 100%;
-    height: auto;
+  :global(body.modal-open) {
+    overflow: hidden;
+    padding-right: var(--scrollbar-width, 0px);
   }
 </style> 

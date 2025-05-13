@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [],
+  "routes": [
+    {
+      "src": "/((?!directr2|api).*)",
+      "dest": "/"
+    }
+  ]
+} 

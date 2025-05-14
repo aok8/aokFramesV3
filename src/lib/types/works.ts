@@ -6,6 +6,7 @@ export interface Work {
   coverImage: string;
   nsfw: boolean;
   tags: string[];
+  nsfw_tags?: string[]; // Optional NSFW specific tags
   images: WorkImage[];
 }
 

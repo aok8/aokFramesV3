@@ -485,7 +485,19 @@
 >
   <div class="p-4 sm:p-6 rounded-lg w-[90vw] sm:w-auto max-w-md mx-auto" style="background-color: {theme.secondary};">
     <h3 class="text-lg font-semibold mb-3 sm:mb-4 text-white">NSFW Content Warning</h3>
-    <p class="mb-4 sm:mb-6 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
+    <p class="mb-3 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
+    
+    {#if nsfwWorkToShow?.nsfw_tags && nsfwWorkToShow.nsfw_tags.length > 0}
+      <div class="mb-4 sm:mb-6">
+        <p class="text-white/90 mb-1.5">Content may contain:</p>
+        <div class="flex flex-wrap gap-2">
+          {#each nsfwWorkToShow.nsfw_tags as tag}
+            <span class="bg-white/10 px-2 py-0.5 rounded text-white/80 text-sm">{tag}</span>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    
     <div class="flex justify-end gap-3 sm:gap-4">
       <button
         class="px-3 sm:px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-sm sm:text-base"

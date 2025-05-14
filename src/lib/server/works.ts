@@ -301,6 +301,7 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
         coverImage,
         nsfw: data.nsfw || false,
         tags: data.tags || [],
+        nsfw_tags: data.nsfw_tags || [],
         images
       };
     } else {
@@ -425,6 +426,7 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
           coverImage,
           nsfw: data.nsfw || false,
           tags: data.tags || [],
+          nsfw_tags: data.nsfw_tags || [],
           images
         };
         

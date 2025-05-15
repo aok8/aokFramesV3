@@ -65,15 +65,32 @@
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
 
-  // When selectedImageIndex changes, scroll the thumbnail into view (if not enlarged)
-  $: if (browser && selectedWork && !enlargedImage && thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
+  // Reactive scroll for thumbnails
+  $: if (
+    browser && 
+    selectedWork && 
+    !enlargedImage && 
+    !isClosingEnlarged && // Ensure not in the process of closing
+    !isOpeningWorkDetail && // Ensure not in the process of opening
+    thumbnailContainerRef && 
+    thumbnailButtonRefs[selectedImageIndex]
+  ) {
     const targetThumbnail = thumbnailButtonRefs[selectedImageIndex];
     if (targetThumbnail) {
-      targetThumbnail.scrollIntoView({
-        behavior: 'auto', 
-        block: 'nearest',
-        inline: 'center'
-      });
+      // Optional: Check if the thumbnail is already mostly visible to prevent minor, jerky scrolls.
+      const containerRect = thumbnailContainerRef.getBoundingClientRect();
+      const thumbnailRect = targetThumbnail.getBoundingClientRect();
+      const isMostlyVisible = 
+        thumbnailRect.left >= containerRect.left - thumbnailRect.width / 2 &&
+        thumbnailRect.right <= containerRect.right + thumbnailRect.width / 2;
+
+      if (!isMostlyVisible) {
+        targetThumbnail.scrollIntoView({
+          behavior: 'auto', 
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
     }
   }
 
@@ -89,6 +106,7 @@
   let thumbnailElements: (HTMLImageElement | null)[] = [];
 
   let isClosingEnlarged = false; // New flag
+  let isOpeningWorkDetail = false; // Flag to control initial scrollIntoView on open
 
   function handleWorkClick(work: Work) {
     if (work.nsfw) {
@@ -99,52 +117,60 @@
     }
   }
 
-  function openWorkDetail(work: Work) {
-    // Find the index of the work to store before showing details
+  async function openWorkDetail(work: Work) {
+    isOpeningWorkDetail = true; // Set flag
     const workIndex = sortedWorks.findIndex(w => w.id === work.id);
     if (workIndex >= 0) {
       carouselIndex = workIndex;
     }
-    
     selectedWork = work;
-    selectedImageIndex = 0;
-    if (browser) {
-        document.body.style.overflow = 'hidden';
+    selectedImageIndex = 0; // Default to first image
+    if (browser) document.body.style.overflow = 'hidden';
+    
+    resetImageLoadingStates();
+    // Ensure thumbnailButtonRefs is sized for the new images
+    thumbnailButtonRefs = new Array(sortedImages.length).fill(null);
+
+    await tick(); // Let Svelte render the detail view structure
+
+    initImageSwiper(); // Initialize Swiper after the detail view is rendered
+    
+    // After Swiper is initialized and DOM is ready, scroll initial thumbnail into view
+    if (thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
+      thumbnailButtonRefs[selectedImageIndex].scrollIntoView({
+        behavior: 'auto', // Instant
+        block: 'nearest',
+        inline: 'center'
+      });
     }
     
-    // Reset loading states for the new work's images
-    resetImageLoadingStates();
-    
-    // Reset thumbnail refs array
-    thumbnailButtonRefs = [];
-    
-    // Initialize Swiper in the next tick after the DOM has updated
-    setTimeout(() => {
-      initImageSwiper();
-    }, 0);
+    // Reset the flag after initial setup and scroll
+    await tick(); 
+    if (browser) {
+        requestAnimationFrame(() => {
+            isOpeningWorkDetail = false;
+        });
+    } else {
+        isOpeningWorkDetail = false;
+    }
   }
 
   function resetImageLoadingStates() {
     if (!selectedWork) return;
-    
     mainImageLoading = true;
     mainImageLoaded = false;
     thumbnailLoading = Array(sortedImages.length).fill(true);
     thumbnailLoaded = Array(sortedImages.length).fill(false);
     slideImageElements = Array(sortedImages.length).fill(null);
     thumbnailElements = Array(sortedImages.length).fill(null);
-    thumbnailButtonRefs = Array(sortedImages.length).fill(null);
-    
-    // Preload all images if in browser environment
+    // No need to reset thumbnailButtonRefs here, it's handled in openWorkDetail
+
     if (browser) {
-      // Preload main image
       if (sortedImages.length > 0 && sortedImages[selectedImageIndex]) {
         const mainImg = new Image();
         mainImg.onload = () => handleMainImageLoad();
         mainImg.src = sortedImages[selectedImageIndex].src;
       }
-      
-      // Preload thumbnails
       sortedImages.forEach((image, i) => {
         if (image && image.src) {
           const thumbImg = new Image();
@@ -156,13 +182,10 @@
   }
 
   function closeWorkDetail() {
-    // Destroy swiper instance
     if (imageSwiper) {
       imageSwiper.destroy();
       imageSwiper = null;
     }
-    
-    // Make sure carouselIndex is set to the current work's index before closing
     const currentWork = selectedWork;
     if (currentWork) {
       const workIndex = sortedWorks.findIndex(w => w.id === currentWork.id);
@@ -170,29 +193,24 @@
         carouselIndex = workIndex;
       }
     }
-    
     selectedWork = null;
-    enlargedImage = null; // Also ensure enlargedImage is reset here
-    if (browser) {
-      document.body.style.overflow = '';
-    }
+    enlargedImage = null;
+    if (browser) document.body.style.overflow = '';
   }
 
   function nextImage() {
     if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
-    
-    imageSwiper.slideNext(400); // Standard speed
+    imageSwiper.slideNext(400);
   }
 
   function prevImage() {
     if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
-
-    imageSwiper.slidePrev(400); // Standard speed
+    imageSwiper.slidePrev(400);
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
     if (thumbnailContainerRef) {
-      thumbnailScrollLeft = thumbnailContainerRef.scrollLeft; // Save scroll position
+      thumbnailScrollLeft = thumbnailContainerRef.scrollLeft;
     }
     enlargedImage = image;
     mainImageLoading = true;
@@ -202,30 +220,30 @@
   async function closeEnlargedImage() {
     isClosingEnlarged = true; // Set flag immediately
     enlargedImage = null;
-    mainImageLoading = true; // Reset loading state for the main image in the gallery view
+    mainImageLoading = true; 
     mainImageLoaded = false;
 
-    await tick(); // Wait for the DOM to update (modal is removed, gallery view is visible)
+    await tick(); // Allow DOM to update (modal removed, gallery view potentially re-rendered/visible)
 
-    if (thumbnailContainerRef) {
-      // Restore the scroll position of the thumbnail list.
-      // This should be an instantaneous operation.
+    if (browser && thumbnailContainerRef) {
+      // Instantly restore scroll position. This should happen *before* Swiper reinitializes
+      // and *before* the isClosingEnlarged flag is reset.
       thumbnailContainerRef.scrollLeft = thumbnailScrollLeft;
     }
     
-    // Re-initialize Swiper for the main image view.
-    // This ensures the main image is on the correct slide.
-    // The `on:init` handler in `initImageSwiper` uses speed 0 for positioning, so it should be instant.
-    initImageSwiper(); 
+    initImageSwiper(); // Re-initialize Swiper for the main gallery view.
     
-    // Reset the flag after a tick to ensure scrollLeft restoration has taken effect
-    // and the reactive block for scrolling thumbnails doesn't immediately override it.
-    await tick(); 
-    // Using setTimeout with 0ms delay pushes the execution to the end of the current event loop cycle,
-    // which can be more robust than just `await tick()` in some edge cases with rendering.
-    setTimeout(() => {
+    // Reset the flag after the browser has had a chance to paint the scrollLeft change.
+    // requestAnimationFrame is generally more reliable for this than tick or setTimeout(0).
+    if (browser) {
+        requestAnimationFrame(() => {
+            isClosingEnlarged = false;
+        });
+    } else {
+        // Fallback for non-browser (SSR, though this logic is mostly client-side)
+        await tick(); 
         isClosingEnlarged = false;
-    }, 0);
+    }
   }
 
   function handleNsfwConfirm() {
@@ -451,7 +469,7 @@
             </time>
             {#if selectedWork.tags.length > 0}
               <span class="flex-shrink-0">•</span>
-              <div class="flex gap-2 overflow-x-auto pb-1 snap-x scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent max-w-[calc(100vw-12rem)]">
+              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent max-w-[calc(100vw-12rem)]">
                 {#each selectedWork.tags as tag}
                   <span class="bg-white/10 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 snap-start">{tag}</span>
                 {/each}

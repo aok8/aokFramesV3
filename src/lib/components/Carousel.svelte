@@ -22,11 +22,13 @@
   let openingAnimation = false;
   let openingWorkId: string | null = null;
   let openingScale = tweened(1, {
-    duration: 600,
+    duration: 300,
     easing: cubicOut
   });
   
-  // Add loading state tracking for each card
+  // Track if a rotation was just completed (to prevent immediate opening)
+  let justRotated = false;
+  let rotationCompleteTimer: ReturnType<typeof setTimeout> | null = null;
   let loadingStates: { [key: string]: boolean } = {}; // Tracks if loading has started
   let loadedStates: { [key: string]: boolean } = {};  // Tracks if loading has finished
 
@@ -35,6 +37,73 @@
   
   // Force update flag - will trigger a refresh
   let forceUpdateCounter = 0;
+
+  // Queue for pending navigation actions
+  let pendingNavigation: ('next' | 'prev' | null) = null;
+
+  // Touch handling variables
+  let touchStartX = 0;
+  let touchEndX = 0;
+  let touchThreshold = 100; // Increased from 50 to 100 for less sensitivity
+  let carouselContainer: HTMLElement;
+  let isTouching = false;
+  let touchStartTime = 0;
+  let touchEndTime = 0;
+  let touchTimeThreshold = 300; // Maximum time for a quick tap vs. swipe (ms)
+  let touchMoveCount = 0; // Count touchmove events to better distinguish intentional swipes
+  
+  // Touch event handlers
+  function handleTouchStart(e: TouchEvent) {
+    touchStartX = e.touches[0].clientX;
+    touchStartTime = Date.now();
+    isTouching = true;
+    touchMoveCount = 0; // Reset move counter on new touch
+  }
+  
+  function handleTouchMove(e: TouchEvent) {
+    if (!isTouching) return;
+    touchEndX = e.touches[0].clientX;
+    touchMoveCount++; // Increment move counter
+  }
+  
+  function handleTouchEnd(e: TouchEvent) {
+    if (!isTouching) return;
+    isTouching = false;
+    touchEndTime = Date.now();
+    
+    const swipeDistance = touchEndX - touchStartX;
+    const swipeDuration = touchEndTime - touchStartTime;
+    
+    // More strict conditions for swipe detection - needs sufficient distance, 
+    // reasonable duration, and enough touchmove events
+    if (Math.abs(swipeDistance) < touchThreshold || 
+        swipeDuration < 50 || // Too fast might be a glitch
+        touchMoveCount < 3) { // Need at least a few move events for a real swipe
+      // This was just a tap or not an intentional swipe
+      return;
+    }
+    
+    // Right to left swipe (next)
+    if (swipeDistance < 0) {
+      nextWork();
+    }
+    // Left to right swipe (previous)
+    else {
+      prevWork();
+    }
+    
+    // Reset touch positions
+    touchStartX = 0;
+    touchEndX = 0;
+    touchMoveCount = 0;
+  }
+  
+  // Cancel the swipe if touch is cancelled
+  function handleTouchCancel() {
+    isTouching = false;
+    touchStartX = 0;
+    touchEndX = 0;
+  }
 
   async function handleImageLoad(workId: string) {
     if (!loadedStates[workId]) { // Prevent multiple calls
@@ -196,69 +265,108 @@
     });
   }
 
-  // Navigation functions
-  function nextWork() {
-    if (isRotating) return;
-    currentIndex = (currentIndex + 1) % works.length;
-    dispatch('indexChange', currentIndex);
+  // Process any pending navigation actions when animation completes
+  function processPendingNavigation() {
+    if (pendingNavigation === 'next') {
+      pendingNavigation = null;
+      nextWork();
+    } else if (pendingNavigation === 'prev') {
+      pendingNavigation = null;
+      prevWork();
+    }
   }
 
-  function prevWork() {
-    if (isRotating) return;
-    currentIndex = (currentIndex - 1 + works.length) % works.length;
-    dispatch('indexChange', currentIndex);
-  }
-  
-  // Function to rotate to a specific work
-  async function rotateToWork(workId: string) {
-    if (isRotating) return;
-    isRotating = true;
+  // Navigation functions
+  function nextWork(event?: MouseEvent) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
     
-    // Find the target index
-    const targetIndex = works.findIndex(w => w.id === workId);
-    if (targetIndex === -1) {
-      isRotating = false;
+    if (isRotating) {
+      // Queue the action if a rotation is in progress
+      pendingNavigation = 'next';
       return;
     }
     
-    // Calculate the shortest path to rotate
-    let diff = (targetIndex - currentIndex + works.length) % works.length;
+    isRotating = true; 
+    justRotated = true;
+    currentIndex = (currentIndex + 1) % works.length;
+    dispatch('indexChange', currentIndex);
     
-    // If diff is more than half the length, go the other way
-    if (diff > works.length / 2) {
-      diff = diff - works.length;
+    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+    rotationCompleteTimer = setTimeout(() => {
+      isRotating = false; 
+      justRotated = false;
+      // Process any queued actions once rotation completes
+      processPendingNavigation();
+    }, 500); 
+  }
+
+  function prevWork(event?: MouseEvent) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
     }
     
-    // Animate the rotation
-    if (diff !== 0) {
-      const direction = diff > 0 ? 1 : -1;
-      const steps = Math.abs(diff);
-      
-      // Perform all rotations at once with animation
-      const rotationDuration = 500; // ms
-      const startIndex = currentIndex;
-      const startTime = Date.now();
-      
-      // Set the final index directly
-      currentIndex = targetIndex;
-      dispatch('indexChange', currentIndex);
-      
-      // Wait for the animation to complete
-      await new Promise(resolve => setTimeout(resolve, rotationDuration));
+    if (isRotating) {
+      // Queue the action if a rotation is in progress
+      pendingNavigation = 'prev';
+      return;
     }
     
-    isRotating = false;
-    return true;
+    isRotating = true;
+    justRotated = true;
+    currentIndex = (currentIndex - 1 + works.length) % works.length;
+    dispatch('indexChange', currentIndex);
+    
+    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+    rotationCompleteTimer = setTimeout(() => {
+      isRotating = false;
+      justRotated = false;
+      // Process any queued actions once rotation completes
+      processPendingNavigation();
+    }, 500);
+  }
+  
+  async function rotateToWork(workId: string) {
+    if (isRotating) return false; 
+    isRotating = true;
+    justRotated = true;
+    const targetIndex = works.findIndex(w => w.id === workId);
+    if (targetIndex === -1 || targetIndex === currentIndex) { 
+      isRotating = false;
+      justRotated = false;
+      return false;
+    }
+    currentIndex = targetIndex;
+    dispatch('indexChange', currentIndex);
+    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+    rotationCompleteTimer = setTimeout(() => {
+      isRotating = false;
+      justRotated = false;
+      // Process any queued actions once rotation completes
+      processPendingNavigation();
+    }, 500); 
+    return true; 
   }
 
   // Handle work selection
   async function handleWorkClick(item: typeof carouselItems[0]) {
-    if (isRotating || openingAnimation) return;
+    if (isRotating || openingAnimation || justRotated) return;
+    
+    // If touch events were just processed, prevent additional actions
+    if (justRotated) return;
     
     // Special handling for two-card layout - both cards are considered "active"
     if (works.length === 2) {
-      // Directly open the clicked card
-      openWorkWithAnimation(item.work);
+      // For 2-card layout, active items should always open directly
+      if (item.active) {
+        openWorkWithAnimation(item.work);
+      } else {
+        // First rotate, then user will need to click again to open
+        await rotateToWork(item.work.id);
+      }
       return;
     }
     
@@ -267,7 +375,7 @@
       // If center item, open it directly with animation
       openWorkWithAnimation(item.work);
     } else if (item.visible) {
-      // If not center but visible, just rotate to center
+      // If not center but visible, just rotate to center without opening
       await rotateToWork(item.work.id);
     }
   }
@@ -278,12 +386,12 @@
     openingWorkId = work.id;
     openingScale.set(1.5);
     
-    // Fade out other works
-    dispatch('indexChange', currentIndex);
+    // Save the current index to restore it later
+    const savedIndex = currentIndex;
     
     // Wait for animation to complete
     await tick();
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Reset animation state and open the work
     openingAnimation = false;
@@ -302,6 +410,13 @@
     if (browser) {
       // Preload images
       preloadImages();
+      
+      // Force initial focus to enable keyboard navigation
+      setTimeout(() => {
+        if (carouselContainer) {
+          carouselContainer.focus();
+        }
+      }, 100);
       
       // Force a reactivity trigger after a small delay
       setTimeout(() => {
@@ -335,6 +450,7 @@
       // Safety cleanup
       return () => {
         clearInterval(checkImagesInterval);
+        if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
       };
     }
   });
@@ -348,9 +464,31 @@
       preloadImages();
     }
   }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    // Only handle arrow keys for carousel navigation
+    // Prevent Space and Enter from triggering navigation
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      prevWork();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      nextWork();
+    }
+    // Explicitly DON'T handle space or enter here to prevent them from moving the carousel
+  }
 </script>
 
-<div class="carousel-container relative h-[500px] w-full flex items-center justify-center">
+<div 
+  bind:this={carouselContainer}
+  class="carousel-container relative h-[500px] w-full flex items-center justify-center"
+  on:touchstart={handleTouchStart}
+  on:touchmove={handleTouchMove}
+  on:touchend={handleTouchEnd}
+  on:touchcancel={handleTouchCancel}
+  on:keydown={handleKeyDown}
+  tabindex="0"
+>
   {#each carouselItems as item (item.work.id)}
     {#if item.visible}
       <div 
@@ -360,8 +498,16 @@
         style={item.style}
         on:click={() => handleWorkClick(item)}
         on:keydown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            handleWorkClick(item);
+          if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent default browser action
+            e.stopPropagation(); // Prevent bubbling to parent container
+            handleWorkClick(item); // Opens if active, rotates to center if not active
+          } else if (e.key === ' ') { // Space key
+            e.preventDefault(); // Prevent default browser action (scrolling)
+            e.stopPropagation(); // Prevent bubbling to parent container
+            if (item.active) {
+              handleWorkClick(item); // Only open if active, do nothing for side items
+            }
           }
         }}
         role="button"
@@ -418,9 +564,8 @@
   {#if works.length > 1}
     <button 
       class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-      on:click={prevWork}
+      on:click|preventDefault|stopPropagation={prevWork}
       aria-label="Previous work"
-      disabled={isRotating}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m15 18-6-6 6-6"></path>
@@ -429,9 +574,8 @@
     
     <button 
       class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-      on:click={nextWork}
+      on:click|preventDefault|stopPropagation={nextWork}
       aria-label="Next work"
-      disabled={isRotating}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 18 6-6-6-6"></path>
@@ -455,6 +599,8 @@
   .carousel-container {
     perspective: 1000px;
     overflow: visible;
+    touch-action: pan-y; /* Enable vertical scrolling but handle horizontal swipes */
+    outline: none; /* Remove the focus outline */
   }
   
   /* Disable buttons during rotation */

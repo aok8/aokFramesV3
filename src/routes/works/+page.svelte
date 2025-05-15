@@ -11,9 +11,8 @@
   import Footer from '$lib/components/ui/footer.svelte';
   // Import Swiper JS
   import Swiper from 'swiper';
-  import { Navigation, Pagination, EffectFade } from 'swiper/modules';
+  import { Navigation, Pagination } from 'swiper/modules';
   import 'swiper/css';
-  import 'swiper/css/effect-fade';
 
   export let data: { works: Work[] };
   
@@ -90,6 +89,7 @@
   
   // References to image elements
   let mainImageElement: HTMLImageElement | null = null;
+  let slideImageElements: (HTMLImageElement | null)[] = [];
   let thumbnailElements: (HTMLImageElement | null)[] = [];
 
   function handleWorkClick(work: Work) {
@@ -131,6 +131,7 @@
     mainImageLoaded = false;
     thumbnailLoading = Array(sortedImages.length).fill(true);
     thumbnailLoaded = Array(sortedImages.length).fill(false);
+    slideImageElements = Array(sortedImages.length).fill(null);
     thumbnailElements = Array(sortedImages.length).fill(null);
     thumbnailButtonRefs = Array(sortedImages.length).fill(null);
     
@@ -225,6 +226,13 @@
     thumbnailLoaded = [...thumbnailLoaded];
     thumbnailLoading = [...thumbnailLoading];
   }
+  
+  // Handle slide image load
+  function handleSlideImageLoad(index: number) {
+    if (index === selectedImageIndex) {
+      handleMainImageLoad();
+    }
+  }
 
   // Add keyboard navigation
   function handleKeydown(e: KeyboardEvent) {
@@ -283,8 +291,13 @@
   afterUpdate(() => {
     if (!selectedWork) return;
     
-    // Check main image
-    if (mainImageElement?.complete && mainImageElement?.naturalWidth > 0 && !mainImageLoaded) {
+    // Check slide images for current index
+    const currentSlideImage = slideImageElements[selectedImageIndex];
+    if (selectedImageIndex >= 0 && 
+        currentSlideImage && 
+        currentSlideImage.complete && 
+        currentSlideImage.naturalWidth > 0 && 
+        !mainImageLoaded) {
       handleMainImageLoad();
     }
     
@@ -411,6 +424,9 @@
                           enlargeImage(image);
                         }
                       }}
+                      role="button"
+                      tabindex="0"
+                      aria-label={`View enlarged image of ${image.alt}`}
                     >
                       <!-- Loading skeleton -->
                       {#if (i === selectedImageIndex && mainImageLoading && !mainImageLoaded)}
@@ -421,15 +437,13 @@
                       
                       <!-- Slide image -->
                       <img 
-                        bind:this={i === selectedImageIndex ? mainImageElement : undefined}
+                        bind:this={slideImageElements[i]}
                         src={image.src} 
                         alt={image.alt} 
                         class="max-h-full max-w-full object-contain transition-opacity duration-300"
                         class:opacity-0={i === selectedImageIndex && !mainImageLoaded}
                         class:opacity-100={i !== selectedImageIndex || mainImageLoaded}
-                        on:load={() => {
-                          if (i === selectedImageIndex) handleMainImageLoad();
-                        }}
+                        on:load={() => handleSlideImageLoad(i)}
                         on:error={() => {
                           if (i === selectedImageIndex) mainImageLoading = false;
                         }}
@@ -521,6 +535,10 @@
                 closeEnlargedImage();
               }
             }}
+            role="dialog"
+            tabindex="-1"
+            aria-modal="true"
+            aria-label="Enlarged image view"
           >
             <!-- Loading skeleton -->
             {#if mainImageLoading && !mainImageLoaded}

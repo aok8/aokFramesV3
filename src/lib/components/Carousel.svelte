@@ -1,6 +1,6 @@
 <!-- Works Carousel -->
 <script lang="ts">
-  import { onMount, tick, afterUpdate, createEventDispatcher } from 'svelte';
+  import { onMount, tick, afterUpdate, createEventDispatcher, onDestroy } from 'svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
   import { fade } from 'svelte/transition';
@@ -18,7 +18,8 @@
   
   // State variables
   $: carouselItems = updateCarouselItemsCalc(currentIndex);
-  let isRotating = false;
+  let isAnimatingRotation = false; // True during visual slide animation (~400ms)
+  let rotationCooldown = false;    // True during full rotation cycle (~500ms)
   let openingAnimation = false;
   let openingWorkId: string | null = null;
   let openingScale = tweened(1, {
@@ -26,9 +27,10 @@
     easing: cubicOut
   });
   
-  // Track if a rotation was just completed (to prevent immediate opening)
-  let justRotated = false;
-  let rotationCompleteTimer: ReturnType<typeof setTimeout> | null = null;
+  // Timers for animation and cooldown states
+  let animationTimer: ReturnType<typeof setTimeout> | null = null;
+  let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+  
   let loadingStates: { [key: string]: boolean } = {}; // Tracks if loading has started
   let loadedStates: { [key: string]: boolean } = {};  // Tracks if loading has finished
 
@@ -51,9 +53,14 @@
   let touchEndTime = 0;
   let touchTimeThreshold = 300; // Maximum time for a quick tap vs. swipe (ms)
   let touchMoveCount = 0; // Count touchmove events to better distinguish intentional swipes
+  let touchMoveThreshold = 3;
   
   // Touch event handlers
   function handleTouchStart(e: TouchEvent) {
+    if (isAnimatingRotation || rotationCooldown || openingAnimation) {
+      isTouching = false;
+      return;
+    }
     touchStartX = e.touches[0].clientX;
     touchStartTime = Date.now();
     isTouching = true;
@@ -276,6 +283,32 @@
     }
   }
 
+  function setRotationFlagsAndTimers() {
+    isAnimatingRotation = true;
+    rotationCooldown = true;
+
+    if (animationTimer) clearTimeout(animationTimer);
+    if (cooldownTimer) clearTimeout(cooldownTimer);
+
+    // Set timer for visual animation completion
+    animationTimer = setTimeout(() => {
+      isAnimatingRotation = false;
+    }, 400);
+
+    // Set timer for full rotation cooldown
+    cooldownTimer = setTimeout(() => {
+      rotationCooldown = false;
+      isAnimatingRotation = false; // Safety cleanup
+      processPendingNavigation();
+    }, 500);
+  }
+
+  function triggerRotation(newIndex: number) {
+    setRotationFlagsAndTimers();
+    currentIndex = newIndex;
+    dispatch('indexChange', currentIndex);
+  }
+
   // Navigation functions
   function nextWork(event?: MouseEvent) {
     if (event) {
@@ -283,24 +316,14 @@
       event.preventDefault();
     }
     
-    if (isRotating) {
-      // Queue the action if a rotation is in progress
-      pendingNavigation = 'next';
+    if (rotationCooldown || openingAnimation) {
+      if (!pendingNavigation && !openingAnimation) {
+        pendingNavigation = 'next';
+      }
       return;
     }
     
-    isRotating = true; 
-    justRotated = true;
-    currentIndex = (currentIndex + 1) % works.length;
-    dispatch('indexChange', currentIndex);
-    
-    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
-    rotationCompleteTimer = setTimeout(() => {
-      isRotating = false; 
-      justRotated = false;
-      // Process any queued actions once rotation completes
-      processPendingNavigation();
-    }, 500); 
+    triggerRotation((currentIndex + 1) % works.length);
   }
 
   function prevWork(event?: MouseEvent) {
@@ -309,73 +332,41 @@
       event.preventDefault();
     }
     
-    if (isRotating) {
-      // Queue the action if a rotation is in progress
-      pendingNavigation = 'prev';
-      return;
-    }
-    
-    isRotating = true;
-    justRotated = true;
-    currentIndex = (currentIndex - 1 + works.length) % works.length;
-    dispatch('indexChange', currentIndex);
-    
-    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
-    rotationCompleteTimer = setTimeout(() => {
-      isRotating = false;
-      justRotated = false;
-      // Process any queued actions once rotation completes
-      processPendingNavigation();
-    }, 500);
-  }
-  
-  async function rotateToWork(workId: string) {
-    if (isRotating) return false; 
-    isRotating = true;
-    justRotated = true;
-    const targetIndex = works.findIndex(w => w.id === workId);
-    if (targetIndex === -1 || targetIndex === currentIndex) { 
-      isRotating = false;
-      justRotated = false;
-      return false;
-    }
-    currentIndex = targetIndex;
-    dispatch('indexChange', currentIndex);
-    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
-    rotationCompleteTimer = setTimeout(() => {
-      isRotating = false;
-      justRotated = false;
-      // Process any queued actions once rotation completes
-      processPendingNavigation();
-    }, 500); 
-    return true; 
-  }
-
-  // Handle work selection
-  async function handleWorkClick(item: typeof carouselItems[0]) {
-    if (isRotating || openingAnimation || justRotated) return;
-    
-    // If touch events were just processed, prevent additional actions
-    if (justRotated) return;
-    
-    // Special handling for two-card layout - both cards are considered "active"
-    if (works.length === 2) {
-      // For 2-card layout, active items should always open directly
-      if (item.active) {
-        openWorkWithAnimation(item.work);
-      } else {
-        // First rotate, then user will need to click again to open
-        await rotateToWork(item.work.id);
+    if (rotationCooldown || openingAnimation) {
+      if (!pendingNavigation && !openingAnimation) {
+        pendingNavigation = 'prev';
       }
       return;
     }
     
-    // Normal handling for 3+ cards
+    triggerRotation((currentIndex - 1 + works.length) % works.length);
+  }
+  
+  async function rotateToWork(workId: string) {
+    const targetIndex = works.findIndex(w => w.id === workId);
+    if (targetIndex === -1 || targetIndex === currentIndex) {
+      return false;
+    }
+    
+    triggerRotation(targetIndex);
+    return true;
+  }
+
+  // Handle work selection
+  async function handleWorkClick(item: typeof carouselItems[0]) {
+    if (openingAnimation) return;
+
     if (item.active) {
-      // If center item, open it directly with animation
+      // For active/centered items, only block during visual animation
+      if (isAnimatingRotation) {
+        return;
+      }
       openWorkWithAnimation(item.work);
     } else if (item.visible) {
-      // If not center but visible, just rotate to center without opening
+      // For side items, block during both animation and cooldown
+      if (isAnimatingRotation || rotationCooldown) {
+        return;
+      }
       await rotateToWork(item.work.id);
     }
   }
@@ -450,7 +441,8 @@
       // Safety cleanup
       return () => {
         clearInterval(checkImagesInterval);
-        if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+        if (animationTimer) clearTimeout(animationTimer);
+        if (cooldownTimer) clearTimeout(cooldownTimer);
       };
     }
   });
@@ -477,17 +469,24 @@
     }
     // Explicitly DON'T handle space or enter here to prevent them from moving the carousel
   }
+
+  onDestroy(() => {
+    if (animationTimer) clearTimeout(animationTimer);
+    if (cooldownTimer) clearTimeout(cooldownTimer);
+  });
 </script>
 
 <div 
   bind:this={carouselContainer}
   class="carousel-container relative h-[500px] w-full flex items-center justify-center"
-  on:touchstart={handleTouchStart}
-  on:touchmove={handleTouchMove}
+  on:touchstart|passive={handleTouchStart}
+  on:touchmove|passive={handleTouchMove}
   on:touchend={handleTouchEnd}
   on:touchcancel={handleTouchCancel}
   on:keydown={handleKeyDown}
   tabindex="0"
+  role="region"
+  aria-label="Works Carousel"
 >
   {#each carouselItems as item (item.work.id)}
     {#if item.visible}
@@ -563,9 +562,10 @@
   <!-- Navigation buttons - only shown when multiple works -->
   {#if works.length > 1}
     <button 
-      class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+      class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
       on:click|preventDefault|stopPropagation={prevWork}
       aria-label="Previous work"
+      disabled={rotationCooldown || openingAnimation}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m15 18-6-6 6-6"></path>
@@ -573,9 +573,10 @@
     </button>
     
     <button 
-      class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+      class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
       on:click|preventDefault|stopPropagation={nextWork}
       aria-label="Next work"
+      disabled={rotationCooldown || openingAnimation}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 18 6-6-6-6"></path>
@@ -592,7 +593,8 @@
     transform-style: preserve-3d;
     perspective: 1000px;
     backface-visibility: hidden;
-    transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                opacity 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
   
   /* Add some perspective to the container */
@@ -604,23 +606,19 @@
   }
   
   /* Disable buttons during rotation */
-  button[disabled] {
-    opacity: 0.5;
+  button:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
   }
   
   /* Highlight effect on hover for non-active items */
   .highlight-on-hover:hover {
-    filter: brightness(1.2);
-    transform: scale(1.05);
+    filter: brightness(1.1);
   }
   
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+  .carousel-item:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.5);
   }
 </style> 

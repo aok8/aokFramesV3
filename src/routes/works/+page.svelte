@@ -72,19 +72,20 @@
     !enlargedImage && 
     !isClosingEnlarged && // Ensure not in the process of closing
     !isOpeningWorkDetail && // Ensure not in the process of opening
+    !isManuallyScrollingThumbnail && // Don't scroll if we just manually set it
     thumbnailContainerRef && 
     thumbnailButtonRefs[selectedImageIndex]
   ) {
     const targetThumbnail = thumbnailButtonRefs[selectedImageIndex];
     if (targetThumbnail) {
-      // Optional: Check if the thumbnail is already mostly visible to prevent minor, jerky scrolls.
+      // Check if target is already reasonably centered to avoid tiny visual jumps.
       const containerRect = thumbnailContainerRef.getBoundingClientRect();
       const thumbnailRect = targetThumbnail.getBoundingClientRect();
-      const isMostlyVisible = 
-        thumbnailRect.left >= containerRect.left - thumbnailRect.width / 2 &&
-        thumbnailRect.right <= containerRect.right + thumbnailRect.width / 2;
-
-      if (!isMostlyVisible) {
+      const containerCenter = containerRect.left + containerRect.width / 2;
+      const thumbnailCenter = thumbnailRect.left + thumbnailRect.width / 2;
+      
+      // Only scroll if the thumbnail is significantly off-center
+      if (Math.abs(containerCenter - thumbnailCenter) > thumbnailRect.width / 2) {
         targetThumbnail.scrollIntoView({
           behavior: 'auto', 
           block: 'nearest',
@@ -107,6 +108,7 @@
 
   let isClosingEnlarged = false; // New flag
   let isOpeningWorkDetail = false; // Flag to control initial scrollIntoView on open
+  let isManuallyScrollingThumbnail = false; // New flag to control reactive scroll
 
   function handleWorkClick(work: Work) {
     if (work.nsfw) {
@@ -118,7 +120,9 @@
   }
 
   async function openWorkDetail(work: Work) {
-    isOpeningWorkDetail = true; // Set flag
+    isOpeningWorkDetail = true;
+    isManuallyScrollingThumbnail = true; // Prevent reactive scroll during open
+
     const workIndex = sortedWorks.findIndex(w => w.id === work.id);
     if (workIndex >= 0) {
       carouselIndex = workIndex;
@@ -136,22 +140,28 @@
     initImageSwiper(); // Initialize Swiper after the detail view is rendered
     
     // After Swiper is initialized and DOM is ready, scroll initial thumbnail into view
-    if (thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
+    if (browser && thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
+      const originalScrollBehavior = thumbnailContainerRef.style.scrollBehavior;
+      thumbnailContainerRef.style.scrollBehavior = 'auto'; // Force instant
       thumbnailButtonRefs[selectedImageIndex].scrollIntoView({
-        behavior: 'auto', // Instant
-        block: 'nearest',
-        inline: 'center'
+        behavior: 'auto', block: 'nearest', inline: 'center'
       });
-    }
-    
-    // Reset the flag after initial setup and scroll
-    await tick(); 
-    if (browser) {
-        requestAnimationFrame(() => {
-            isOpeningWorkDetail = false;
-        });
+      requestAnimationFrame(() => { // Restore after paint
+        thumbnailContainerRef.style.scrollBehavior = originalScrollBehavior;
+        isManuallyScrollingThumbnail = false; // Allow reactive scroll now
+        isOpeningWorkDetail = false; 
+      });
     } else {
-        isOpeningWorkDetail = false;
+       await tick();
+       if (browser) {
+            requestAnimationFrame(() => {
+                isManuallyScrollingThumbnail = false;
+                isOpeningWorkDetail = false;
+            });
+       } else {
+           isManuallyScrollingThumbnail = false;
+           isOpeningWorkDetail = false;
+       }
     }
   }
 
@@ -218,31 +228,54 @@
   }
 
   async function closeEnlargedImage() {
-    isClosingEnlarged = true; // Set flag immediately
+    isClosingEnlarged = true;
+    isManuallyScrollingThumbnail = true; // Prevent reactive scroll during close
+
     enlargedImage = null;
     mainImageLoading = true; 
     mainImageLoaded = false;
 
-    await tick(); // Allow DOM to update (modal removed, gallery view potentially re-rendered/visible)
+    await tick(); 
 
     if (browser && thumbnailContainerRef) {
-      // Instantly restore scroll position. This should happen *before* Swiper reinitializes
-      // and *before* the isClosingEnlarged flag is reset.
+      const originalScrollBehavior = thumbnailContainerRef.style.scrollBehavior;
+      thumbnailContainerRef.style.scrollBehavior = 'auto'; // Force instant
       thumbnailContainerRef.scrollLeft = thumbnailScrollLeft;
+      requestAnimationFrame(() => { // Restore after paint
+        thumbnailContainerRef.style.scrollBehavior = originalScrollBehavior;
+      });
     }
     
-    initImageSwiper(); // Re-initialize Swiper for the main gallery view.
+    initImageSwiper(); 
     
-    // Reset the flag after the browser has had a chance to paint the scrollLeft change.
-    // requestAnimationFrame is generally more reliable for this than tick or setTimeout(0).
     if (browser) {
         requestAnimationFrame(() => {
             isClosingEnlarged = false;
+            isManuallyScrollingThumbnail = false; // Allow reactive scroll again
         });
     } else {
-        // Fallback for non-browser (SSR, though this logic is mostly client-side)
         await tick(); 
         isClosingEnlarged = false;
+        isManuallyScrollingThumbnail = false;
+    }
+  }
+
+  function handleThumbnailClick(index: number) {
+    if (isManuallyScrollingThumbnail) return; // Prevent clicks during manual scroll operations
+
+    isManuallyScrollingThumbnail = true; // Indicate we're about to manually control scroll
+    if (imageSwiper) {
+      imageSwiper.slideToLoop(index, 0); // Instantly go to slide
+    } else {
+      selectedImageIndex = index; // Fallback if swiper not ready
+    }
+
+    if (browser) {
+        requestAnimationFrame(() => {
+            isManuallyScrollingThumbnail = false;
+        });
+    } else {
+        tick().then(() => isManuallyScrollingThumbnail = false);
     }
   }
 
@@ -580,13 +613,7 @@
                     class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative snap-center"
                     class:border-white={i === selectedImageIndex}
                     class:border-transparent={i !== selectedImageIndex}
-                    on:click={() => {
-                      if (imageSwiper) {
-                        imageSwiper.slideToLoop(i, 0);
-                      } else {
-                        selectedImageIndex = i; 
-                      }
-                    }}
+                    on:click={() => handleThumbnailClick(i)}
                   >
                     <!-- Thumbnail loading skeleton -->
                     {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
@@ -791,5 +818,20 @@
   :global(.swiper-button-next::after),
   :global(.swiper-button-prev::after) {
     font-size: 16px; /* Adjust size of arrow icon */
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, rgba(255,255,255,0.2)) var(--scrollbar-track-color, transparent);
+  }
+  .scrollbar-thumb-white\/20::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.2);
+  }
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
 </style> 

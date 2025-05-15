@@ -43,23 +43,26 @@
   // Touch handling variables
   let touchStartX = 0;
   let touchEndX = 0;
-  let touchThreshold = 50; // Minimum distance to trigger a swipe
+  let touchThreshold = 100; // Increased from 50 to 100 for less sensitivity
   let carouselContainer: HTMLElement;
   let isTouching = false;
   let touchStartTime = 0;
   let touchEndTime = 0;
   let touchTimeThreshold = 300; // Maximum time for a quick tap vs. swipe (ms)
+  let touchMoveCount = 0; // Count touchmove events to better distinguish intentional swipes
   
   // Touch event handlers
   function handleTouchStart(e: TouchEvent) {
     touchStartX = e.touches[0].clientX;
     touchStartTime = Date.now();
     isTouching = true;
+    touchMoveCount = 0; // Reset move counter on new touch
   }
   
   function handleTouchMove(e: TouchEvent) {
     if (!isTouching) return;
     touchEndX = e.touches[0].clientX;
+    touchMoveCount++; // Increment move counter
   }
   
   function handleTouchEnd(e: TouchEvent) {
@@ -70,27 +73,28 @@
     const swipeDistance = touchEndX - touchStartX;
     const swipeDuration = touchEndTime - touchStartTime;
     
-    // If it's a quick tap, don't treat as swipe
-    if (swipeDuration < touchTimeThreshold && Math.abs(swipeDistance) < touchThreshold) {
-      // This was just a tap, not a swipe
+    // More strict conditions for swipe detection - needs sufficient distance, 
+    // reasonable duration, and enough touchmove events
+    if (Math.abs(swipeDistance) < touchThreshold || 
+        swipeDuration < 50 || // Too fast might be a glitch
+        touchMoveCount < 3) { // Need at least a few move events for a real swipe
+      // This was just a tap or not an intentional swipe
       return;
     }
     
-    // Check if the swipe was long enough
-    if (Math.abs(swipeDistance) > touchThreshold) {
-      // Right to left swipe (next)
-      if (swipeDistance < 0) {
-        nextWork();
-      }
-      // Left to right swipe (previous)
-      else {
-        prevWork();
-      }
+    // Right to left swipe (next)
+    if (swipeDistance < 0) {
+      nextWork();
+    }
+    // Left to right swipe (previous)
+    else {
+      prevWork();
     }
     
     // Reset touch positions
     touchStartX = 0;
     touchEndX = 0;
+    touchMoveCount = 0;
   }
   
   // Cancel the swipe if touch is cancelled

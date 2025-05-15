@@ -1,6 +1,6 @@
 <!-- Works Page -->
 <script lang="ts">
-  import { onMount, afterUpdate } from 'svelte';
+  import { onMount, afterUpdate, tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { browser } from '$app/environment';
   import type { Work } from '$lib/types/works.js';
@@ -53,6 +53,7 @@
   // References for scrolling
   let thumbnailContainerRef: HTMLDivElement;
   let thumbnailButtonRefs: HTMLButtonElement[] = [];
+  let thumbnailScrollLeft = 0; // Store scroll position
 
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
@@ -69,16 +70,18 @@
     sortedImages = [];
   }
   
-  // When selectedImageIndex changes, scroll the thumbnail into view
-  $: if (browser && selectedWork && thumbnailButtonRefs[selectedImageIndex]) {
-    // Use setTimeout to ensure DOM has updated
-    setTimeout(() => {
-      thumbnailButtonRefs[selectedImageIndex]?.scrollIntoView({
-        behavior: 'smooth',
+  // When selectedImageIndex changes, scroll the thumbnail into view (if not enlarged)
+  $: if (browser && selectedWork && !enlargedImage && thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
+    const targetThumbnail = thumbnailButtonRefs[selectedImageIndex];
+    if (targetThumbnail) {
+      // await tick(); // Ensure DOM is updated before scrolling, especially if scrollLeft was just restored.
+      // It might be better to let the browser handle the scroll immediately after scrollLeft is set.
+      targetThumbnail.scrollIntoView({
+        behavior: 'auto', // Changed to 'auto'
         block: 'nearest',
         inline: 'center'
       });
-    }, 50);
+    }
   }
 
   // Loading state tracking
@@ -177,44 +180,39 @@
   }
 
   function nextImage() {
-    if (!selectedWork) return;
-    if (imageSwiper) {
-      imageSwiper.slideNext();
-    } else {
-      selectedImageIndex = (selectedImageIndex + 1) % sortedImages.length;
-      mainImageLoading = true;
-      mainImageLoaded = false;
-    }
+    if (!selectedWork || !imageSwiper) return;
+    imageSwiper.slideNext();
+    // selectedImageIndex will be updated by the 'slideChange' event
   }
 
   function prevImage() {
-    if (!selectedWork) return;
-    if (imageSwiper) {
-      imageSwiper.slidePrev();
-    } else {
-      selectedImageIndex = (selectedImageIndex - 1 + sortedImages.length) % sortedImages.length;
-      mainImageLoading = true;
-      mainImageLoaded = false;
-    }
+    if (!selectedWork || !imageSwiper) return;
+    imageSwiper.slidePrev();
+    // selectedImageIndex will be updated by the 'slideChange' event
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
+    if (thumbnailContainerRef) {
+      thumbnailScrollLeft = thumbnailContainerRef.scrollLeft; // Save scroll position
+    }
     enlargedImage = image;
     mainImageLoading = true;
     mainImageLoaded = false;
   }
 
-  function closeEnlargedImage() {
+  async function closeEnlargedImage() {
     enlargedImage = null;
-    // Reset loading state for the current selected image to ensure it re-evaluates
     mainImageLoading = true;
     mainImageLoaded = false;
 
-    // Re-initialize swiper to ensure it's properly synced
-    // and reflects the current selectedImageIndex.
-    setTimeout(() => {
-      initImageSwiper();
-    }, 0);
+    await tick(); // Wait for DOM to update (modal removed)
+
+    if (thumbnailContainerRef) {
+      thumbnailContainerRef.scrollLeft = thumbnailScrollLeft; // Restore scroll position
+    }
+    // Re-initialize swiper to ensure it's properly synced.
+    // The reactive block for scrollIntoView will handle ensuring the correct thumb is visible.
+    initImageSwiper(); 
   }
 
   function handleNsfwConfirm() {
@@ -512,7 +510,6 @@
             {#if sortedImages.length > 1}
               <button 
                 class="swiper-button-prev absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                on:click={prevImage}
                 aria-label="Previous image"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -522,7 +519,6 @@
               
               <button 
                 class="swiper-button-next absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                on:click={nextImage}
                 aria-label="Next image"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -738,5 +734,23 @@
     .content-wrapper {
       padding: 0 2rem;
     }
+  }
+
+  /* Default styling for swiper navigation buttons if you aren't using Flowbite's or custom ones */
+  :global(.swiper-button-next),
+  :global(.swiper-button-prev) {
+    color: white; /* Example color */
+    background-color: rgba(0,0,0,0.3);
+    padding: 8px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  :global(.swiper-button-next::after),
+  :global(.swiper-button-prev::after) {
+    font-size: 16px; /* Adjust size of arrow icon */
   }
 </style> 

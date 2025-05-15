@@ -180,15 +180,29 @@
   }
 
   function nextImage() {
-    if (!selectedWork || !imageSwiper) return;
-    imageSwiper.slideNext();
-    // selectedImageIndex will be updated by the 'slideChange' event
+    if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
+    
+    let newIndex;
+    if (selectedImageIndex === sortedImages.length - 1) {
+      newIndex = 0; // Wrap to the first image
+    } else {
+      newIndex = selectedImageIndex + 1;
+    }
+    imageSwiper.slideTo(newIndex); 
+    // mainImageLoading and mainImageLoaded will be reset by the 'slideChange' event handler
   }
 
   function prevImage() {
-    if (!selectedWork || !imageSwiper) return;
-    imageSwiper.slidePrev();
-    // selectedImageIndex will be updated by the 'slideChange' event
+    if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
+    
+    let newIndex;
+    if (selectedImageIndex === 0) {
+      newIndex = sortedImages.length - 1; // Wrap to the last image
+    } else {
+      newIndex = selectedImageIndex - 1;
+    }
+    imageSwiper.slideTo(newIndex);
+    // mainImageLoading and mainImageLoaded will be reset by the 'slideChange' event handler
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
@@ -283,13 +297,12 @@
   
   // Initialize image swiper for touch navigation
   function initImageSwiper() {
-    if (!imageSwiperContainer || !selectedWork || sortedImages.length <= 1) {
-      // If conditions not met (e.g. 1 image or no container/work), ensure no old swiper active
+    if (!imageSwiperContainer || !selectedWork || sortedImages.length === 0) { // Guard against 0 images
       if (imageSwiper) {
           imageSwiper.destroy();
           imageSwiper = null;
       }
-      return; // Exit if no swiper needed or cannot be initialized
+      return; 
     }
     
     // Destroy previous instance if it exists
@@ -300,38 +313,36 @@
     
     // Create new swiper instance
     imageSwiper = new Swiper(imageSwiperContainer, {
-      modules: [Navigation, Pagination],
+      modules: [Navigation, Pagination], // Navigation might still be needed for styling or by Pagination
       initialSlide: selectedImageIndex,
       slidesPerView: 1,
       spaceBetween: 0,
       grabCursor: true,
-      threshold: 10, // Start swiping with minimal movement
-      resistance: false, // True resistance creates a small swipe back effect
+      threshold: 10, 
+      resistance: false, // This provides the bounce effect when loop is false
+      loop: false, // Explicitly set to false to prevent swipe looping
       touchStartPreventDefault: false,
       touchMoveStopPropagation: false,
       touchStartForcePreventDefault: false,
-      cssMode: false, // Better performance but less compatible
+      cssMode: false, 
       keyboard: {
-        enabled: false, // Disable built-in keyboard navigation to use our custom one
+        enabled: false, // Custom keyboard handling is used via handleKeydown
       },
-      navigation: {
-        nextEl: '.swiper-button-next',
-        prevEl: '.swiper-button-prev',
-      },
+      // Removed Swiper's default navigation object to rely on custom on:click handlers
+      // navigation: {
+      //   nextEl: '.swiper-button-next', // No longer used for click handling
+      //   prevEl: '.swiper-button-prev', // No longer used for click handling
+      // },
       on: {
         slideChange: (swiper) => {
           selectedImageIndex = swiper.activeIndex;
           mainImageLoading = true;
           mainImageLoaded = false;
         },
-        // Add initialization callback to ensure swiper is properly initialized
         init: (swiper) => {
-          // Force swiper to update to the correct slide
           if (swiper.activeIndex !== selectedImageIndex) {
             swiper.slideTo(selectedImageIndex, 0, false);
           }
-          // Explicitly set loading states for the initial/current selectedImageIndex
-          // as slideChange might not fire for the very first slide on init.
           mainImageLoading = true;
           mainImageLoaded = false;
         }
@@ -511,6 +522,7 @@
               <button 
                 class="swiper-button-prev absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 aria-label="Previous image"
+                on:click={prevImage}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m15 18-6-6 6-6"></path>
@@ -520,6 +532,7 @@
               <button 
                 class="swiper-button-next absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 aria-label="Next image"
+                on:click={nextImage}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m9 18 6-6-6-6"></path>
@@ -543,9 +556,9 @@
                     class:border-transparent={i !== selectedImageIndex}
                     on:click={() => {
                       if (imageSwiper) {
-                        imageSwiper.slideTo(i);
+                        imageSwiper.slideTo(i); 
                       } else {
-                        selectedImageIndex = i;
+                        selectedImageIndex = i; 
                       }
                     }}
                   >

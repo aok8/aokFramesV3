@@ -36,6 +36,58 @@
   // Force update flag - will trigger a refresh
   let forceUpdateCounter = 0;
 
+  // Touch handling variables
+  let touchStartX = 0;
+  let touchEndX = 0;
+  let touchThreshold = 50; // Minimum distance to trigger a swipe
+  let carouselContainer: HTMLElement;
+  let isTouching = false;
+  
+  // Touch event handlers
+  function handleTouchStart(e: TouchEvent) {
+    touchStartX = e.touches[0].clientX;
+    isTouching = true;
+  }
+  
+  function handleTouchMove(e: TouchEvent) {
+    if (!isTouching) return;
+    touchEndX = e.touches[0].clientX;
+    
+    // Optional: add visual feedback during swipe
+    // const deltaX = touchEndX - touchStartX;
+    // Add visual transformation based on deltaX if desired
+  }
+  
+  function handleTouchEnd() {
+    if (!isTouching) return;
+    isTouching = false;
+    
+    const swipeDistance = touchEndX - touchStartX;
+    
+    // Check if the swipe was long enough
+    if (Math.abs(swipeDistance) > touchThreshold) {
+      // Right to left swipe (next)
+      if (swipeDistance < 0) {
+        nextWork();
+      }
+      // Left to right swipe (previous)
+      else {
+        prevWork();
+      }
+    }
+    
+    // Reset touch positions
+    touchStartX = 0;
+    touchEndX = 0;
+  }
+  
+  // Cancel the swipe if touch is cancelled
+  function handleTouchCancel() {
+    isTouching = false;
+    touchStartX = 0;
+    touchEndX = 0;
+  }
+
   async function handleImageLoad(workId: string) {
     if (!loadedStates[workId]) { // Prevent multiple calls
       console.log(`Image loaded for work: ${workId}`);
@@ -350,7 +402,14 @@
   }
 </script>
 
-<div class="carousel-container relative h-[500px] w-full flex items-center justify-center">
+<div 
+  bind:this={carouselContainer}
+  class="carousel-container relative h-[500px] w-full flex items-center justify-center"
+  on:touchstart={handleTouchStart}
+  on:touchmove={handleTouchMove}
+  on:touchend={handleTouchEnd}
+  on:touchcancel={handleTouchCancel}
+>
   {#each carouselItems as item (item.work.id)}
     {#if item.visible}
       <div 
@@ -438,6 +497,23 @@
       </svg>
     </button>
   {/if}
+
+  <!-- Mobile swipe hint (only visible on small screens) -->
+  <div class="swipe-hint absolute bottom-4 left-0 right-0 flex justify-center md:hidden">
+    <div class="text-white/60 text-xs flex items-center gap-2 bg-black/20 backdrop-blur-sm py-1 px-3 rounded-full">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 13.5A3.5 3.5 0 0 1 13.5 17H8"></path>
+        <path d="M16 16H8"></path>
+        <path d="M9 11.5 7.5 13 9 14.5"></path>
+      </svg>
+      <span>Swipe to browse</span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 13.5A3.5 3.5 0 0 0 10.5 17H16"></path>
+        <path d="M8 16h8"></path>
+        <path d="m15 11.5 1.5 1.5-1.5 1.5"></path>
+      </svg>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -455,6 +531,7 @@
   .carousel-container {
     perspective: 1000px;
     overflow: visible;
+    touch-action: pan-y; /* Enable vertical scrolling but handle horizontal swipes */
   }
   
   /* Disable buttons during rotation */
@@ -467,6 +544,16 @@
   .highlight-on-hover:hover {
     filter: brightness(1.2);
     transform: scale(1.05);
+  }
+  
+  /* Swipe hint animation */
+  .swipe-hint {
+    animation: fadeInOut 3s ease-in-out infinite;
+  }
+  
+  @keyframes fadeInOut {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
   }
   
   @keyframes fadeIn {

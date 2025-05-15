@@ -9,6 +9,11 @@
   import Carousel from '../../lib/components/Carousel.svelte';
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
+  // Import Swiper JS
+  import Swiper from 'swiper';
+  import { Navigation, Pagination, EffectFade } from 'swiper/modules';
+  import 'swiper/css';
+  import 'swiper/css/effect-fade';
 
   export let data: { works: Work[] };
   
@@ -19,6 +24,10 @@
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
   let carouselIndex = 0; // Track current carousel position
+  
+  // Swiper instances
+  let imageSwiper: Swiper | null = null;
+  let imageSwiperContainer: HTMLElement;
   
   // Sort works by published date (newest first)
   $: sortedWorks = [...(data.works || [])].sort((a, b) => {
@@ -108,6 +117,11 @@
     
     // Reset thumbnail refs array
     thumbnailButtonRefs = [];
+    
+    // Initialize Swiper in the next tick after the DOM has updated
+    setTimeout(() => {
+      initImageSwiper();
+    }, 0);
   }
 
   function resetImageLoadingStates() {
@@ -141,6 +155,12 @@
   }
 
   function closeWorkDetail() {
+    // Destroy swiper instance
+    if (imageSwiper) {
+      imageSwiper.destroy();
+      imageSwiper = null;
+    }
+    
     selectedWork = null;
     enlargedImage = null;
     document.body.style.overflow = '';
@@ -149,16 +169,24 @@
 
   function nextImage() {
     if (!selectedWork) return;
-    selectedImageIndex = (selectedImageIndex + 1) % sortedImages.length;
-    mainImageLoading = true;
-    mainImageLoaded = false;
+    if (imageSwiper) {
+      imageSwiper.slideNext();
+    } else {
+      selectedImageIndex = (selectedImageIndex + 1) % sortedImages.length;
+      mainImageLoading = true;
+      mainImageLoaded = false;
+    }
   }
 
   function prevImage() {
     if (!selectedWork) return;
-    selectedImageIndex = (selectedImageIndex - 1 + sortedImages.length) % sortedImages.length;
-    mainImageLoading = true;
-    mainImageLoaded = false;
+    if (imageSwiper) {
+      imageSwiper.slidePrev();
+    } else {
+      selectedImageIndex = (selectedImageIndex - 1 + sortedImages.length) % sortedImages.length;
+      mainImageLoading = true;
+      mainImageLoaded = false;
+    }
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
@@ -214,6 +242,42 @@
       }
     }
   }
+  
+  // Initialize image swiper for touch navigation
+  function initImageSwiper() {
+    if (!imageSwiperContainer || !selectedWork || sortedImages.length <= 1) return;
+    
+    // Destroy previous instance if it exists
+    if (imageSwiper) {
+      imageSwiper.destroy();
+    }
+    
+    // Create new swiper instance
+    imageSwiper = new Swiper(imageSwiperContainer, {
+      modules: [Navigation, Pagination],
+      initialSlide: selectedImageIndex,
+      slidesPerView: 1,
+      spaceBetween: 0,
+      grabCursor: true,
+      threshold: 10, // Start swiping with minimal movement
+      resistance: false, // True resistance creates a small swipe back effect
+      touchStartPreventDefault: false,
+      touchMoveStopPropagation: false,
+      touchStartForcePreventDefault: false,
+      cssMode: false, // Better performance but less compatible
+      navigation: {
+        nextEl: '.swiper-button-next',
+        prevEl: '.swiper-button-prev',
+      },
+      on: {
+        slideChange: (swiper) => {
+          selectedImageIndex = swiper.activeIndex;
+          mainImageLoading = true;
+          mainImageLoaded = false;
+        }
+      }
+    });
+  }
 
   // Check for images that are already loaded on mount/update
   afterUpdate(() => {
@@ -232,13 +296,17 @@
     });
   });
 
-    onMount(() => {
+  onMount(() => {
     // Ensure page scrolls to top on initial load
     window.scrollTo(0, 0);
     // Add keyboard event listener
     window.addEventListener('keydown', handleKeydown);
     return () => {
       window.removeEventListener('keydown', handleKeydown);
+      // Clean up swiper instances
+      if (imageSwiper) {
+        imageSwiper.destroy();
+      }
     };
   });
 </script>
@@ -329,47 +397,53 @@
       <!-- Main content area -->
       <div class="flex-1 overflow-auto p-4">
         {#if !enlargedImage}
-          <!-- Gallery view -->
+          <!-- Gallery view with swiper -->
           <div class="relative flex items-center justify-center h-[60vh]">
-            {#each sortedImages as image, i}
-              {#if i === selectedImageIndex}
-                <div 
-                  class="w-full h-full flex items-center justify-center cursor-pointer relative"
-                  on:click={() => enlargeImage(image)}
-                  on:keydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      enlargeImage(image);
-                    }
-                  }}
-                >
-                  <!-- Loading skeleton -->
-                  {#if mainImageLoading && !mainImageLoaded}
-                    <div class="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse">
-                      <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
+            <div bind:this={imageSwiperContainer} class="swiper w-full h-full">
+              <div class="swiper-wrapper">
+                {#each sortedImages as image, i}
+                  <div class="swiper-slide">
+                    <div 
+                      class="w-full h-full flex items-center justify-center cursor-pointer relative"
+                      on:click={() => enlargeImage(image)}
+                      on:keydown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          enlargeImage(image);
+                        }
+                      }}
+                    >
+                      <!-- Loading skeleton -->
+                      {#if (i === selectedImageIndex && mainImageLoading && !mainImageLoaded)}
+                        <div class="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse">
+                          <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
+                        </div>
+                      {/if}
+                      
+                      <!-- Slide image -->
+                      <img 
+                        bind:this={i === selectedImageIndex ? mainImageElement : undefined}
+                        src={image.src} 
+                        alt={image.alt} 
+                        class="max-h-full max-w-full object-contain transition-opacity duration-300"
+                        class:opacity-0={i === selectedImageIndex && !mainImageLoaded}
+                        class:opacity-100={i !== selectedImageIndex || mainImageLoaded}
+                        on:load={() => {
+                          if (i === selectedImageIndex) handleMainImageLoad();
+                        }}
+                        on:error={() => {
+                          if (i === selectedImageIndex) mainImageLoading = false;
+                        }}
+                      />
                     </div>
-                  {/if}
-                  
-                  <!-- Main image -->
-                  <img 
-                    bind:this={mainImageElement}
-                    src={image.src} 
-                    alt={image.alt} 
-                    class="max-h-full max-w-full object-contain transition-opacity duration-300"
-                    class:opacity-0={!mainImageLoaded}
-                    class:opacity-100={mainImageLoaded}
-                    on:load={handleMainImageLoad}
-                    on:error={() => {
-                      mainImageLoading = false;
-                    }}
-                  />
-                </div>
-              {/if}
-            {/each}
+                  </div>
+                {/each}
+              </div>
+            </div>
             
             <!-- Navigation buttons - only shown when multiple images -->
             {#if sortedImages.length > 1}
               <button 
-                class="absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                class="swiper-button-prev absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 on:click={prevImage}
                 aria-label="Previous image"
               >
@@ -379,7 +453,7 @@
               </button>
               
               <button 
-                class="absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                class="swiper-button-next absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 on:click={nextImage}
                 aria-label="Next image"
               >
@@ -403,7 +477,13 @@
                     class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative snap-center"
                     class:border-white={i === selectedImageIndex}
                     class:border-transparent={i !== selectedImageIndex}
-                    on:click={() => selectedImageIndex = i}
+                    on:click={() => {
+                      if (imageSwiper) {
+                        imageSwiper.slideTo(i);
+                      } else {
+                        selectedImageIndex = i;
+                      }
+                    }}
                   >
                     <!-- Thumbnail loading skeleton -->
                     {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
@@ -519,6 +599,18 @@
 </Modal>
 
 <style>
+  /* Import Swiper CSS */
+  :global(.swiper) {
+    width: 100%;
+    height: 100%;
+  }
+
+  :global(.swiper-slide) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
   .works-container {
     min-height: 100vh;
     width: 100%;

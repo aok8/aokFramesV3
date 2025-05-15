@@ -84,6 +84,7 @@
 		"lucide-svelte": "^0.485.0",
 		"marked": "^15.0.7",
 		"node-fetch": "^3.3.2",
+		"swiper": "^11.2.6",
 		"tree": "^0.1.3"
 	}
 }

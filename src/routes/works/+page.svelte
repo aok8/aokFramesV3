@@ -407,7 +407,9 @@
                   >
                     <!-- Thumbnail loading skeleton -->
                     {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
-                      <div class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                      <div class="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+                        <div class="animate-spin rounded-full h-6 w-6 border-3 border-white/20 border-t-white"></div>
+                      </div>
                     {/if}
                     
                     <!-- Thumbnail image -->

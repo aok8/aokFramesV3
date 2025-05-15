@@ -207,11 +207,19 @@
   function closeEnlargedImage() {
     enlargedImage = null;
     
-    // Re-initialize swiper after closing the enlarged view
-    // to ensure it's properly synced with current selectedImageIndex
-    setTimeout(() => {
-      initImageSwiper();
-    }, 0);
+    // Instead of reinitializing the swiper (which causes the thumbnail reset),
+    // simply update the swiper if it exists
+    if (imageSwiper) {
+      // Update the swiper without reinitializing
+      const currentSwiper = imageSwiper; // Create local reference to avoid null checks
+      setTimeout(() => {
+        currentSwiper.update(); // Just update the existing swiper instance
+        // Make sure swiper is on the correct slide
+        if (currentSwiper.activeIndex !== selectedImageIndex) {
+          currentSwiper.slideTo(selectedImageIndex, 0, false);
+        }
+      }, 0);
+    }
   }
 
   function handleNsfwConfirm() {
@@ -248,13 +256,22 @@
     }
   }
 
-  // Add keyboard navigation
+  // Add keyboard navigation - modify to prevent double navigation
   function handleKeydown(e: KeyboardEvent) {
     if (!selectedWork) return;
     
+    // Stop keyboard navigation if it's being handled elsewhere
+    if (e.target instanceof HTMLInputElement || 
+        e.target instanceof HTMLTextAreaElement || 
+        e.target instanceof HTMLSelectElement) {
+      return;
+    }
+    
     if (e.key === 'ArrowLeft') {
+      e.preventDefault(); // Prevent any default behavior
       prevImage();
     } else if (e.key === 'ArrowRight') {
+      e.preventDefault(); // Prevent any default behavior
       nextImage();
     } else if (e.key === 'Escape') {
       if (enlargedImage) {
@@ -288,6 +305,9 @@
       touchMoveStopPropagation: false,
       touchStartForcePreventDefault: false,
       cssMode: false, // Better performance but less compatible
+      keyboard: {
+        enabled: false, // Disable built-in keyboard navigation to use our custom one
+      },
       navigation: {
         nextEl: '.swiper-button-next',
         prevEl: '.swiper-button-prev',

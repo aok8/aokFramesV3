@@ -23,7 +23,12 @@
   let enlargedImage: { src: string; alt: string } | null = null;
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
-  let sortedImages: { src: string; alt: string; }[] = [];
+  // Updated sortedImages declaration
+  $: sortedImages = selectedWork ? [...selectedWork.images].sort((a, b) => {
+    const aNum = parseInt(a.alt.replace(/\D/g, '')) || 0;
+    const bNum = parseInt(b.alt.replace(/\D/g, '')) || 0;
+    return aNum - bNum;
+  }) : [];
   let carouselIndex = 0;
   
   // Swiper instances
@@ -60,18 +65,6 @@
   // Calculate a slightly darker tertiary color for the detail view background
   $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
 
-  // Sort images by filename numerically when selectedWork changes
-  $: if (selectedWork) {
-    sortedImages = [...selectedWork.images].sort((a, b) => {
-      // Extract numbers from filenames
-      const aNum = parseInt(a.alt.replace(/\D/g, '')) || 0;
-      const bNum = parseInt(b.alt.replace(/\D/g, '')) || 0;
-      return aNum - bNum;
-    });
-  } else {
-    sortedImages = [];
-  }
-  
   // When selectedImageIndex changes, scroll the thumbnail into view (if not enlarged)
   $: if (browser && selectedWork && !enlargedImage && thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
     const targetThumbnail = thumbnailButtonRefs[selectedImageIndex];
@@ -113,7 +106,9 @@
     
     selectedWork = work;
     selectedImageIndex = 0;
-    document.body.style.overflow = 'hidden';
+    if (browser) {
+        document.body.style.overflow = 'hidden';
+    }
     
     // Reset loading states for the new work's images
     resetImageLoadingStates();
@@ -175,8 +170,10 @@
     }
     
     selectedWork = null;
-    enlargedImage = null;
-    document.body.style.overflow = '';
+    enlargedImage = null; // Also ensure enlargedImage is reset here
+    if (browser) {
+      document.body.style.overflow = '';
+    }
   }
 
   function nextImage() {
@@ -202,27 +199,26 @@
 
   async function closeEnlargedImage() {
     enlargedImage = null;
-    mainImageLoading = true;
+    mainImageLoading = true; // Reset loading state for the main image in the gallery view
     mainImageLoaded = false;
 
-    await tick(); // Wait for DOM to update (modal removed)
+    await tick(); // Wait for the DOM to update (modal is removed, gallery view is visible)
 
     if (thumbnailContainerRef) {
-      thumbnailContainerRef.scrollLeft = thumbnailScrollLeft; // Restore scroll position
+      // Restore the scroll position of the thumbnail list.
+      // This should be an instantaneous operation.
+      thumbnailContainerRef.scrollLeft = thumbnailScrollLeft;
     }
     
-    // Re-initialize swiper to ensure it's properly synced
+    // Re-initialize Swiper for the main image view.
+    // This ensures the main image is on the correct slide.
+    // The `on:init` handler in `initImageSwiper` uses speed 0 for positioning, so it should be instant.
     initImageSwiper(); 
     
-    // Force immediate thumbnail positioning without animation
-    await tick();
-    if (thumbnailButtonRefs[selectedImageIndex]) {
-      thumbnailButtonRefs[selectedImageIndex].scrollIntoView({
-        behavior: 'auto', // No smooth scrolling
-        block: 'nearest',
-        inline: 'center'
-      });
-    }
+    // By removing the subsequent `scrollIntoView` call for the active thumbnail,
+    // we rely on the `thumbnailContainerRef.scrollLeft` assignment to restore
+    // the thumbnail list's state precisely as it was, without any further animated scrolling.
+    // This aims to prevent the "reset and then scroll" animation on the thumbnail list.
   }
 
   function handleNsfwConfirm() {

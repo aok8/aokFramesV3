@@ -29,6 +29,8 @@
   // Track if a rotation was just completed (to prevent immediate opening)
   let justRotated = false;
   let rotationCompleteTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastArrowClickTime = 0; // Track time of last arrow click to prevent double-clicks
+  let arrowClickDebounceTime = 600; // Minimum time between arrow clicks in ms
   
   // Add loading state tracking for each card
   let loadingStates: { [key: string]: boolean } = {}; // Tracks if loading has started
@@ -264,9 +266,22 @@
     });
   }
 
+  // Helper to prevent rapid arrow clicks
+  function debounceArrowClick() {
+    const now = Date.now();
+    if (now - lastArrowClickTime < arrowClickDebounceTime) {
+      return false;
+    }
+    lastArrowClickTime = now;
+    return true;
+  }
+
   // Navigation functions
   function nextWork() {
     if (isRotating) return;
+    // Prevent rapid clicking
+    if (!debounceArrowClick()) return;
+    
     isRotating = true;
     justRotated = true;
     
@@ -286,6 +301,9 @@
 
   function prevWork() {
     if (isRotating) return;
+    // Prevent rapid clicking
+    if (!debounceArrowClick()) return;
+    
     isRotating = true;
     justRotated = true;
     
@@ -306,6 +324,9 @@
   // Function to rotate to a specific work
   async function rotateToWork(workId: string) {
     if (isRotating) return false;
+    // Prevent rapid actions
+    if (!debounceArrowClick()) return false;
+    
     isRotating = true;
     justRotated = true;
     
@@ -536,7 +557,7 @@
   {#if works.length > 1}
     <button 
       class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-      on:click={prevWork}
+      on:click|preventDefault={prevWork}
       aria-label="Previous work"
       disabled={isRotating}
     >
@@ -547,7 +568,7 @@
     
     <button 
       class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-      on:click={nextWork}
+      on:click|preventDefault={nextWork}
       aria-label="Next work"
       disabled={isRotating}
     >
@@ -555,7 +576,7 @@
         <path d="m9 18 6-6-6-6"></path>
       </svg>
     </button>
-    {/if}
+  {/if}
 </div>
 
 <style>

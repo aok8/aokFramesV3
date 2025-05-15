@@ -29,10 +29,6 @@
   // Track if a rotation was just completed (to prevent immediate opening)
   let justRotated = false;
   let rotationCompleteTimer: ReturnType<typeof setTimeout> | null = null;
-  let lastArrowClickTime = 0; // Track time of last arrow click to prevent double-clicks
-  let arrowClickDebounceTime = 600; // Minimum time between arrow clicks in ms
-  
-  // Add loading state tracking for each card
   let loadingStates: { [key: string]: boolean } = {}; // Tracks if loading has started
   let loadedStates: { [key: string]: boolean } = {};  // Tracks if loading has finished
 
@@ -266,129 +262,64 @@
     });
   }
 
-  // Helper to prevent rapid arrow clicks
-  function debounceArrowClick() {
-    const now = Date.now();
-    if (now - lastArrowClickTime < arrowClickDebounceTime) {
-      return false;
-    }
-    lastArrowClickTime = now;
-    return true;
-  }
-
   // Navigation functions
   function nextWork(event?: MouseEvent) {
-    // Stop propagation if event was provided
     if (event) {
       event.stopPropagation();
       event.preventDefault();
     }
-    
-    if (isRotating) return;
-    // Prevent rapid clicking
-    if (!debounceArrowClick()) return;
-    
-    isRotating = true;
+    if (isRotating) return; // Block if a CSS transition is already in progress
+    isRotating = true; 
     justRotated = true;
-    
-    // Move one card at a time
     currentIndex = (currentIndex + 1) % works.length;
     dispatch('indexChange', currentIndex);
-    
-    // Clear any existing timer
     if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
-    
-    // Set a timer to clear the justRotated flag after animation completes
     rotationCompleteTimer = setTimeout(() => {
-      isRotating = false;
+      isRotating = false; 
       justRotated = false;
-    }, 500);
+    }, 500); 
   }
 
   function prevWork(event?: MouseEvent) {
-    // Stop propagation if event was provided
     if (event) {
       event.stopPropagation();
       event.preventDefault();
     }
-    
     if (isRotating) return;
-    // Prevent rapid clicking
-    if (!debounceArrowClick()) return;
-    
     isRotating = true;
     justRotated = true;
-    
-    // Move one card at a time
     currentIndex = (currentIndex - 1 + works.length) % works.length;
     dispatch('indexChange', currentIndex);
-    
-    // Clear any existing timer
     if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
-    
-    // Set a timer to clear the justRotated flag after animation completes
     rotationCompleteTimer = setTimeout(() => {
       isRotating = false;
       justRotated = false;
     }, 500);
   }
   
-  // Function to rotate to a specific work
   async function rotateToWork(workId: string) {
-    if (isRotating) return false;
-    // Prevent rapid actions
-    if (!debounceArrowClick()) return false;
-    
+    if (isRotating) return false; 
     isRotating = true;
     justRotated = true;
-    
-    // Find the target index
     const targetIndex = works.findIndex(w => w.id === workId);
-    if (targetIndex === -1) {
+    if (targetIndex === -1 || targetIndex === currentIndex) { 
       isRotating = false;
       justRotated = false;
       return false;
     }
-    
-    // Calculate the shortest path to rotate
-    let diff = (targetIndex - currentIndex + works.length) % works.length;
-    
-    // If diff is more than half the length, go the other way
-    if (diff > works.length / 2) {
-      diff = diff - works.length;
-    }
-    
-    // Animate the rotation
-    if (diff !== 0) {
-      const direction = diff > 0 ? 1 : -1;
-      const steps = Math.abs(diff);
-      
-      // Perform all rotations at once with animation
-      const rotationDuration = 500; // ms
-      
-      // Set the final index directly
-      currentIndex = targetIndex;
-      dispatch('indexChange', currentIndex);
-      
-      // Clear any existing timer
-      if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
-      
-      // Wait for the animation to complete
-      rotationCompleteTimer = setTimeout(() => {
-        isRotating = false;
-        justRotated = false;
-      }, rotationDuration);
-    } else {
+    currentIndex = targetIndex;
+    dispatch('indexChange', currentIndex);
+    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+    rotationCompleteTimer = setTimeout(() => {
       isRotating = false;
       justRotated = false;
-    }
-    
-    return true;
+    }, 500); 
+    return true; 
   }
 
   // Handle work selection
   async function handleWorkClick(item: typeof carouselItems[0]) {
-    if (isRotating || openingAnimation) return;
+    if (isRotating || openingAnimation || justRotated) return;
     
     // If touch events were just processed, prevent additional actions
     if (justRotated) return;
@@ -446,6 +377,13 @@
       // Preload images
       preloadImages();
       
+      // Force initial focus to enable keyboard navigation
+      setTimeout(() => {
+        if (carouselContainer) {
+          carouselContainer.focus();
+        }
+      }, 100);
+      
       // Force a reactivity trigger after a small delay
       setTimeout(() => {
         console.log('Forcing reactivity update');
@@ -492,6 +430,19 @@
       preloadImages();
     }
   }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    // Only handle arrow keys for carousel navigation
+    // Prevent Space and Enter from triggering navigation
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      prevWork();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      nextWork();
+    }
+    // Explicitly DON'T handle space or enter here to prevent them from moving the carousel
+  }
 </script>
 
 <div 
@@ -501,6 +452,8 @@
   on:touchmove={handleTouchMove}
   on:touchend={handleTouchEnd}
   on:touchcancel={handleTouchCancel}
+  on:keydown={handleKeyDown}
+  tabindex="0"
 >
   {#each carouselItems as item (item.work.id)}
     {#if item.visible}
@@ -511,8 +464,16 @@
         style={item.style}
         on:click={() => handleWorkClick(item)}
         on:keydown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            handleWorkClick(item);
+          if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent default browser action
+            e.stopPropagation(); // Prevent bubbling to parent container
+            handleWorkClick(item); // Opens if active, rotates to center if not active
+          } else if (e.key === ' ') { // Space key
+            e.preventDefault(); // Prevent default browser action (scrolling)
+            e.stopPropagation(); // Prevent bubbling to parent container
+            if (item.active) {
+              handleWorkClick(item); // Only open if active, do nothing for side items
+            }
           }
         }}
         role="button"
@@ -571,7 +532,6 @@
       class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
       on:click|preventDefault|stopPropagation={prevWork}
       aria-label="Previous work"
-      disabled={isRotating}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m15 18-6-6 6-6"></path>
@@ -582,7 +542,6 @@
       class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
       on:click|preventDefault|stopPropagation={nextWork}
       aria-label="Next work"
-      disabled={isRotating}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 18 6-6-6-6"></path>
@@ -607,6 +566,7 @@
     perspective: 1000px;
     overflow: visible;
     touch-action: pan-y; /* Enable vertical scrolling but handle horizontal swipes */
+    outline: none; /* Remove the focus outline */
   }
   
   /* Disable buttons during rotation */

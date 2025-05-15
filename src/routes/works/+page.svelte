@@ -13,6 +13,8 @@
   import Swiper from 'swiper';
   import { Navigation, Pagination } from 'swiper/modules';
   import 'swiper/css';
+  import 'swiper/css/navigation'; // If using Swiper's navigation buttons
+  import 'swiper/css/pagination'; // If using Swiper's pagination
 
   export let data: { works: Work[] };
   
@@ -23,7 +25,6 @@
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
   let carouselIndex = 0;
-  let isWrappingAround = false; // New state variable
   
   // Swiper instances
   let imageSwiper: Swiper | null = null;
@@ -75,10 +76,8 @@
   $: if (browser && selectedWork && !enlargedImage && thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
     const targetThumbnail = thumbnailButtonRefs[selectedImageIndex];
     if (targetThumbnail) {
-      // await tick(); // Ensure DOM is updated before scrolling, especially if scrollLeft was just restored.
-      // It might be better to let the browser handle the scroll immediately after scrollLeft is set.
       targetThumbnail.scrollIntoView({
-        behavior: 'auto', // Changed to 'auto'
+        behavior: 'auto', 
         block: 'nearest',
         inline: 'center'
       });
@@ -183,29 +182,13 @@
   function nextImage() {
     if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
     
-    if (selectedImageIndex === sortedImages.length - 1) {
-      // Wrapping from last to first
-      isWrappingAround = true;
-      imageSwiper.params.loop = true;
-      imageSwiper.update(); // Recalculate with loop active
-      imageSwiper.slideNext(400); // Animate with standard speed
-    } else {
-      imageSwiper.slideNext(400); // Standard speed
-    }
+    imageSwiper.slideNext(400); // Standard speed
   }
 
   function prevImage() {
     if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
 
-    if (selectedImageIndex === 0) {
-      // Wrapping from first to last
-      isWrappingAround = true;
-      imageSwiper.params.loop = true;
-      imageSwiper.update(); // Recalculate with loop active
-      imageSwiper.slidePrev(400); // Animate with standard speed
-    } else {
-      imageSwiper.slidePrev(400); // Standard speed
-    }
+    imageSwiper.slidePrev(400); // Standard speed
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
@@ -300,68 +283,60 @@
   
   // Initialize image swiper for touch navigation
   function initImageSwiper() {
-    if (!imageSwiperContainer || !selectedWork || sortedImages.length === 0) { 
+    if (!imageSwiperContainer || !selectedWork || sortedImages.length === 0) {
       if (imageSwiper) {
           imageSwiper.destroy();
           imageSwiper = null;
       }
-      return; 
+      return;
     }
-    
+
     if (imageSwiper) {
       imageSwiper.destroy();
       imageSwiper = null;
     }
-    
+
     imageSwiper = new Swiper(imageSwiperContainer, {
-      modules: [Navigation, Pagination], 
+      modules: [Navigation, Pagination],
       initialSlide: selectedImageIndex,
       slidesPerView: 1,
       spaceBetween: 0,
       grabCursor: true,
-      threshold: 10, 
-      resistance: false, 
-      loop: false, // Default to no loop. Will be toggled for wrapping.
-      speed: 400, 
+      threshold: 10,
+      resistance: false,
+      loop: true, // ENABLE LOOP PERMANENTLY
+      speed: 400,
       touchStartPreventDefault: false,
       touchMoveStopPropagation: false,
       touchStartForcePreventDefault: false,
-      cssMode: false, 
+      cssMode: false,
       keyboard: {
-        enabled: false, 
+        enabled: false,
+      },
+      navigation: { // Optional: if you want Swiper's built-in nav buttons
+        nextEl: '.swiper-button-next-custom', // Custom class for next button
+        prevEl: '.swiper-button-prev-custom', // Custom class for prev button
       },
       on: {
         slideChange: (swiper) => {
-          // Always use realIndex to update our Svelte state,
-          // as activeIndex can be misleading with temporary loop.
+          // Set the new index using swiper's realIndex from the new active slide
           const newIndex = swiper.realIndex;
+          
+          // If a real change is detected
           if (selectedImageIndex !== newIndex) {
-            selectedImageIndex = newIndex;
+             selectedImageIndex = newIndex; 
           }
+          
           mainImageLoading = true;
           mainImageLoaded = false;
         },
-        transitionEnd: (swiper) => {
-          // This event fires after the slide transition animation completes.
-          if (isWrappingAround) {
-            // We've finished the wrapping animation. Now, revert to non-looped.
-            if (swiper.params.loop) { // Check if loop is currently true
-              swiper.params.loop = false;
-              swiper.update(); // This will destroy loop slides and adjust indices.
-              
-              // After update, activeIndex should be correct (reflecting the realIndex).
-              // Safety check: if Swiper's activeIndex isn't what we expect, force it.
-              // selectedImageIndex should already hold the correct realIndex from slideChange.
-              if (swiper.activeIndex !== selectedImageIndex) {
-                 swiper.slideTo(selectedImageIndex, 0, false); // Snap to the correct slide
-              }
-            }
-            isWrappingAround = false;
-          }
-        },
         init: (swiper) => {
-          if (swiper.activeIndex !== selectedImageIndex) {
-            swiper.slideTo(selectedImageIndex, 0, false);
+          if (swiper.params.loop) {
+            selectedImageIndex = swiper.realIndex;
+          }
+          // Use slideToLoop when loop is true, ensure speed 0 for no animation on init correction
+          if (swiper.activeIndex !== selectedImageIndex) { // activeIndex can be used here if loop slides not yet fully calc'd
+            swiper.slideToLoop(selectedImageIndex, 0, false); 
           }
           mainImageLoading = true;
           mainImageLoaded = false;
@@ -540,9 +515,9 @@
             <!-- Navigation buttons - only shown when multiple images -->
             {#if sortedImages.length > 1}
               <button 
-                class="swiper-button-prev absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                class="swiper-button-prev-custom absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 aria-label="Previous image"
-                on:click={prevImage}
+                on:click|preventDefault|stopPropagation={prevImage}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m15 18-6-6 6-6"></path>
@@ -550,9 +525,9 @@
               </button>
               
               <button 
-                class="swiper-button-next absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+                class="swiper-button-next-custom absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
                 aria-label="Next image"
-                on:click={nextImage}
+                on:click|preventDefault|stopPropagation={nextImage}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m9 18 6-6-6-6"></path>
@@ -576,7 +551,7 @@
                     class:border-transparent={i !== selectedImageIndex}
                     on:click={() => {
                       if (imageSwiper) {
-                        imageSwiper.slideTo(i); 
+                        imageSwiper.slideToLoop(i); 
                       } else {
                         selectedImageIndex = i; 
                       }

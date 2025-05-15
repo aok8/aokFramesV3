@@ -210,9 +210,19 @@
     if (thumbnailContainerRef) {
       thumbnailContainerRef.scrollLeft = thumbnailScrollLeft; // Restore scroll position
     }
-    // Re-initialize swiper to ensure it's properly synced.
-    // The reactive block for scrollIntoView will handle ensuring the correct thumb is visible.
+    
+    // Re-initialize swiper to ensure it's properly synced
     initImageSwiper(); 
+    
+    // Force immediate thumbnail positioning without animation
+    await tick();
+    if (thumbnailButtonRefs[selectedImageIndex]) {
+      thumbnailButtonRefs[selectedImageIndex].scrollIntoView({
+        behavior: 'auto', // No smooth scrolling
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
   }
 
   function handleNsfwConfirm() {
@@ -305,7 +315,7 @@
       threshold: 10,
       resistance: false,
       loop: true, // ENABLE LOOP PERMANENTLY
-      speed: 400,
+      speed: 400, // Default transition speed for normal swiping/arrows
       touchStartPreventDefault: false,
       touchMoveStopPropagation: false,
       touchStartForcePreventDefault: false,
@@ -551,7 +561,7 @@
                     class:border-transparent={i !== selectedImageIndex}
                     on:click={() => {
                       if (imageSwiper) {
-                        imageSwiper.slideToLoop(i); 
+                        imageSwiper.slideToLoop(i, 0);
                       } else {
                         selectedImageIndex = i; 
                       }

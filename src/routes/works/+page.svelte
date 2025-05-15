@@ -72,7 +72,7 @@
     !enlargedImage && 
     !isClosingEnlarged && // Ensure not in the process of closing
     !isOpeningWorkDetail && // Ensure not in the process of opening
-    !isManuallyScrollingThumbnail && // Don't scroll if we just manually set it
+    !isManuallyPositioningThumbnails && // Only if not being manually handled
     thumbnailContainerRef && 
     thumbnailButtonRefs[selectedImageIndex]
   ) {
@@ -108,7 +108,7 @@
 
   let isClosingEnlarged = false; // New flag
   let isOpeningWorkDetail = false; // Flag to control initial scrollIntoView on open
-  let isManuallyScrollingThumbnail = false; // New flag to control reactive scroll
+  let isManuallyPositioningThumbnails = false; // Combined flag
 
   function handleWorkClick(work: Work) {
     if (work.nsfw) {
@@ -121,7 +121,7 @@
 
   async function openWorkDetail(work: Work) {
     isOpeningWorkDetail = true;
-    isManuallyScrollingThumbnail = true; // Prevent reactive scroll during open
+    isManuallyPositioningThumbnails = true;
 
     const workIndex = sortedWorks.findIndex(w => w.id === work.id);
     if (workIndex >= 0) {
@@ -148,18 +148,18 @@
       });
       requestAnimationFrame(() => { // Restore after paint
         thumbnailContainerRef.style.scrollBehavior = originalScrollBehavior;
-        isManuallyScrollingThumbnail = false; // Allow reactive scroll now
+        isManuallyPositioningThumbnails = false; // Allow reactive scroll now
         isOpeningWorkDetail = false; 
       });
     } else {
        await tick();
        if (browser) {
             requestAnimationFrame(() => {
-                isManuallyScrollingThumbnail = false;
+                isManuallyPositioningThumbnails = false;
                 isOpeningWorkDetail = false;
             });
        } else {
-           isManuallyScrollingThumbnail = false;
+           isManuallyPositioningThumbnails = false;
            isOpeningWorkDetail = false;
        }
     }
@@ -229,7 +229,7 @@
 
   async function closeEnlargedImage() {
     isClosingEnlarged = true;
-    isManuallyScrollingThumbnail = true; // Prevent reactive scroll during close
+    isManuallyPositioningThumbnails = true;
 
     enlargedImage = null;
     mainImageLoading = true; 
@@ -251,31 +251,42 @@
     if (browser) {
         requestAnimationFrame(() => {
             isClosingEnlarged = false;
-            isManuallyScrollingThumbnail = false; // Allow reactive scroll again
+            isManuallyPositioningThumbnails = false;
         });
     } else {
         await tick(); 
         isClosingEnlarged = false;
-        isManuallyScrollingThumbnail = false;
+        isManuallyPositioningThumbnails = false;
     }
   }
 
-  function handleThumbnailClick(index: number) {
-    if (isManuallyScrollingThumbnail) return; // Prevent clicks during manual scroll operations
+  async function handleThumbnailClick(index: number) {
+    if (selectedImageIndex === index && !enlargedImage) return; // Already selected, do nothing unless opening enlarged
 
-    isManuallyScrollingThumbnail = true; // Indicate we're about to manually control scroll
+    isManuallyPositioningThumbnails = true;
+    selectedImageIndex = index; // Update the index first
+
     if (imageSwiper) {
       imageSwiper.slideToLoop(index, 0); // Instantly go to slide
-    } else {
-      selectedImageIndex = index; // Fallback if swiper not ready
     }
+    
+    await tick(); // Allow selectedImageIndex change to propagate & Swiper to update
 
-    if (browser) {
-        requestAnimationFrame(() => {
-            isManuallyScrollingThumbnail = false;
-        });
+    if (browser && thumbnailContainerRef && thumbnailButtonRefs[index]) {
+      thumbnailContainerRef.classList.add('scrolling-instantly');
+      thumbnailButtonRefs[index].scrollIntoView({
+        behavior: 'auto',
+        block: 'nearest',
+        inline: 'center'
+      });
+      requestAnimationFrame(() => {
+        thumbnailContainerRef.classList.remove('scrolling-instantly');
+        isManuallyPositioningThumbnails = false;
+      });
     } else {
-        tick().then(() => isManuallyScrollingThumbnail = false);
+        await tick();
+        if(browser) requestAnimationFrame(() => { isManuallyPositioningThumbnails = false; });
+        else {isManuallyPositioningThumbnails = false;}
     }
   }
 
@@ -605,6 +616,7 @@
             <div class="inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4 px-4 max-w-[90vw] w-auto mx-auto">
               <div 
                 bind:this={thumbnailContainerRef}
+                class:scrolling-instantly={isManuallyPositioningThumbnails}
                 class="flex gap-2 overflow-x-auto scroll-smooth scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent max-w-full snap-x snap-mandatory" 
                 style="scrollbar-width: thin;">
                 {#each sortedImages as image, i}
@@ -833,5 +845,10 @@
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
+  }
+
+  /* New class for forcing instant scroll */
+  .scrolling-instantly {
+    scroll-behavior: auto !important;
   }
 </style> 

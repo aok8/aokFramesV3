@@ -22,7 +22,7 @@
   let openingAnimation = false;
   let openingWorkId: string | null = null;
   let openingScale = tweened(1, {
-    duration: 600,
+    duration: 300,
     easing: cubicOut
   });
   
@@ -391,7 +391,7 @@
     
     // Wait for animation to complete
     await tick();
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Reset animation state and open the work
     openingAnimation = false;

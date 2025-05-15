@@ -88,6 +88,8 @@
   let slideImageElements: (HTMLImageElement | null)[] = [];
   let thumbnailElements: (HTMLImageElement | null)[] = [];
 
+  let isClosingEnlarged = false; // New flag
+
   function handleWorkClick(work: Work) {
     if (work.nsfw) {
       showNsfwWarning = true;
@@ -198,6 +200,7 @@
   }
 
   async function closeEnlargedImage() {
+    isClosingEnlarged = true; // Set flag immediately
     enlargedImage = null;
     mainImageLoading = true; // Reset loading state for the main image in the gallery view
     mainImageLoaded = false;
@@ -215,10 +218,14 @@
     // The `on:init` handler in `initImageSwiper` uses speed 0 for positioning, so it should be instant.
     initImageSwiper(); 
     
-    // By removing the subsequent `scrollIntoView` call for the active thumbnail,
-    // we rely on the `thumbnailContainerRef.scrollLeft` assignment to restore
-    // the thumbnail list's state precisely as it was, without any further animated scrolling.
-    // This aims to prevent the "reset and then scroll" animation on the thumbnail list.
+    // Reset the flag after a tick to ensure scrollLeft restoration has taken effect
+    // and the reactive block for scrolling thumbnails doesn't immediately override it.
+    await tick(); 
+    // Using setTimeout with 0ms delay pushes the execution to the end of the current event loop cycle,
+    // which can be more robust than just `await tick()` in some edge cases with rendering.
+    setTimeout(() => {
+        isClosingEnlarged = false;
+    }, 0);
   }
 
   function handleNsfwConfirm() {

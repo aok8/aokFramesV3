@@ -162,10 +162,18 @@
       imageSwiper = null;
     }
     
+    // Make sure carouselIndex is set to the current work's index before closing
+    const currentWork = selectedWork;
+    if (currentWork) {
+      const workIndex = sortedWorks.findIndex(w => w.id === currentWork.id);
+      if (workIndex !== -1) {
+        carouselIndex = workIndex;
+      }
+    }
+    
     selectedWork = null;
     enlargedImage = null;
     document.body.style.overflow = '';
-    // carouselIndex is preserved now and will be used when Carousel is re-rendered
   }
 
   function nextImage() {
@@ -198,6 +206,12 @@
 
   function closeEnlargedImage() {
     enlargedImage = null;
+    
+    // Re-initialize swiper after closing the enlarged view
+    // to ensure it's properly synced with current selectedImageIndex
+    setTimeout(() => {
+      initImageSwiper();
+    }, 0);
   }
 
   function handleNsfwConfirm() {
@@ -258,6 +272,7 @@
     // Destroy previous instance if it exists
     if (imageSwiper) {
       imageSwiper.destroy();
+      imageSwiper = null;
     }
     
     // Create new swiper instance
@@ -282,6 +297,13 @@
           selectedImageIndex = swiper.activeIndex;
           mainImageLoading = true;
           mainImageLoaded = false;
+        },
+        // Add initialization callback to ensure swiper is properly initialized
+        init: (swiper) => {
+          // Force swiper to update to the correct slide
+          if (swiper.activeIndex !== selectedImageIndex) {
+            swiper.slideTo(selectedImageIndex, 0, false);
+          }
         }
       }
     });

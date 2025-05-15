@@ -277,7 +277,13 @@
   }
 
   // Navigation functions
-  function nextWork() {
+  function nextWork(event?: MouseEvent) {
+    // Stop propagation if event was provided
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
     if (isRotating) return;
     // Prevent rapid clicking
     if (!debounceArrowClick()) return;
@@ -299,7 +305,13 @@
     }, 500);
   }
 
-  function prevWork() {
+  function prevWork(event?: MouseEvent) {
+    // Stop propagation if event was provided
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
     if (isRotating) return;
     // Prevent rapid clicking
     if (!debounceArrowClick()) return;
@@ -409,8 +421,8 @@
     openingWorkId = work.id;
     openingScale.set(1.5);
     
-    // Fade out other works
-    dispatch('indexChange', currentIndex);
+    // Save the current index to restore it later
+    const savedIndex = currentIndex;
     
     // Wait for animation to complete
     await tick();
@@ -557,7 +569,7 @@
   {#if works.length > 1}
     <button 
       class="absolute left-4 md:left-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-      on:click|preventDefault={prevWork}
+      on:click|preventDefault|stopPropagation={prevWork}
       aria-label="Previous work"
       disabled={isRotating}
     >
@@ -568,7 +580,7 @@
     
     <button 
       class="absolute right-4 md:right-8 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-      on:click|preventDefault={nextWork}
+      on:click|preventDefault|stopPropagation={nextWork}
       aria-label="Next work"
       disabled={isRotating}
     >

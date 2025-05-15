@@ -22,7 +22,8 @@
   let showNsfwWarning = false;
   let nsfwWorkToShow: Work | null = null;
   let sortedImages: { src: string; alt: string; }[] = [];
-  let carouselIndex = 0; // Track current carousel position
+  let carouselIndex = 0;
+  let isWrappingAround = false; // New state variable
   
   // Swiper instances
   let imageSwiper: Swiper | null = null;
@@ -182,27 +183,29 @@
   function nextImage() {
     if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
     
-    let newIndex;
     if (selectedImageIndex === sortedImages.length - 1) {
-      newIndex = 0; // Wrap to the first image
+      // Wrapping from last to first
+      isWrappingAround = true;
+      imageSwiper.params.loop = true;
+      imageSwiper.update(); // Recalculate with loop active
+      imageSwiper.slideNext(400); // Animate with standard speed
     } else {
-      newIndex = selectedImageIndex + 1;
+      imageSwiper.slideNext(400); // Standard speed
     }
-    imageSwiper.slideTo(newIndex); 
-    // mainImageLoading and mainImageLoaded will be reset by the 'slideChange' event handler
   }
 
   function prevImage() {
     if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
-    
-    let newIndex;
+
     if (selectedImageIndex === 0) {
-      newIndex = sortedImages.length - 1; // Wrap to the last image
+      // Wrapping from first to last
+      isWrappingAround = true;
+      imageSwiper.params.loop = true;
+      imageSwiper.update(); // Recalculate with loop active
+      imageSwiper.slidePrev(400); // Animate with standard speed
     } else {
-      newIndex = selectedImageIndex - 1;
+      imageSwiper.slidePrev(400); // Standard speed
     }
-    imageSwiper.slideTo(newIndex);
-    // mainImageLoading and mainImageLoaded will be reset by the 'slideChange' event handler
   }
 
   function enlargeImage(image: { src: string; alt: string }) {
@@ -297,7 +300,7 @@
   
   // Initialize image swiper for touch navigation
   function initImageSwiper() {
-    if (!imageSwiperContainer || !selectedWork || sortedImages.length === 0) { // Guard against 0 images
+    if (!imageSwiperContainer || !selectedWork || sortedImages.length === 0) { 
       if (imageSwiper) {
           imageSwiper.destroy();
           imageSwiper = null;
@@ -305,39 +308,56 @@
       return; 
     }
     
-    // Destroy previous instance if it exists
     if (imageSwiper) {
       imageSwiper.destroy();
       imageSwiper = null;
     }
     
-    // Create new swiper instance
     imageSwiper = new Swiper(imageSwiperContainer, {
-      modules: [Navigation, Pagination], // Navigation might still be needed for styling or by Pagination
+      modules: [Navigation, Pagination], 
       initialSlide: selectedImageIndex,
       slidesPerView: 1,
       spaceBetween: 0,
       grabCursor: true,
       threshold: 10, 
-      resistance: false, // This provides the bounce effect when loop is false
-      loop: false, // Explicitly set to false to prevent swipe looping
+      resistance: false, 
+      loop: false, // Default to no loop. Will be toggled for wrapping.
+      speed: 400, 
       touchStartPreventDefault: false,
       touchMoveStopPropagation: false,
       touchStartForcePreventDefault: false,
       cssMode: false, 
       keyboard: {
-        enabled: false, // Custom keyboard handling is used via handleKeydown
+        enabled: false, 
       },
-      // Removed Swiper's default navigation object to rely on custom on:click handlers
-      // navigation: {
-      //   nextEl: '.swiper-button-next', // No longer used for click handling
-      //   prevEl: '.swiper-button-prev', // No longer used for click handling
-      // },
       on: {
         slideChange: (swiper) => {
-          selectedImageIndex = swiper.activeIndex;
+          // Always use realIndex to update our Svelte state,
+          // as activeIndex can be misleading with temporary loop.
+          const newIndex = swiper.realIndex;
+          if (selectedImageIndex !== newIndex) {
+            selectedImageIndex = newIndex;
+          }
           mainImageLoading = true;
           mainImageLoaded = false;
+        },
+        transitionEnd: (swiper) => {
+          // This event fires after the slide transition animation completes.
+          if (isWrappingAround) {
+            // We've finished the wrapping animation. Now, revert to non-looped.
+            if (swiper.params.loop) { // Check if loop is currently true
+              swiper.params.loop = false;
+              swiper.update(); // This will destroy loop slides and adjust indices.
+              
+              // After update, activeIndex should be correct (reflecting the realIndex).
+              // Safety check: if Swiper's activeIndex isn't what we expect, force it.
+              // selectedImageIndex should already hold the correct realIndex from slideChange.
+              if (swiper.activeIndex !== selectedImageIndex) {
+                 swiper.slideTo(selectedImageIndex, 0, false); // Snap to the correct slide
+              }
+            }
+            isWrappingAround = false;
+          }
         },
         init: (swiper) => {
           if (swiper.activeIndex !== selectedImageIndex) {

@@ -26,6 +26,10 @@
     easing: cubicOut
   });
   
+  // Track if a rotation was just completed (to prevent immediate opening)
+  let justRotated = false;
+  let rotationCompleteTimer: ReturnType<typeof setTimeout> | null = null;
+  
   // Add loading state tracking for each card
   let loadingStates: { [key: string]: boolean } = {}; // Tracks if loading has started
   let loadedStates: { [key: string]: boolean } = {};  // Tracks if loading has finished
@@ -42,27 +46,35 @@
   let touchThreshold = 50; // Minimum distance to trigger a swipe
   let carouselContainer: HTMLElement;
   let isTouching = false;
+  let touchStartTime = 0;
+  let touchEndTime = 0;
+  let touchTimeThreshold = 300; // Maximum time for a quick tap vs. swipe (ms)
   
   // Touch event handlers
   function handleTouchStart(e: TouchEvent) {
     touchStartX = e.touches[0].clientX;
+    touchStartTime = Date.now();
     isTouching = true;
   }
   
   function handleTouchMove(e: TouchEvent) {
     if (!isTouching) return;
     touchEndX = e.touches[0].clientX;
-    
-    // Optional: add visual feedback during swipe
-    // const deltaX = touchEndX - touchStartX;
-    // Add visual transformation based on deltaX if desired
   }
   
-  function handleTouchEnd() {
+  function handleTouchEnd(e: TouchEvent) {
     if (!isTouching) return;
     isTouching = false;
+    touchEndTime = Date.now();
     
     const swipeDistance = touchEndX - touchStartX;
+    const swipeDuration = touchEndTime - touchStartTime;
+    
+    // If it's a quick tap, don't treat as swipe
+    if (swipeDuration < touchTimeThreshold && Math.abs(swipeDistance) < touchThreshold) {
+      // This was just a tap, not a swipe
+      return;
+    }
     
     // Check if the swipe was long enough
     if (Math.abs(swipeDistance) > touchThreshold) {
@@ -251,26 +263,54 @@
   // Navigation functions
   function nextWork() {
     if (isRotating) return;
+    isRotating = true;
+    justRotated = true;
+    
+    // Move one card at a time
     currentIndex = (currentIndex + 1) % works.length;
     dispatch('indexChange', currentIndex);
+    
+    // Clear any existing timer
+    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+    
+    // Set a timer to clear the justRotated flag after animation completes
+    rotationCompleteTimer = setTimeout(() => {
+      isRotating = false;
+      justRotated = false;
+    }, 500);
   }
 
   function prevWork() {
     if (isRotating) return;
+    isRotating = true;
+    justRotated = true;
+    
+    // Move one card at a time
     currentIndex = (currentIndex - 1 + works.length) % works.length;
     dispatch('indexChange', currentIndex);
+    
+    // Clear any existing timer
+    if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+    
+    // Set a timer to clear the justRotated flag after animation completes
+    rotationCompleteTimer = setTimeout(() => {
+      isRotating = false;
+      justRotated = false;
+    }, 500);
   }
   
   // Function to rotate to a specific work
   async function rotateToWork(workId: string) {
-    if (isRotating) return;
+    if (isRotating) return false;
     isRotating = true;
+    justRotated = true;
     
     // Find the target index
     const targetIndex = works.findIndex(w => w.id === workId);
     if (targetIndex === -1) {
       isRotating = false;
-      return;
+      justRotated = false;
+      return false;
     }
     
     // Calculate the shortest path to rotate
@@ -288,18 +328,24 @@
       
       // Perform all rotations at once with animation
       const rotationDuration = 500; // ms
-      const startIndex = currentIndex;
-      const startTime = Date.now();
       
       // Set the final index directly
       currentIndex = targetIndex;
       dispatch('indexChange', currentIndex);
       
+      // Clear any existing timer
+      if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
+      
       // Wait for the animation to complete
-      await new Promise(resolve => setTimeout(resolve, rotationDuration));
+      rotationCompleteTimer = setTimeout(() => {
+        isRotating = false;
+        justRotated = false;
+      }, rotationDuration);
+    } else {
+      isRotating = false;
+      justRotated = false;
     }
     
-    isRotating = false;
     return true;
   }
 
@@ -307,10 +353,18 @@
   async function handleWorkClick(item: typeof carouselItems[0]) {
     if (isRotating || openingAnimation) return;
     
+    // If touch events were just processed, prevent additional actions
+    if (justRotated) return;
+    
     // Special handling for two-card layout - both cards are considered "active"
     if (works.length === 2) {
-      // Directly open the clicked card
-      openWorkWithAnimation(item.work);
+      // For 2-card layout, active items should always open directly
+      if (item.active) {
+        openWorkWithAnimation(item.work);
+      } else {
+        // First rotate, then user will need to click again to open
+        await rotateToWork(item.work.id);
+      }
       return;
     }
     
@@ -319,7 +373,7 @@
       // If center item, open it directly with animation
       openWorkWithAnimation(item.work);
     } else if (item.visible) {
-      // If not center but visible, just rotate to center
+      // If not center but visible, just rotate to center without opening
       await rotateToWork(item.work.id);
     }
   }
@@ -387,6 +441,7 @@
       // Safety cleanup
       return () => {
         clearInterval(checkImagesInterval);
+        if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
       };
     }
   });
@@ -496,24 +551,7 @@
         <path d="m9 18 6-6-6-6"></path>
       </svg>
     </button>
-  {/if}
-
-  <!-- Mobile swipe hint (only visible on small screens) -->
-  <div class="swipe-hint absolute bottom-4 left-0 right-0 flex justify-center md:hidden">
-    <div class="text-white/60 text-xs flex items-center gap-2 bg-black/20 backdrop-blur-sm py-1 px-3 rounded-full">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 13.5A3.5 3.5 0 0 1 13.5 17H8"></path>
-        <path d="M16 16H8"></path>
-        <path d="M9 11.5 7.5 13 9 14.5"></path>
-      </svg>
-      <span>Swipe to browse</span>
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 13.5A3.5 3.5 0 0 0 10.5 17H16"></path>
-        <path d="M8 16h8"></path>
-        <path d="m15 11.5 1.5 1.5-1.5 1.5"></path>
-      </svg>
-    </div>
-  </div>
+    {/if}
 </div>
 
 <style>
@@ -544,16 +582,6 @@
   .highlight-on-hover:hover {
     filter: brightness(1.2);
     transform: scale(1.05);
-  }
-  
-  /* Swipe hint animation */
-  .swipe-hint {
-    animation: fadeInOut 3s ease-in-out infinite;
-  }
-  
-  @keyframes fadeInOut {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
   }
   
   @keyframes fadeIn {

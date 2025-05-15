@@ -38,6 +38,9 @@
   // Force update flag - will trigger a refresh
   let forceUpdateCounter = 0;
 
+  // Queue for pending navigation actions
+  let pendingNavigation: ('next' | 'prev' | null) = null;
+
   // Touch handling variables
   let touchStartX = 0;
   let touchEndX = 0;
@@ -262,21 +265,41 @@
     });
   }
 
+  // Process any pending navigation actions when animation completes
+  function processPendingNavigation() {
+    if (pendingNavigation === 'next') {
+      pendingNavigation = null;
+      nextWork();
+    } else if (pendingNavigation === 'prev') {
+      pendingNavigation = null;
+      prevWork();
+    }
+  }
+
   // Navigation functions
   function nextWork(event?: MouseEvent) {
     if (event) {
       event.stopPropagation();
       event.preventDefault();
     }
-    if (isRotating) return; // Block if a CSS transition is already in progress
+    
+    if (isRotating) {
+      // Queue the action if a rotation is in progress
+      pendingNavigation = 'next';
+      return;
+    }
+    
     isRotating = true; 
     justRotated = true;
     currentIndex = (currentIndex + 1) % works.length;
     dispatch('indexChange', currentIndex);
+    
     if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
     rotationCompleteTimer = setTimeout(() => {
       isRotating = false; 
       justRotated = false;
+      // Process any queued actions once rotation completes
+      processPendingNavigation();
     }, 500); 
   }
 
@@ -285,15 +308,24 @@
       event.stopPropagation();
       event.preventDefault();
     }
-    if (isRotating) return;
+    
+    if (isRotating) {
+      // Queue the action if a rotation is in progress
+      pendingNavigation = 'prev';
+      return;
+    }
+    
     isRotating = true;
     justRotated = true;
     currentIndex = (currentIndex - 1 + works.length) % works.length;
     dispatch('indexChange', currentIndex);
+    
     if (rotationCompleteTimer) clearTimeout(rotationCompleteTimer);
     rotationCompleteTimer = setTimeout(() => {
       isRotating = false;
       justRotated = false;
+      // Process any queued actions once rotation completes
+      processPendingNavigation();
     }, 500);
   }
   
@@ -313,6 +345,8 @@
     rotationCompleteTimer = setTimeout(() => {
       isRotating = false;
       justRotated = false;
+      // Process any queued actions once rotation completes
+      processPendingNavigation();
     }, 500); 
     return true; 
   }

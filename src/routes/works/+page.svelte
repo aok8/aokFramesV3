@@ -206,20 +206,15 @@
 
   function closeEnlargedImage() {
     enlargedImage = null;
-    
-    // Instead of reinitializing the swiper (which causes the thumbnail reset),
-    // simply update the swiper if it exists
-    if (imageSwiper) {
-      // Update the swiper without reinitializing
-      const currentSwiper = imageSwiper; // Create local reference to avoid null checks
-      setTimeout(() => {
-        currentSwiper.update(); // Just update the existing swiper instance
-        // Make sure swiper is on the correct slide
-        if (currentSwiper.activeIndex !== selectedImageIndex) {
-          currentSwiper.slideTo(selectedImageIndex, 0, false);
-        }
-      }, 0);
-    }
+    // Reset loading state for the current selected image to ensure it re-evaluates
+    mainImageLoading = true;
+    mainImageLoaded = false;
+
+    // Re-initialize swiper to ensure it's properly synced
+    // and reflects the current selectedImageIndex.
+    setTimeout(() => {
+      initImageSwiper();
+    }, 0);
   }
 
   function handleNsfwConfirm() {
@@ -256,24 +251,30 @@
     }
   }
 
-  // Add keyboard navigation - modify to prevent double navigation
+  // Add keyboard navigation
   function handleKeydown(e: KeyboardEvent) {
     if (!selectedWork) return;
-    
-    // Stop keyboard navigation if it's being handled elsewhere
-    if (e.target instanceof HTMLInputElement || 
-        e.target instanceof HTMLTextAreaElement || 
-        e.target instanceof HTMLSelectElement) {
+
+    // Stop keyboard navigation if it's being handled by form elements
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    ) {
       return;
     }
-    
+
     if (e.key === 'ArrowLeft') {
-      e.preventDefault(); // Prevent any default behavior
+      e.preventDefault();
+      e.stopPropagation(); // Prevent event from bubbling
       prevImage();
     } else if (e.key === 'ArrowRight') {
-      e.preventDefault(); // Prevent any default behavior
+      e.preventDefault();
+      e.stopPropagation(); // Prevent event from bubbling
       nextImage();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation(); // Prevent event from bubbling
       if (enlargedImage) {
         closeEnlargedImage();
       } else {
@@ -284,7 +285,14 @@
   
   // Initialize image swiper for touch navigation
   function initImageSwiper() {
-    if (!imageSwiperContainer || !selectedWork || sortedImages.length <= 1) return;
+    if (!imageSwiperContainer || !selectedWork || sortedImages.length <= 1) {
+      // If conditions not met (e.g. 1 image or no container/work), ensure no old swiper active
+      if (imageSwiper) {
+          imageSwiper.destroy();
+          imageSwiper = null;
+      }
+      return; // Exit if no swiper needed or cannot be initialized
+    }
     
     // Destroy previous instance if it exists
     if (imageSwiper) {
@@ -324,6 +332,10 @@
           if (swiper.activeIndex !== selectedImageIndex) {
             swiper.slideTo(selectedImageIndex, 0, false);
           }
+          // Explicitly set loading states for the initial/current selectedImageIndex
+          // as slideChange might not fire for the very first slide on init.
+          mainImageLoading = true;
+          mainImageLoaded = false;
         }
       }
     });

@@ -6,6 +6,7 @@
   import { Footer, Navbar, Modal } from '$lib/components/ui/index.js';
   import { getPortfolioImages } from '$lib/utils/images';
   import { browser } from '$app/environment'; // Import browser check
+	import { logger } from '$lib/utils/logger.js';
 
   // Define the expected image structure including dimensions
   interface PortfolioImage {
@@ -50,12 +51,12 @@
     // Update the state variables directly
     bgImageConst = `/directr2/constants/${sizeDir}/bg.webp`;
     fallbackBgImageConst = `/images/constants/${sizeDir}/bg.webp`;
-    console.log(`Updated background image path for width ${screenWidth}: ${bgImageConst}`);
+    logger.log(`Updated background image path for width ${screenWidth}: ${bgImageConst}`);
   }
 
   // Recalculate paths whenever screenWidth changes AFTER it's been initially set
   $: if (browser && screenWidth !== null) {
-      console.log(`Screen width changed to: ${screenWidth}. Updating paths and triggering portfolio fetch.`);
+      logger.log(`Screen width changed to: ${screenWidth}. Updating paths and triggering portfolio fetch.`);
       // Update background paths immediately
       updateBgImagePaths(); 
 
@@ -164,10 +165,10 @@
   // --- New function to load portfolio images ---
   async function loadAndSetPortfolioImages(width: number) {
     if (isFetchingPortfolio) {
-      console.log('Already fetching portfolio images, skipping.');
+      logger.log('Already fetching portfolio images, skipping.');
       return; 
     }
-    console.log(`Triggering portfolio image fetch for width: ${width}`);
+    logger.log(`Triggering portfolio image fetch for width: ${width}`);
     isFetchingPortfolio = true;
     try {
       const newImages = await getPortfolioImages(width);
@@ -176,7 +177,7 @@
       imageErrors = Array(newImages.length).fill(false);
       imageFallbackErrors = Array(newImages.length).fill(false);
       portfolioLoaded = Array(newImages.length).fill(false);
-      console.log(`Successfully updated portfolio images state with ${newImages.length} images.`);
+      logger.log(`Successfully updated portfolio images state with ${newImages.length} images.`);
     } catch (error) {
         console.error('Error loading and setting portfolio images:', error);
         portfolioImages = []; // Clear images on error
@@ -237,19 +238,19 @@
   afterUpdate(() => {
       // Check background image completion
       if (!bgImageError && bgImageElement?.complete && !bgLoaded) {
-          // console.log('BG image already complete, setting loaded state.');
+          // logger.log('BG image already complete, setting loaded state.');
           bgLoaded = true;
       } else if (bgImageError && fallbackBgImageElement?.complete && !bgLoaded) {
-          // console.log('Fallback BG image already complete, setting loaded state.');
+          // logger.log('Fallback BG image already complete, setting loaded state.');
           bgLoaded = true;
       }
 
       // Check profile image completion
       if (!profileImageError && profileImageElement?.complete && !profileLoaded) {
-          // console.log('Profile image already complete, setting loaded state.');
+          // logger.log('Profile image already complete, setting loaded state.');
           profileLoaded = true;
       } else if (profileImageError && fallbackProfileImageElement?.complete && !profileLoaded) {
-          // console.log('Fallback Profile image already complete, setting loaded state.');
+          // logger.log('Fallback Profile image already complete, setting loaded state.');
           profileLoaded = true;
       }
   });
@@ -272,7 +273,7 @@
           class:loaded={bgLoaded}
           on:load={() => { bgLoaded = true; }}
           on:error={() => {
-            console.log('Background image failed to load, trying fallback');
+            logger.log('Background image failed to load, trying fallback');
             bgImageError = true;
             bgLoaded = false;
           }}
@@ -345,7 +346,7 @@
                         loading="lazy"
                         on:load={() => { portfolioLoaded[i] = true; }}
                         on:error={() => {
-                          console.log(`Image failed to load, trying fallback: ${image.url}`);
+                          logger.log(`Image failed to load, trying fallback: ${image.url}`);
                           imageErrors[i] = true;
                           portfolioLoaded[i] = false;
                         }}
@@ -384,7 +385,7 @@
                   class:loaded={profileLoaded}
                   on:load={() => { profileLoaded = true; }}
                   on:error={() => {
-                    console.log('Profile image failed to load, trying fallback');
+                    logger.log('Profile image failed to load, trying fallback');
                     profileImageError = true;
                     profileLoaded = false;
                   }}

@@ -1,4 +1,5 @@
 import type { RequestHandler } from './$types.js';
+import { createServerLogger } from '$lib/utils/logger';
 
 // Define platform type
 interface Platform {
@@ -7,6 +8,7 @@ interface Platform {
       head: (path: string) => Promise<unknown | null>;
       get: (path: string) => Promise<{ body: ReadableStream } | null>;
     };
+    VERBOSE_LOGGING?: string;
   };
 }
 
@@ -20,12 +22,13 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
   params: Params;
   request: Request;
 }) => {
-  console.log('DirectR2 request for path:', params.path);
+  const serverLogger = createServerLogger(platform?.env);
+  serverLogger.log('DirectR2 request for path:', params.path);
 
   try {
     // Check R2 availability
     if (!platform?.env?.ASSETSBUCKET) {
-      console.error('ASSETSBUCKET binding not found for directr2 request');
+      serverLogger.error('ASSETSBUCKET binding not found for directr2 request');
       return new Response('R2 bucket not available', { 
         status: 500,
         headers: {
@@ -37,7 +40,7 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
     const bucket = platform.env.ASSETSBUCKET;
     const path = params.path;
     
-    console.log('Fetching from R2 bucket with key:', path);
+    serverLogger.log('Fetching from R2 bucket with key:', path);
     
     // Set CORS headers to allow access from the frontend
     const headers = new Headers({
@@ -54,23 +57,23 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
     
     // Handle HEAD requests to check if a file exists
     if (request.method === 'HEAD') {
-      console.log('HEAD request for path:', path);
+      serverLogger.log('HEAD request for path:', path);
       try {
         const headResult = await bucket.head(path);
         if (headResult === null) {
-          console.log('HEAD request - file not found:', path);
+          serverLogger.log('HEAD request - file not found:', path);
           return new Response(null, { 
             status: 404,
             headers 
           });
         }
-        console.log('HEAD request - file exists:', path);
+        serverLogger.log('HEAD request - file exists:', path);
         return new Response(null, { 
           status: 200, 
           headers 
         });
       } catch (error) {
-        console.error('Error handling HEAD request:', error);
+        serverLogger.error('Error handling HEAD request:', error);
         return new Response(null, { 
           status: 500, 
           headers: new Headers({
@@ -86,7 +89,7 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
       const obj = await bucket.get(path);
       
       if (obj === null) {
-        console.error('File not found in R2:', path);
+        serverLogger.error('File not found in R2:', path);
         return new Response('Not found', { 
           status: 404, 
           headers 
@@ -100,8 +103,8 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
       }
       
       // Add more debug info
-      console.log('R2 file found:', path);
-      console.log('Content type:', contentType);
+      serverLogger.log('R2 file found:', path);
+      serverLogger.log('Content type:', contentType);
       
       // Create a new response with the file content and headers
       return new Response(obj.body, { 
@@ -109,7 +112,7 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
         headers
       });
     } catch (error) {
-      console.error('Error fetching from R2:', error);
+      serverLogger.error('Error fetching from R2:', error);
       return new Response('Error fetching file', { 
         status: 500, 
         headers: new Headers({
@@ -119,7 +122,7 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
       });
     }
   } catch (error) {
-    console.error('General error in directr2 handler:', error);
+    serverLogger.error('General error in directr2 handler:', error);
     return new Response('Server error', { 
       status: 500,
       headers: {

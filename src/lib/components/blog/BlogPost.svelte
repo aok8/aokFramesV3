@@ -4,6 +4,7 @@
   import { onMount, setContext, afterUpdate, tick } from 'svelte';
   import { dev } from '$app/environment';
   import { theme } from '../../../theme/theme.js'; // Corrected import path
+	import { logger } from '$lib/utils/logger.js';
 
   export let post: BlogPost;
   export let isPreview = false;
@@ -26,10 +27,10 @@
             let resolvedHref = href;
             // If path is relative (doesn't start with / or http), prepend the correct base path
             if (resolvedHref && !resolvedHref.startsWith('/') && !resolvedHref.startsWith('http')) {
-              console.log(`Resolving relative image path in markdown: ${resolvedHref} for post: ${post.id}`);
+              logger.log(`Resolving relative image path in markdown: ${resolvedHref} for post: ${post.id}`);
               // ALWAYS use the /directr2/ prefix, the hook handles dev/prod resolution
               resolvedHref = `/directr2/blog/posts/${post.id}/${resolvedHref}`;
-              console.log(`Resolved relative img path: ${href} -> ${resolvedHref}`);
+              logger.log(`Resolved relative img path: ${href} -> ${resolvedHref}`);
             }
             const titleAttr = title ? ` title="${title}"` : '';
             // Add lazy loading and styling to markdown images
@@ -54,15 +55,15 @@
   $: headerImagePath = post?.image || ''; // Use optional chaining
 
   // Log post ID for debugging 
-  console.log('Creating blog post link for post ID:', post.id);
+  logger.log('Creating blog post link for post ID:', post.id);
 
   // Generate link with proper encoding to preserve case and handle special chars
   $: encodedPostId = encodeURIComponent(post.id);
   $: blogPostUrl = `/blog/${encodedPostId}`;
-  $: console.log('Blog post link URL:', blogPostUrl);
+  $: logger.log('Blog post link URL:', blogPostUrl);
   
   // Log the final image path being used
-  $: console.log('Header image path for post:', headerImagePath);
+  $: logger.log('Header image path for post:', headerImagePath);
 
   // Header Image Handling - Track loading state
   let headerImageLoaded = false; 
@@ -71,7 +72,7 @@
   onMount(async () => {
     headerImageLoaded = false;
     headerImageErrored = false; // Reset on mount
-    console.log(`BlogPost component mounted for post: ${post.id}`);
+    logger.log(`BlogPost component mounted for post: ${post.id}`);
 
     // Allow Svelte to render the DOM first
     await tick();
@@ -79,10 +80,10 @@
     // Check if the relevant image element is already complete (e.g., from cache)
     const imgElement = isPreview ? headerImageElementPreview : headerImageElementFull;
     if (imgElement?.complete && !headerImageErrored) {
-      console.log(`Header image (${imgElement.src}) was already complete on mount.`);
+      logger.log(`Header image (${imgElement.src}) was already complete on mount.`);
       handleImageLoad(); // Manually trigger load state if already complete
     } else if (imgElement) {
-      console.log(`Header image (${imgElement.src}) not complete on mount. Waiting for on:load.`);
+      logger.log(`Header image (${imgElement.src}) not complete on mount. Waiting for on:load.`);
     }
   });
 
@@ -90,13 +91,13 @@
   function handleImageLoad() {
     headerImageLoaded = true;
     headerImageErrored = false; // Reset error if it somehow loads later
-    console.log(`Header image loaded successfully: ${headerImagePath}`);
+    logger.log(`Header image loaded successfully: ${headerImagePath}`);
   }
 
   // Function to mark image as errored
   function handleImageError() {
     if (!headerImageLoaded) { // Only mark as errored if not already loaded
-        console.error(`Header image failed to load: ${headerImagePath}`);
+        logger.error(`Header image failed to load: ${headerImagePath}`);
         headerImageErrored = true;
     }
   }
@@ -114,13 +115,13 @@
            imageElement.addEventListener('load', () => imageElement.classList.add('loaded'), { once: true });
            // Optional: Add error handling for markdown images if needed
            imageElement.addEventListener('error', () => {
-               console.error(`Markdown image failed to load: ${imageElement.src}`);
+               logger.error(`Markdown image failed to load: ${imageElement.src}`);
                imageElement.classList.add('error'); // Add error class for styling
            }, { once: true });
          }
        });
        processedMarkdown = true;
-       console.log(`Processed ${images.length} markdown images for lazy loading.`);
+       logger.log(`Processed ${images.length} markdown images for lazy loading.`);
      }
   });
 </script>

@@ -2,6 +2,7 @@ import type { LayoutServerLoad } from '@sveltejs/kit';
 import { loadWorks } from '$lib/server/works.js';
 import type { Work } from '$lib/types/works.js';
 import type { LayoutData } from './$types.js';
+import { createServerLogger } from '$lib/utils/logger';
 
 // Define the type for the layout data
 export type WorksLayoutData = {
@@ -12,17 +13,19 @@ export type WorksLayoutData = {
 };
 
 export const load: LayoutServerLoad<LayoutData> = async ({ platform, url }): Promise<LayoutData> => {
-  console.log('-------- Works Layout Server Load Start --------');
-  console.log('URL:', url.pathname);
+  const serverLogger = createServerLogger(platform?.env);
+  
+  serverLogger.log('-------- Works Layout Server Load Start --------');
+  serverLogger.log('URL:', url.pathname);
   
   const r2Available = !!platform?.env?.ASSETSBUCKET;
-  console.log('Layout: R2 available:', r2Available);
+  serverLogger.log('Layout: R2 available:', r2Available);
   
   try {
     // Load works using server-side functionality
-    console.log('Layout: Attempting loadWorks...');
+    serverLogger.log('Layout: Attempting loadWorks...');
     const works = await loadWorks(platform);
-    console.log(`Layout: Loaded ${works.length} works via loadWorks`);
+    serverLogger.log(`Layout: Loaded ${works.length} works via loadWorks`);
     
     if (works && works.length > 0) {
       return {
@@ -33,7 +36,7 @@ export const load: LayoutServerLoad<LayoutData> = async ({ platform, url }): Pro
     }
 
     // If no works found
-    console.warn('Layout: loadWorks returned 0 works.');
+    serverLogger.warn('Layout: loadWorks returned 0 works.');
     return {
       works: [],
       r2Available,
@@ -41,7 +44,7 @@ export const load: LayoutServerLoad<LayoutData> = async ({ platform, url }): Pro
       layoutStatus: 'error'
     };
   } catch (error: unknown) {
-    console.error('Layout: Error during layout load:', error);
+    serverLogger.error('Layout: Error during layout load:', error);
     return {
       works: [],
       r2Available,

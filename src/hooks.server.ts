@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import fs from 'node:fs/promises'; // Import fs for local dev file reading
 import path from 'node:path'; // Import path for local dev file reading
+import { createServerLogger } from '$lib/utils/logger';
 
 // Use a type for diagnostics
 interface DiagnosticResult {
@@ -39,13 +40,14 @@ interface IR2Bucket { // Renamed interface to avoid collision
 const USE_LOCAL_IMAGES = dev;
 
 export const handle: Handle = async ({ event, resolve }) => {
+    const serverLogger = createServerLogger(event.platform?.env);
     const pathname = event.url.pathname;
 
     // --- START: Development Mode R2 Emulation for /directr2/ ---
     if (dev && pathname.startsWith('/directr2/')) {
         try {
             const key = pathname.substring('/directr2/'.length);
-            console.log(`[Hook Dev] Intercepting /directr2/ request for key: ${key}`);
+            serverLogger.log(`[Hook Dev] Intercepting /directr2/ request for key: ${key}`);
 
             // Determine the local file path based on the key structure
             let localFilePath: string;
@@ -66,12 +68,12 @@ export const handle: Handle = async ({ event, resolve }) => {
                  const possibleHeaderPath = path.resolve('src', 'content', 'blog', 'posts', potentialSlug, 'header.webp');
                  if (await fs.stat(possibleHeaderPath).then(() => true).catch(() => false)) {
                       localFilePath = possibleHeaderPath;
-                      console.log(`[Hook Dev] Mapping blog key "${key}" to header: ${localFilePath}`);
+                      serverLogger.log(`[Hook Dev] Mapping blog key "${key}" to header: ${localFilePath}`);
                  } else {
                      // Fallback: Assume it's in static/images/blog/...
                      const relativePath = key.substring('blog/'.length);
                      localFilePath = path.resolve('static', 'images', 'blog', relativePath);
-                     console.log(`[Hook Dev] Mapping blog key "${key}" to static: ${localFilePath}`);
+                     serverLogger.log(`[Hook Dev] Mapping blog key "${key}" to static: ${localFilePath}`);
                  }
             } else if (key.startsWith('portfolio/')) {
                 // Portfolio images are in static/images/Portfolio
@@ -84,44 +86,44 @@ export const handle: Handle = async ({ event, resolve }) => {
                  if (constantPath.includes('/bg.webp')) { // Background image
                      // Maps constants/w1024/bg.webp -> public/images/bg/w1024/bg.webp
                      localFilePath = path.resolve('public', 'images', 'bg', constantPath);
-                     console.log(`[Hook Dev] Mapping constants BG key "${key}" to: ${localFilePath}`);
+                     serverLogger.log(`[Hook Dev] Mapping constants BG key "${key}" to: ${localFilePath}`);
                  } else if (constantPath === 'Profile_Pic.webp') { // Profile picture
                      // Maps constants/Profile_Pic.webp -> public/images/Profile_Pic.webp
                      localFilePath = path.resolve('public', 'images', constantPath);
-                     console.log(`[Hook Dev] Mapping constants Profile Pic key "${key}" to: ${localFilePath}`);
+                     serverLogger.log(`[Hook Dev] Mapping constants Profile Pic key "${key}" to: ${localFilePath}`);
                  } else if (constantPath === 'Prints.webp') { // Prints image
                      // Maps constants/Prints.webp -> public/images/Prints.webp
                      localFilePath = path.resolve('public', 'images', constantPath);
-                     console.log(`[Hook Dev] Mapping constants Prints key "${key}" to: ${localFilePath}`);
+                     serverLogger.log(`[Hook Dev] Mapping constants Prints key "${key}" to: ${localFilePath}`);
                  } else if (['favicon.ico', 'apple-touch-icon.png', 'site.webmanifest', 'favicon.png'].includes(constantPath)) { // Root icons/manifest (Assume these ARE in static)
                      // Maps constants/favicon.ico -> static/favicon.ico
                      localFilePath = path.resolve('static', constantPath);
-                     console.log(`[Hook Dev] Mapping constants Root Asset key "${key}" to: ${localFilePath}`);
+                     serverLogger.log(`[Hook Dev] Mapping constants Root Asset key "${key}" to: ${localFilePath}`);
                  } else {
                      // Fallback for any other constants keys? 
                      // Where should other constants map in dev?
-                     console.warn(`[Hook Dev] Unhandled constants key "${key}". Passing to SvelteKit.`);
+                     serverLogger.warn(`[Hook Dev] Unhandled constants key "${key}". Passing to SvelteKit.`);
                      return resolve(event); // Let SvelteKit handle if structure is unknown
                  }
             } else {
-                console.warn(`[Hook Dev] Unhandled R2 key structure for local mapping: ${key}`);
+                serverLogger.warn(`[Hook Dev] Unhandled R2 key structure for local mapping: ${key}`);
                 return resolve(event); // Let SvelteKit handle if structure is unknown
             }
 
-            console.log(`[Hook Dev] Attempting to read local file: ${localFilePath}`);
+            serverLogger.log(`[Hook Dev] Attempting to read local file: ${localFilePath}`);
 
             // Check if file exists
             try {
                  await fs.access(localFilePath); // Check existence first
             } catch (accessError) {
-                 console.warn(`[Hook Dev] Local file not found or inaccessible: ${localFilePath}`);
+                 serverLogger.warn(`[Hook Dev] Local file not found or inaccessible: ${localFilePath}`);
                  return new Response('Not Found (Local Dev)', { status: 404 });
             }
 
 
             // Handle HEAD request for existence check
             if (event.request.method === 'HEAD') {
-                 console.log(`[Hook Dev] HEAD request successful for local file: ${localFilePath}`);
+                 serverLogger.log(`[Hook Dev] HEAD request successful for local file: ${localFilePath}`);
                  const stats = await fs.stat(localFilePath);
                  const headers = new Headers();
                  headers.set('Content-Length', stats.size.toString());
@@ -136,7 +138,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
             // Handle GET request to serve the file content
             if (event.request.method === 'GET') {
-                console.log(`[Hook Dev] GET request: Reading local file: ${localFilePath}`);
+                serverLogger.log(`[Hook Dev] GET request: Reading local file: ${localFilePath}`);
                  const fileContent = await fs.readFile(localFilePath);
                  const headers = new Headers();
                  const contentType = getContentType(localFilePath); // Use helper
@@ -145,16 +147,16 @@ export const handle: Handle = async ({ event, resolve }) => {
                  }
                  headers.set('Content-Length', fileContent.length.toString());
                  // Add Cache-Control, ETag etc. if desired for dev
-                 console.log(`[Hook Dev] Serving local file ${localFilePath} with type ${contentType}`);
+                 serverLogger.log(`[Hook Dev] Serving local file ${localFilePath} with type ${contentType}`);
                  return new Response(fileContent, { status: 200, headers });
             }
 
              // Method not allowed for local files via this hook
-            console.warn(`[Hook Dev] Method ${event.request.method} not allowed for local file: ${localFilePath}`);
+            serverLogger.warn(`[Hook Dev] Method ${event.request.method} not allowed for local file: ${localFilePath}`);
             return new Response('Method Not Allowed (Local Dev)', { status: 405 });
 
         } catch (error) {
-            console.error('[Hook Dev] Error serving local file:', error);
+            serverLogger.error('[Hook Dev] Error serving local file:', error);
             return new Response('Internal Server Error (Local Dev Hook)', { status: 500 });
         }
     }
@@ -175,7 +177,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (isProdDirectR2Path || isProdAssetPath) {
         // Check if platform is available (only relevant in production)
                 if (!event.platform?.env?.ASSETSBUCKET) {
-             console.error('[Hook Prod] R2 bucket binding not available');
+             serverLogger.error('[Hook Prod] R2 bucket binding not available');
                     return new Response('R2 Bucket Not Available', { status: 500 });
                 }
                 
@@ -209,11 +211,11 @@ export const handle: Handle = async ({ event, resolve }) => {
               else if (pathname.startsWith('/constants/')) key = 'constants/' + pathname.substring('/constants/'.length);
               else {
                    // Should not happen given the isProdAssetPath check, but good to have a fallback
-                  console.error(`[Hook Prod] URL pattern not recognized: ${pathname}`);
+                  serverLogger.error(`[Hook Prod] URL pattern not recognized: ${pathname}`);
                   return new Response('Not Found', { status: 404 });
               }
 
-              console.log(`[Hook Prod] Attempting R2 access for key: ${key} via path ${pathname}`);
+              serverLogger.log(`[Hook Prod] Attempting R2 access for key: ${key} via path ${pathname}`);
 
                     const R2Bucket = event.platform.env.ASSETSBUCKET as IR2Bucket;
 
@@ -221,10 +223,10 @@ export const handle: Handle = async ({ event, resolve }) => {
               if (event.request.method === 'HEAD') {
                     const headResult = await R2Bucket.head(key);
                     if (!headResult) {
-                       console.warn(`[Hook Prod] HEAD - Object not found for key: ${key}`);
+                       serverLogger.warn(`[Hook Prod] HEAD - Object not found for key: ${key}`);
                         return new Response(`Object not found: ${key}`, { status: 404 });
                     }
-                        console.log(`[Hook Prod] HEAD request successful for key: ${key}. Returning 200 OK.`);
+                        serverLogger.log(`[Hook Prod] HEAD request successful for key: ${key}. Returning 200 OK.`);
                         const headers = new Headers();
                         headers.set('etag', headResult.httpEtag);
                    const contentType = getContentType(key);
@@ -237,10 +239,10 @@ export const handle: Handle = async ({ event, resolve }) => {
                     else if (event.request.method === 'GET') {
                         const obj = await R2Bucket.get(key);
                         if (!obj) {
-                       console.warn(`[Hook Prod] GET - Object not found for key: ${key}`);
+                       serverLogger.warn(`[Hook Prod] GET - Object not found for key: ${key}`);
                        return new Response(`Object not found: ${key}`, { status: 404 });
                         }
-                   console.log(`[Hook Prod] Streaming GET response for key: ${key}`);
+                   serverLogger.log(`[Hook Prod] Streaming GET response for key: ${key}`);
                         const headers = new Headers();
                    obj.writeHttpMetadata(headers);
                         headers.set('etag', obj.httpEtag);
@@ -250,12 +252,12 @@ export const handle: Handle = async ({ event, resolve }) => {
                     
               // Other methods
                     else {
-                         console.warn(`[Hook Prod] Method ${event.request.method} not allowed for key: ${key}`);
+                         serverLogger.warn(`[Hook Prod] Method ${event.request.method} not allowed for key: ${key}`);
                          return new Response('Method Not Allowed', { status: 405 });
                     }
 
                 } catch (error) {
-              console.error('[Hook Prod] R2 error:', error);
+              serverLogger.error('[Hook Prod] R2 error:', error);
             const errorMessage = error instanceof Error ? error.message : String(error);
             return new Response(`Internal Server Error: ${errorMessage}`, { status: 500 });
         }
@@ -263,22 +265,23 @@ export const handle: Handle = async ({ event, resolve }) => {
     // --- END: Production Mode R2 Handling ---
 
     // If none of the above conditions were met, let SvelteKit handle the request normally
-    console.log(`[Hook] Path "${pathname}" not handled by custom R2 logic, passing to SvelteKit resolver.`);
+    serverLogger.log(`[Hook] Path "${pathname}" not handled by custom R2 logic, passing to SvelteKit resolver.`);
     return resolve(event);
 };
 
 // Add explicit error handling
 export const handleError = async ({ error, event }) => {
-  console.error('[handleError] SvelteKit error handler invoked with:', {
-    error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
-    url: event.url.pathname,
-    routeId: event.route.id
-  });
-  
-  // Return an object that conforms to App.Error
-  return {
-    message: error instanceof Error ? error.message : 'An unexpected error occurred'
-  };
+    const serverLogger = createServerLogger(event.platform?.env);
+    serverLogger.error('[handleError] SvelteKit error handler invoked with:', {
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        url: event.url.pathname,
+        routeId: event.route.id
+    });
+    
+    // Return an object that conforms to App.Error
+    return {
+        message: error instanceof Error ? error.message : 'An unexpected error occurred'
+    };
 };
 
 // Helper function to get the local path for a key
@@ -319,7 +322,8 @@ function getContentType(filePathOrKey: string): string | undefined {
 // --- START Diagnostics Endpoint (Optional) ---
 // You might want to keep or remove this depending on your needs
 async function handleDiagnostics({ event }: { event: any }): Promise<Response> {
-    console.log("[Diagnostics] Running diagnostics...");
+    const serverLogger = createServerLogger(event.platform?.env);
+    serverLogger.log("[Diagnostics] Running diagnostics...");
     // Add actual diagnostic logic here
     const diagnosticsData = { message: "Diagnostics endpoint needs implementation." }; 
     return new Response(JSON.stringify(diagnosticsData), {

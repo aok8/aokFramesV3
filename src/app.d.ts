@@ -12,6 +12,7 @@ declare global {
 				R2_BUCKET: R2Bucket;
 				ASSETSBUCKET: R2Bucket;
 				IMAGE_DIMS_KV: KVNamespace;
+				VERBOSE_LOGGING?: string;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;

@@ -4,6 +4,7 @@ import { dev } from '$app/environment';
 import { get } from 'svelte/store';
 import { posts } from '$lib/stores/blog.js';
 import type { BlogPost } from '$lib/types/blog.js'; // Import BlogPost type
+import { logger } from '$lib/utils/logger.js';
 
 // Simple frontmatter parser for browser
 function parseFrontmatter(content: string) {
@@ -88,7 +89,7 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
         } catch { imageExists = false; }
     }
     
-    console.log(`Image check for ${slug}: ${imageExists ? imagePath : 'None'}`);
+    logger.log(`Image check for ${slug}: ${imageExists ? imagePath : 'None'}`);
     
     return {
         id: slug,
@@ -103,7 +104,7 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
 }
 
 export const load: PageLoad = async ({ data, params, fetch }) => {
-  console.log(`[+page.ts Client Load] Checking for post data for slug: "${params.slug}"`);
+  logger.log(`[+page.ts Client Load] Checking for post data for slug: "${params.slug}"`);
   
   type LoadResult = { post: BlogPost } | { error: any; status: number }; 
 
@@ -111,18 +112,18 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
     const { slug } = params;
     const decodedSlug = decodeURIComponent(slug);
     
-    console.log(`[+page.ts Client Load] Page load running for blog post with slug: "${decodedSlug}"`);
+    logger.log(`[+page.ts Client Load] Page load running for blog post with slug: "${decodedSlug}"`);
     
     // --- Development Mode Logic --- 
     if (dev) {
-        console.log('Running in development mode, attempting local file fetch...');
+        logger.log('Running in development mode, attempting local file fetch...');
         try {
             const postPath = `/src/content/blog/posts/${decodedSlug}/index.md`;
-            console.log(`[+page.ts Client Load] Fetching post from dev path: ${postPath}`);
+            logger.log(`[+page.ts Client Load] Fetching post from dev path: ${postPath}`);
             const response = await fetch(postPath);
             
             if (!response.ok) {
-                console.error(`Failed to fetch post in dev mode: ${response.status} ${response.statusText} for ${postPath}`);
+                logger.error(`Failed to fetch post in dev mode: ${response.status} ${response.statusText} for ${postPath}`);
                 throw error(404, `Blog post file not found at ${postPath}`); 
             }
             
@@ -141,9 +142,9 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             try {
                 const imageResponse = await fetch(localImageCheckPath, { method: 'HEAD' }); 
                 imageExists = imageResponse.ok;
-                console.log(`Dev image check for ${localImageCheckPath}: ${imageExists}`);
+                logger.log(`Dev image check for ${localImageCheckPath}: ${imageExists}`);
             } catch (imgErr) {
-                console.warn(`Dev image check failed for ${localImageCheckPath}:`, imgErr);
+                logger.warn(`Dev image check failed for ${localImageCheckPath}:`, imgErr);
             }
 
             if (imageExists) {
@@ -185,36 +186,36 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                 image: imagePathForComponent 
             };
             
-            console.log('[+page.ts Client Load] Successfully created blog post from filesystem:', post.title, 'with image:', post.image);
+            logger.log('[+page.ts Client Load] Successfully created blog post from filesystem:', post.title, 'with image:', post.image);
             return { post }; // Explicitly return LoadResult type
             
         } catch (devError) {
-             console.error('[+page.ts Client Load] Error during development mode post loading:', devError);
+             logger.error('[+page.ts Client Load] Error during development mode post loading:', devError);
              throw error(404, 'Blog post not found in development environment');
         }
     }
     // --- End Development Mode Logic ---
     
     // --- Production Mode Logic --- 
-    console.log('[+page.ts Client Load] Running in production mode, proceeding with cloud logic...');
+    logger.log('[+page.ts Client Load] Running in production mode, proceeding with cloud logic...');
     
     // Check Session Storage First (Client-side only)
     if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
         try {
-            console.log('[+page.ts Client Load] Checking sessionStorage for cached posts');
+            logger.log('[+page.ts Client Load] Checking sessionStorage for cached posts');
             const cachedPostsJson = sessionStorage.getItem('blogPosts');
             
             if (cachedPostsJson) {
                 const cachedPosts: BlogPost[] = JSON.parse(cachedPostsJson); // Add type
-                console.log(`[+page.ts Client Load] SessionStorage has ${cachedPosts.length} cached posts`);
+                logger.log(`[+page.ts Client Load] SessionStorage has ${cachedPosts.length} cached posts`);
                 
                 if (cachedPosts && cachedPosts.length > 0) {
-                    console.log('[+page.ts Client Load] All cached post IDs:', cachedPosts.map(p => p.id));
+                    logger.log('[+page.ts Client Load] All cached post IDs:', cachedPosts.map(p => p.id));
                     
                     let postFromSession = cachedPosts.find(p => p.id.toLowerCase() === decodedSlug.toLowerCase());
                                         
                     if (postFromSession) {
-                        console.log('[+page.ts Client Load] Post found in sessionStorage:', postFromSession.title);
+                        logger.log('[+page.ts Client Load] Post found in sessionStorage:', postFromSession.title);
                         // Optionally update the store if necessary (might already be up-to-date)
                         // posts.set(cachedPosts); 
                         return { post: postFromSession };
@@ -222,61 +223,61 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                 }
             }
         } catch (storageError) {
-            console.error('[+page.ts Client Load] Error accessing sessionStorage:', storageError);
+            logger.error('[+page.ts Client Load] Error accessing sessionStorage:', storageError);
         }
     }
 
     // Check the Svelte Store next
     const storedPosts = get(posts);
-    console.log(`[+page.ts Client Load] Store has ${storedPosts.length} posts`);
+    logger.log(`[+page.ts Client Load] Store has ${storedPosts.length} posts`);
     
     if (storedPosts && storedPosts.length > 0) {
-        console.log('[+page.ts Client Load] All post IDs in store:', storedPosts.map(p => p.id));
+        logger.log('[+page.ts Client Load] All post IDs in store:', storedPosts.map(p => p.id));
         
         let storedPost = storedPosts.find(p => p.id.toLowerCase() === decodedSlug.toLowerCase());
                 
         if (storedPost) {
-            console.log('[+page.ts Client Load] Post found in store:', storedPost.title);
+            logger.log('[+page.ts Client Load] Post found in store:', storedPost.title);
             return { post: storedPost };
         }
     }
 
     // If not found in cache or store, attempt direct fetch from R2 (via hook)
     try {
-        console.log(`[+page.ts Client Load] Attempting direct fetch of slug "${decodedSlug}" from R2 via API`);
+        logger.log(`[+page.ts Client Load] Attempting direct fetch of slug "${decodedSlug}" from R2 via API`);
         
-        console.log('[+page.ts Client Load] Fetching /api/blog-status');
+        logger.log('[+page.ts Client Load] Fetching /api/blog-status');
         const statusRes = await fetch('/api/blog-status', {
             headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' }
         });
-        console.log(`[+page.ts Client Load] /api/blog-status response status: ${statusRes.status}`);
+        logger.log(`[+page.ts Client Load] /api/blog-status response status: ${statusRes.status}`);
         
         if (statusRes.ok) {
             const statusData = await statusRes.json();
-            console.log('[+page.ts Client Load] R2 slugs from API:', statusData?.blogPosts?.slugs);
+            logger.log('[+page.ts Client Load] R2 slugs from API:', statusData?.blogPosts?.slugs);
             
             let matchingItem: { key: string } | undefined = undefined;
             const apiSlugs: string[] = statusData?.blogPosts?.slugs || [];
             const foundSlug = apiSlugs.find(s => s.toLowerCase() === decodedSlug.toLowerCase());
             
             if (foundSlug) {
-                console.log(`[+page.ts Client Load] Found matching API slug (case-insensitive): "${foundSlug}"`);
+                logger.log(`[+page.ts Client Load] Found matching API slug (case-insensitive): "${foundSlug}"`);
                 const expectedKey = `blog/posts/${foundSlug}/index.md`;
                 matchingItem = statusData.blogPosts.items.find((item: { key: string }) => item.key === expectedKey);
                  if (!matchingItem) {
-                   console.warn(`[+page.ts Client Load] Slug "${foundSlug}" in list, but key "${expectedKey}" not found in items!`);
+                   logger.warn(`[+page.ts Client Load] Slug "${foundSlug}" in list, but key "${expectedKey}" not found in items!`);
                  }
             } else {
-                console.log(`[+page.ts Client Load] Slug "${decodedSlug}" not found in API slugs list.`);
+                logger.log(`[+page.ts Client Load] Slug "${decodedSlug}" not found in API slugs list.`);
             }
             
             if (matchingItem) {
-                 console.log(`[+page.ts Client Load] Found direct match in R2 items:`, matchingItem);
+                 logger.log(`[+page.ts Client Load] Found direct match in R2 items:`, matchingItem);
                  const exactSlugFromKey = foundSlug!; // Use the slug found earlier
                  const directR2Key = `/directr2/${matchingItem.key}`;
-                 console.log(`[+page.ts Client Load] Fetching post content from R2 via: ${directR2Key}`);
+                 logger.log(`[+page.ts Client Load] Fetching post content from R2 via: ${directR2Key}`);
                  const postResponse = await fetch(directR2Key);
-                 console.log(`[+page.ts Client Load] /directr2 fetch status: ${postResponse.status}`);
+                 logger.log(`[+page.ts Client Load] /directr2 fetch status: ${postResponse.status}`);
 
                  if (postResponse.ok) {
                      const content = await postResponse.text();
@@ -304,7 +305,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                      let imagePathForComponent: string | undefined = undefined;
                      try {
                          const imageCheckUrl = `/directr2/${imageR2KeyCheck}`;
-                         console.log(`[+page.ts Client Load] Checking for header image via HEAD: ${imageCheckUrl}`);
+                         logger.log(`[+page.ts Client Load] Checking for header image via HEAD: ${imageCheckUrl}`);
                          const imageResponse = await fetch(imageCheckUrl, { method: 'HEAD' });
                          imageExists = imageResponse.ok;
                          if (imageExists) {
@@ -325,7 +326,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                          image: imagePathForComponent
                      };
                      
-                     console.log(`[+page.ts Client Load] Successfully created blog post object from R2: "${post.title}" with ID "${post.id}"`);
+                     logger.log(`[+page.ts Client Load] Successfully created blog post object from R2: "${post.title}" with ID "${post.id}"`);
                      
                      // Update store and session storage
                      updateSessionStorageWithPost(post);
@@ -333,47 +334,47 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                                           
                      return { post };
                  } else {
-                     console.error(`[+page.ts Client Load] Failed to fetch post content from R2 (${directR2Key}): ${postResponse.status}`);
+                     logger.error(`[+page.ts Client Load] Failed to fetch post content from R2 (${directR2Key}): ${postResponse.status}`);
                      // Fall through if content fetch fails
                  }
             } else {
-                 console.log(`[+page.ts Client Load] No matching file found for slug "${decodedSlug}" in R2 list from API.`);
+                 logger.log(`[+page.ts Client Load] No matching file found for slug "${decodedSlug}" in R2 list from API.`);
                  // Fall through 
             }
         } else {
-            console.error(`[+page.ts Client Load] Fetch to /api/blog-status failed: ${statusRes.status}`);
+            logger.error(`[+page.ts Client Load] Fetch to /api/blog-status failed: ${statusRes.status}`);
              // Fall through
         }
     } catch (directFetchError) {
-        console.error('[+page.ts Client Load] Error during direct post fetch block:', directFetchError);
+        logger.error('[+page.ts Client Load] Error during direct post fetch block:', directFetchError);
         // Fall through 
     }
 
     // --- Fallback: Fetch All Posts (if direct methods failed) --- 
     // This might be less efficient on the client but serves as a last resort
     // Consider if this fallback is truly needed client-side or if a 404 is better
-    console.warn('[+page.ts Client Load] Direct fetch failed or post not found in cache/store. Falling back to fetching all posts (might be slow).');
+    logger.warn('[+page.ts Client Load] Direct fetch failed or post not found in cache/store. Falling back to fetching all posts (might be slow).');
     try {
         const statusRes = await fetch('/api/blog-status', {
             headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' }
         });
-        console.log(`[+page.ts Client Load Fallback] /api/blog-status status: ${statusRes.status}`);
+        logger.log(`[+page.ts Client Load Fallback] /api/blog-status status: ${statusRes.status}`);
 
         if (!statusRes.ok) {
-            console.error(`[+page.ts Client Load Fallback] Failed to fetch blog status: ${statusRes.status}`);
+            logger.error(`[+page.ts Client Load Fallback] Failed to fetch blog status: ${statusRes.status}`);
             throw error(404, 'Blog post not found (fallback status API failed)');
         }
         
         const statusData = await statusRes.json();
         if (!statusData.blogPosts?.items || statusData.blogPosts.items.length === 0) {
-            console.error('[+page.ts Client Load Fallback] No blog posts found in status data');
+            logger.error('[+page.ts Client Load Fallback] No blog posts found in status data');
             throw error(404, 'Blog post not found (fallback no posts in API)');
         }
         
-        console.log(`[+page.ts Client Load Fallback] Fetching all ${statusData.blogPosts.items.length} posts via helper...`);
+        logger.log(`[+page.ts Client Load Fallback] Fetching all ${statusData.blogPosts.items.length} posts via helper...`);
         // Use the fetchAllPosts helper (assuming it's adapted for client-side or works via API internally)
         const allPosts = await fetchAllPosts(statusData.blogPosts.items, fetch);
-        console.log(`[+page.ts Client Load Fallback] fetchAllPosts returned ${allPosts.length} posts`);
+        logger.log(`[+page.ts Client Load Fallback] fetchAllPosts returned ${allPosts.length} posts`);
 
         // Store all posts (updates store and session storage)
         posts.set(allPosts);
@@ -383,23 +384,23 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
         let targetPost = allPosts.find(p => p.id.toLowerCase() === decodedSlug.toLowerCase());
                 
         if (targetPost) {
-            console.log(`[+page.ts Client Load Fallback] Found post "${targetPost.title}" with ID "${targetPost.id}" among all loaded posts`);
+            logger.log(`[+page.ts Client Load Fallback] Found post "${targetPost.title}" with ID "${targetPost.id}" among all loaded posts`);
             return { post: targetPost };
         } else {
-            console.error(`[+page.ts Client Load Fallback] Post "${decodedSlug}" not found even after fetching all posts.`);
+            logger.error(`[+page.ts Client Load Fallback] Post "${decodedSlug}" not found even after fetching all posts.`);
             throw error(404, 'Blog post not found (not in full list)');
         }
     } catch (fallbackError) {
-        console.error('[+page.ts Client Load Fallback] Error during fallback loading all posts:', fallbackError);
+        logger.error('[+page.ts Client Load Fallback] Error during fallback loading all posts:', fallbackError);
         // If the fallback fails, definitely throw 404
         throw error(404, 'Blog post not found (fallback error)');
     }
 
   } catch (e) {
     // Catch any top-level errors in the load function
-    console.error('[+page.ts Client Load] -------- Blog Post Page Load CRASHED --------');
-    console.error('An unexpected error occurred in the page load function:', e);
-    console.error('Params were:', params);
+    logger.error('[+page.ts Client Load] -------- Blog Post Page Load CRASHED --------');
+    logger.error('An unexpected error occurred in the page load function:', e);
+    logger.error('Params were:', params);
     // Ensure the thrown error matches expected types if possible
     if (e && typeof e === 'object' && 'status' in e && typeof e.status === 'number') {
         throw error(e.status, (e as any).body || 'Blog post not found due to an internal error');
@@ -409,7 +410,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
   }
   
   // Should theoretically be unreachable if all paths return or throw
-  console.error('[+page.ts Client Load] Execution reached end of load function unexpectedly');
+  logger.error('[+page.ts Client Load] Execution reached end of load function unexpectedly');
   throw error(500, 'Load function completed without returning data or throwing error');
 };
 
@@ -429,9 +430,9 @@ function updateSessionStorageWithPost(post: BlogPost) {
                 cachedPosts.push(post); // Add new
             }
             sessionStorage.setItem('blogPosts', JSON.stringify(cachedPosts));
-            console.log(`[Helper] Updated sessionStorage with post "${post.id}"`);
+            logger.log(`[Helper] Updated sessionStorage with post "${post.id}"`);
         } catch (e) {
-            console.error('[Helper] Error updating sessionStorage:', e);
+            logger.error('[Helper] Error updating sessionStorage:', e);
         }
     }
 }
@@ -441,9 +442,9 @@ function updateSessionStorageWithList(postList: BlogPost[]) {
     if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
         try {
             sessionStorage.setItem('blogPosts', JSON.stringify(postList));
-            console.log(`[Helper] Stored ${postList.length} posts in sessionStorage`);
+            logger.log(`[Helper] Stored ${postList.length} posts in sessionStorage`);
         } catch (e) {
-            console.error('[Helper] Error storing post list in sessionStorage:', e);
+            logger.error('[Helper] Error storing post list in sessionStorage:', e);
         }
     }
 }
@@ -459,7 +460,7 @@ function updateStoreWithPost(post: BlogPost) {
     } else {
         posts.set([...currentPosts, post]);
     }
-    console.log(`[Helper] Updated Svelte store with post "${post.id}"`);
+    logger.log(`[Helper] Updated Svelte store with post "${post.id}"`);
 }
 
 
@@ -467,7 +468,7 @@ function updateStoreWithPost(post: BlogPost) {
 // Assumes the structure returned by the API status endpoint is sufficient
 // or that the directr2 paths will work correctly via the hook
 async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): Promise<BlogPost[]> {
-    console.log(`[fetchAllPosts Client] Processing ${items.length} items from API status... Dev mode: ${dev}`);
+    logger.log(`[fetchAllPosts Client] Processing ${items.length} items from API status... Dev mode: ${dev}`);
     const loadedPosts: BlogPost[] = [];
 
     for (const item of items) {
@@ -486,13 +487,13 @@ async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): P
             try {
                 const response = await fetchFn(r2Path);
                 if (!response.ok) {
-                     console.error(`[fetchAllPosts Client] Failed to fetch R2 ${r2Path}: ${response.status}`);
+                     logger.error(`[fetchAllPosts Client] Failed to fetch R2 ${r2Path}: ${response.status}`);
                      continue; 
                 }
                 text = await response.text();
                 fetchSource = `R2 (${r2Path})`;
              } catch (prodFetchError) {
-                console.error(`[fetchAllPosts Client] Error fetching R2 ${r2Path}:`, prodFetchError);
+                logger.error(`[fetchAllPosts Client] Error fetching R2 ${r2Path}:`, prodFetchError);
                 continue; 
              }
             // --- End Content Fetch ---
@@ -542,11 +543,11 @@ async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): P
                 image: imagePathForComponent 
             });
         } catch (e) {
-             console.error(`[fetchAllPosts Client] Error processing item ${item?.key}:`, e);
+             logger.error(`[fetchAllPosts Client] Error processing item ${item?.key}:`, e);
         }
     }
 
-    console.log(`[fetchAllPosts Client] Successfully processed ${loadedPosts.length} posts.`);
+    logger.log(`[fetchAllPosts Client] Successfully processed ${loadedPosts.length} posts.`);
     return loadedPosts;
 }
 

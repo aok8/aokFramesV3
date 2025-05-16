@@ -1,6 +1,9 @@
 <script lang="ts">
   import { theme } from '../../../theme/theme.js';
   export let class_name = '';
+  
+  // Get current year for copyright
+  const currentYear = new Date().getFullYear();
 </script>
 
 <footer class="footer {class_name}"
@@ -16,6 +19,7 @@
               <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
           </svg>
       </a>
+      <p class="copyright">© {currentYear} aokframes</p>
   </div>
 </footer>
 
@@ -59,6 +63,12 @@
 
     .instagram:hover {
         opacity: 0.8;
+    }
+    
+    .copyright {
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+        opacity: 0.7;
     }
 
     @media (max-width: 768px) {

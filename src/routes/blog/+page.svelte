@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { dev } from '$app/environment';
+	import { logger } from '$lib/utils/logger.js';
 
   // Define expected Layout data shape directly here
   type ExpectedLayoutData = {
@@ -62,9 +63,9 @@
   let loadedPostsFromClient: BlogPostType[] = [];
   
   // Log blog data for debugging
-  console.log('Blog page data from layout:', data);
-  console.log('Blog posts from layout:', data.posts);
-  console.log('Layout status:', data.layoutStatus);
+  logger.log('Blog page data from layout:', data);
+  logger.log('Blog posts from layout:', data.posts);
+  logger.log('Layout status:', data.layoutStatus);
   
   onMount(async () => {
     // Access layoutStatus directly - now typed
@@ -73,7 +74,7 @@
     // Only attempt client-side fetch if layout explicitly skipped
     // OR if we are in production and server posts are empty
     if (layoutSkipped || (!dev && data.posts.length === 0)) {
-      console.log('Attempting client-side R2 fetch (layout skipped or prod fallback)');
+      logger.log('Attempting client-side R2 fetch (layout skipped or prod fallback)');
       isLoading = true;
       try {
         const statusRes = await fetch('/api/blog-status', {
@@ -85,7 +86,7 @@
         
         if (statusRes.ok) {
           const statusData = await statusRes.json();
-          console.log('Client R2 Load: Blog R2 status:', statusData);
+          logger.log('Client R2 Load: Blog R2 status:', statusData);
 
           // Extract unique slugs containing index.md from statusData
           const slugs = new Set<string>();
@@ -96,26 +97,26 @@
               }
           });
           const uniqueSlugs = Array.from(slugs);
-          console.log('Client R2 Load: Found potential slugs:', uniqueSlugs);
+          logger.log('Client R2 Load: Found potential slugs:', uniqueSlugs);
 
           if (uniqueSlugs.length > 0) {
-            console.log('Client R2 Load: Attempting direct fetch...');
+            logger.log('Client R2 Load: Attempting direct fetch...');
             const loadedPosts: BlogPostType[] = [];
             
             for (const slug of uniqueSlugs) {
               try {
                 // Construct key for index.md
                 const key = `blog/posts/${slug}/index.md`;
-                console.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
+                logger.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
 
                 const response = await fetch(`/directr2/${key}`);
                 if (response.ok) {
                   const text = await response.text();
-                  console.log(`Successfully loaded ${slug} directly`);
+                  logger.log(`Successfully loaded ${slug} directly`);
                   
                   // Parse frontmatter and content
                   const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
-                  console.log('Parsed frontmatter:', frontmatter);
+                  logger.log('Parsed frontmatter:', frontmatter);
                   
                   // Extract title from first h1
                   const titleMatch = markdownContent.match(/^#\s+(.*)/m);
@@ -145,12 +146,12 @@
                           // Check if the line starts with any heading marker (#)
                           if (line.startsWith('#')) {
                               // Found another heading before finding a summary paragraph
-                              console.log(`Skipping summary for "${title}" because next content is a heading: ${line}`);
+                              logger.log(`Skipping summary for "${title}" because next content is a heading: ${line}`);
                               break; // Stop searching for summary
                           } else {
                               // Found a valid summary line
                               summary = line;
-                              console.log(`Extracted summary for "${title}": ${summary.substring(0, 50)}...`);
+                              logger.log(`Extracted summary for "${title}": ${summary.substring(0, 50)}...`);
                               break; // Stop after finding the first valid line
                           }
                       }
@@ -159,7 +160,7 @@
                   
                   // Get tags from frontmatter
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
-                  console.log('Extracted tags:', tags);
+                  logger.log('Extracted tags:', tags);
                   
                   // Check for header.webp using HEAD request
                   const imageKey = `blog/posts/${slug}/header.webp`;
@@ -167,9 +168,9 @@
                   try {
                       const imgRes = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
                       imageExists = imgRes.ok;
-                      console.log(`Client R2 Load: Image check for ${imageKey}: ${imageExists}`);
+                      logger.log(`Client R2 Load: Image check for ${imageKey}: ${imageExists}`);
                   } catch (imgErr) {
-                      console.warn(`Client R2 Load: Image check failed for ${imageKey}`, imgErr);
+                      logger.warn(`Client R2 Load: Image check failed for ${imageKey}`, imgErr);
                   }
                   
                   loadedPosts.push({
@@ -183,40 +184,40 @@
                     image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.webp path
                   });
                 } else {
-                    console.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);
+                    logger.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);
                 }
               } catch (e) {
-                 console.error(`Client R2 Load: Error loading post for slug "${slug}":`, e);
+                 logger.error(`Client R2 Load: Error loading post for slug "${slug}":`, e);
               }
             }
             
             if (loadedPosts.length > 0) {
-              console.log('Directly loaded posts from R2:', loadedPosts);
+              logger.log('Directly loaded posts from R2:', loadedPosts);
               loadedPostsFromClient = loadedPosts;
               posts.set(loadedPosts);
               
               // Store in sessionStorage
               try {
                 sessionStorage.setItem('blogPosts', JSON.stringify(loadedPosts));
-                console.log('Stored R2 loaded posts in sessionStorage');
+                logger.log('Stored R2 loaded posts in sessionStorage');
               } catch (storageError) {
-                console.error('Error storing R2 posts in sessionStorage:', storageError);
+                logger.error('Error storing R2 posts in sessionStorage:', storageError);
               }
             } else {
               // If R2 fetch yielded no posts, potentially set an error state
               loadError = true;
-              console.error('Client-side R2 fetch completed but found 0 valid posts.');
+              logger.error('Client-side R2 fetch completed but found 0 valid posts.');
             }
           } else {
              loadError = true;
-             console.error('Blog R2 status has no post items.');
+             logger.error('Blog R2 status has no post items.');
           }
         } else {
            loadError = true;
-           console.error(`Client fetch for /api/blog-status failed: ${statusRes.status}`);
+           logger.error(`Client fetch for /api/blog-status failed: ${statusRes.status}`);
         }
       } catch (error) {
-        console.error('Error during client-side R2 fetch:', error);
+        logger.error('Error during client-side R2 fetch:', error);
         loadError = true;
       }
       isLoading = false;
@@ -224,32 +225,32 @@
     
     // Handle initial population from layout data
     if (data.posts?.length > 0) {
-      console.log('Populating store from layout data');
+      logger.log('Populating store from layout data');
       posts.set(data.posts);
       // Optionally store layout posts in sessionStorage if not already there
       if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('blogPosts')) {
          try {
             sessionStorage.setItem('blogPosts', JSON.stringify(data.posts));
-            console.log('Stored layout posts in sessionStorage');
+            logger.log('Stored layout posts in sessionStorage');
           } catch (storageError) {
-             console.error('Error storing layout posts in sessionStorage:', storageError);
+             logger.error('Error storing layout posts in sessionStorage:', storageError);
           }
       }
     } else if (!layoutSkipped) {
       // If layout didn't skip but posts are empty, check session storage as fallback
-      console.log('Layout provided no posts, checking sessionStorage');
+      logger.log('Layout provided no posts, checking sessionStorage');
        if (typeof sessionStorage !== 'undefined') {
           try {
             const storedPostsJson = sessionStorage.getItem('blogPosts');
             if (storedPostsJson) {
               const storedPosts = JSON.parse(storedPostsJson);
               if (storedPosts.length > 0) {
-                  console.log('Restoring posts from sessionStorage');
+                  logger.log('Restoring posts from sessionStorage');
                   posts.set(storedPosts);
               }
             }
           } catch (e) {
-            console.error('Error reading from sessionStorage', e);
+            logger.error('Error reading from sessionStorage', e);
           }
        }
     }

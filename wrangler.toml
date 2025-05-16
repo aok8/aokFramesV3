@@ -8,7 +8,7 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 # Environment variables for the worker
 [vars]
 MY_R2_BUCKET = "aokframes-website-assets"
-VERBOSE_LOGGING = "false" # Set to "true" to enable verbose logs in production
+VERBOSE_LOGGING = "true" # Set to "true" to enable verbose logs in production
 
 # R2 bucket binding configuration with proper access - use newer naming convention
 [[r2_buckets]]

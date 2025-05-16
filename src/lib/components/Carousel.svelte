@@ -6,6 +6,7 @@
   import { fade } from 'svelte/transition';
   import { browser } from '$app/environment';
   import type { Work } from '$lib/types/works.js';
+  import { logger } from '$lib/utils/logger';
   
   export let works: Work[] = [];
   export let onWorkClick: (work: Work) => void;
@@ -107,7 +108,7 @@
 
   async function handleImageLoad(workId: string) {
     if (!loadedStates[workId]) { // Prevent multiple calls
-      console.log(`Image loaded for work: ${workId}`);
+      logger.log(`Image loaded for work: ${workId}`);
       loadedStates = { ...loadedStates, [workId]: true };
       await tick(); 
     }
@@ -138,7 +139,7 @@
     works.forEach((work) => {
       const img = new Image();
       img.onload = () => {
-        console.log(`Preloaded image for work: ${work.id}`);
+        logger.log(`Preloaded image for work: ${work.id}`);
         handleImageLoad(work.id);
       };
       img.src = work.coverImage;
@@ -150,7 +151,7 @@
     works.forEach((work, index) => {
       const imgElement = imageElements[index];
       if (imgElement && imgElement.complete && !loadedStates[work.id]) {
-        console.log(`Image ${work.id} found complete in afterUpdate`);
+        logger.log(`Image ${work.id} found complete in afterUpdate`);
         handleImageLoad(work.id);
       }
     });
@@ -420,7 +421,7 @@
       
       // Force a reactivity trigger after a small delay
       setTimeout(() => {
-        console.log('Forcing reactivity update');
+        logger.log('Forcing reactivity update');
         forceUpdateCounter += 1;
       }, 500);
       
@@ -433,14 +434,14 @@
             // Try to find the image element
             const imgElement = imageElements[index];
             if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
-              console.log(`Poll detected loaded image for work: ${work.id}`);
+              logger.log(`Poll detected loaded image for work: ${work.id}`);
               handleImageLoad(work.id);
             }
           }
         });
         
         if (allLoaded || forceUpdateCounter > 5) {
-          console.log('All images loaded or max retries reached, clearing interval');
+          logger.log('All images loaded or max retries reached, clearing interval');
           clearInterval(checkImagesInterval);
         } else {
           forceUpdateCounter += 1;

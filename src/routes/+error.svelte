@@ -3,7 +3,8 @@
 </script>
 
 <div class="error-content">
-  <p> Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
+  <h1>404</h1>
+  <p>Sorry, this page doesn't exist. There may be a typo in the URL or the page may have been moved.</p>
   <p>You can return home by clicking <a href="/">here</a>.</p>
 </div>
 
@@ -23,6 +24,7 @@
     font-size: 6rem;
     font-weight: 300;
     margin: 0;
+    color: #666;
   }
 
   p {

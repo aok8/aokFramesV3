@@ -2,9 +2,10 @@
   import { theme } from '../../theme/theme.js';
   import { Footer } from "$lib/components/ui";
   import { Navbar } from "$lib/components/ui";
+
   const profileImage = '/directr2/constants/Profile_Pic.webp';
   const fallbackProfileImage = '/images/constants/Profile_Pic.webp';
-  let profileImageError = false;
+  let profileImageError = $state(false);
 </script>
 
 <div class="about-container" style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary}; --secondary-color: {theme.secondary};">
@@ -18,7 +19,7 @@
         src={profileImage} 
         alt="Profile" 
         class="profile-photo" 
-        on:error={() => {
+        onerror={() => {
           console.log('Profile image failed to load, trying fallback');
           profileImageError = true;
         }}
@@ -28,7 +29,7 @@
         src={fallbackProfileImage} 
         alt="Profile" 
         class="profile-photo"
-        on:error={() => {
+        onerror={() => {
           console.error('Both profile image paths failed');
         }}
       />
@@ -41,7 +42,7 @@
         including three years immersed in the art of film. 
         Whether in vivid color or classic black and white, he seeks to capture a collection of awe inspiring images.
       </p>
-      <p class = "quote">
+      <p class="quote">
         "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer. 
         It's because of this, that I have a hard time categorizing my work, it's more a collection of such. 
         I find joy in being able to see the changes in what caught my eye, and also bring back memories of what exactly it was that excited me. 
@@ -73,7 +74,8 @@
     max-width: 800px;
     margin: 0 auto;
   }
-  .quote{
+  
+  .quote {
     background-color: color-mix(in srgb, var(--secondary-color) 30%, white);
     color: color-mix(in srgb, var(--secondary-color) 80%, black);
     border: 1px solid var(--secondary-color);

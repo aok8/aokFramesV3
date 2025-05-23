@@ -10,7 +10,7 @@
   import { dev } from '$app/environment';
 	import { logger } from '$lib/utils/logger.js';
 
-  // Define expected Layout data shape directly here
+  // Type definition for Layout data
   type ExpectedLayoutData = {
     posts: BlogPostType[];
     r2Available: boolean;
@@ -18,7 +18,7 @@
     layoutStatus?: 'skipped-post-load' | 'loaded' | 'api-fallback' | 'error';
   };
 
-  // Simple frontmatter parser for browser
+  // Frontmatter parser for browser
   function parseFrontmatter(content: string) {
     const lines = content.split('\n');
     const frontmatter: Record<string, string> = {};
@@ -48,7 +48,6 @@
       const [key, ...valueParts] = line.split(':');
       if (key && valueParts.length > 0) {
         const value = valueParts.join(':').trim();
-        // Remove quotes if present
         frontmatter[key.trim()] = value.replace(/^['"](.*)['"]$/, '$1');
       }
     }
@@ -56,23 +55,19 @@
     return { data: frontmatter, content: markdownContent };
   }
 
-  export let data: PageData & ExpectedLayoutData;
+  let { data }: { data: PageData & ExpectedLayoutData } = $props();
   
-  let isLoading = false;
-  let loadError = false;
-  let loadedPostsFromClient: BlogPostType[] = [];
+  let isLoading = $state(false);
+  let loadError = $state(false);
+  let loadedPostsFromClient = $state<BlogPostType[]>([]);
   
-  // Log blog data for debugging
   logger.log('Blog page data from layout:', data);
   logger.log('Blog posts from layout:', data.posts);
   logger.log('Layout status:', data.layoutStatus);
   
   onMount(async () => {
-    // Access layoutStatus directly - now typed
     const layoutSkipped = data.layoutStatus === 'skipped-post-load';
     
-    // Only attempt client-side fetch if layout explicitly skipped
-    // OR if we are in production and server posts are empty
     if (layoutSkipped || (!dev && data.posts.length === 0)) {
       logger.log('Attempting client-side R2 fetch (layout skipped or prod fallback)');
       isLoading = true;
@@ -105,7 +100,6 @@
             
             for (const slug of uniqueSlugs) {
               try {
-                // Construct key for index.md
                 const key = `blog/posts/${slug}/index.md`;
                 logger.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
 
@@ -114,55 +108,46 @@
                   const text = await response.text();
                   logger.log(`Successfully loaded ${slug} directly`);
                   
-                  // Parse frontmatter and content
                   const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
                   logger.log('Parsed frontmatter:', frontmatter);
                   
-                  // Extract title from first h1
                   const titleMatch = markdownContent.match(/^#\s+(.*)/m);
                   const title = titleMatch ? titleMatch[1] : slug;
                   
-                  // --- Refined Summary Extraction --- 
+                  // Summary extraction
                   const lines = markdownContent.split('\n');
-                  let summary = ''; // Default to empty string
+                  let summary = '';
                   let foundTitle = false;
                   let titleIndex = -1;
 
-                  // Find the index of the main title line
                   for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].trim().startsWith('# ')) { // More specific check for H1
+                    if (lines[i].trim().startsWith('# ')) {
                        foundTitle = true;
                        titleIndex = i;
                        break;
                     }
                   }
                   
-                  // If title was found, look for the first non-empty, non-heading line after it
                   if (foundTitle) {
                       for (let i = titleIndex + 1; i < lines.length; i++) {
                           const line = lines[i].trim();
-                          if (line === '') continue; // Skip empty lines
+                          if (line === '') continue;
                           
-                          // Check if the line starts with any heading marker (#)
                           if (line.startsWith('#')) {
-                              // Found another heading before finding a summary paragraph
                               logger.log(`Skipping summary for "${title}" because next content is a heading: ${line}`);
-                              break; // Stop searching for summary
+                              break;
                           } else {
-                              // Found a valid summary line
                               summary = line;
                               logger.log(`Extracted summary for "${title}": ${summary.substring(0, 50)}...`);
-                              break; // Stop after finding the first valid line
+                              break;
                           }
                       }
                   }
-                  // --- End Refined Summary Extraction --- 
                   
-                  // Get tags from frontmatter
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
                   logger.log('Extracted tags:', tags);
                   
-                  // Check for header.webp using HEAD request
+                  // Check for header.webp
                   const imageKey = `blog/posts/${slug}/header.webp`;
                   let imageExists = false;
                   try {
@@ -174,14 +159,14 @@
                   }
                   
                   loadedPosts.push({
-                    id: slug, // slug is the directory name
+                    id: slug,
                     title,
                     summary,
                     content: markdownContent,
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: imageExists ? `/directr2/${imageKey}` : undefined // Use header.webp path
+                    image: imageExists ? `/directr2/${imageKey}` : undefined
                   });
                 } else {
                     logger.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);
@@ -196,7 +181,6 @@
               loadedPostsFromClient = loadedPosts;
               posts.set(loadedPosts);
               
-              // Store in sessionStorage
               try {
                 sessionStorage.setItem('blogPosts', JSON.stringify(loadedPosts));
                 logger.log('Stored R2 loaded posts in sessionStorage');
@@ -204,7 +188,6 @@
                 logger.error('Error storing R2 posts in sessionStorage:', storageError);
               }
             } else {
-              // If R2 fetch yielded no posts, potentially set an error state
               loadError = true;
               logger.error('Client-side R2 fetch completed but found 0 valid posts.');
             }
@@ -227,7 +210,6 @@
     if (data.posts?.length > 0) {
       logger.log('Populating store from layout data');
       posts.set(data.posts);
-      // Optionally store layout posts in sessionStorage if not already there
       if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem('blogPosts')) {
          try {
             sessionStorage.setItem('blogPosts', JSON.stringify(data.posts));
@@ -237,7 +219,6 @@
           }
       }
     } else if (!layoutSkipped) {
-      // If layout didn't skip but posts are empty, check session storage as fallback
       logger.log('Layout provided no posts, checking sessionStorage');
        if (typeof sessionStorage !== 'undefined') {
           try {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { theme } from '../../../theme/theme.js';
-  export let class_name = '';
+  
+  let { class_name = '' }: { class_name?: string } = $props();
   
   // Get current year for copyright
   const currentYear = new Date().getFullYear();

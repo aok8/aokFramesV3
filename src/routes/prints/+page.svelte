@@ -92,7 +92,7 @@
         Currently featured works are:
       </p>
       <ul>
-        <li><a href="https://www.ephemere.tokyo/publications/p/anarchy2">Ephemere Anarchy2</a></li>
+        <li><a href="https://www.ephemere.tokyo/store/p/anarchy2">Ephemere Anarchy2</a></li>
       </ul>
     </div>
   </div>

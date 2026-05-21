@@ -1,9 +1,13 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
+  import FilmStrip from '$lib/components/peek/FilmStrip.svelte';
   import type { PageData } from './$types';
 
-  const { data }: { data: PageData } = $props();
+  let { data }: { data: PageData } = $props();
+
+  const strip1 = $derived(data.images.filter((_: unknown, i: number) => i % 2 === 0));
+  const strip2 = $derived(data.images.filter((_: unknown, i: number) => i % 2 !== 0));
 </script>
 
 <div class="peek-page">
@@ -20,7 +24,24 @@
       </p>
     </header>
 
-    <div class="strips-placeholder">Film strips load here — Sprint 2</div>
+    {#if data.isEmpty}
+      <p class="holding-msg">
+        I got nothing right now, but I promise I'm working on the next batch. Maybe. Kinda.
+      </p>
+      <FilmStrip images={[]} ghost={true} direction="forward" speed={40} height={260} />
+      <FilmStrip images={[]} ghost={true} direction="reverse" speed={55} height={200} />
+    {:else}
+      <FilmStrip images={strip1} direction="forward" speed={40} height={260} />
+      <FilmStrip images={strip2} direction="reverse" speed={55} height={200} />
+    {/if}
+
+    <div class="bottom-meta">
+      <div>
+        <p class="bottom-meta-label">Hover to pause</p>
+        <p class="hover-hint">← Auto-scrolling filmstrip →</p>
+      </div>
+      <div class="bottom-meta-count">{data.images.length}</div>
+    </div>
   </main>
 
   <Footer />
@@ -76,13 +97,47 @@
     white-space: nowrap;
   }
 
-  .strips-placeholder {
-    padding: 4rem 0;
+  .holding-msg {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1rem, 1.8vw, 1.4rem);
+    color: rgba(200, 192, 184, 0.4);
     text-align: center;
-    font-family: var(--font-ui);
+    padding: 2.5rem 0 3rem;
+    letter-spacing: 0.02em;
+  }
+
+  .bottom-meta {
+    padding: 2rem 5vw 4rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px solid rgba(200, 192, 184, 0.06);
+  }
+
+  .bottom-meta-label {
     font-size: 9px;
     letter-spacing: 0.3em;
     text-transform: uppercase;
-    color: rgba(200, 192, 184, 0.2);
+    color: rgba(200, 192, 184, 0.35);
+  }
+
+  .hover-hint {
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--green-light);
+    opacity: 0.6;
+    margin-top: 0.5rem;
+  }
+
+  .bottom-meta-count {
+    font-family: var(--font-display);
+    font-size: 4rem;
+    font-weight: 300;
+    font-style: italic;
+    color: rgba(200, 192, 184, 0.08);
+    line-height: 1;
   }
 </style>

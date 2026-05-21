@@ -6,6 +6,17 @@
   import Footer from '$lib/components/ui/footer.svelte';
   import { initFadeUpReveal } from '$lib/utils/animations.js';
 
+  // Svelte action: reveal image whether it's already cached or still downloading
+  function revealOnLoad(node: HTMLImageElement) {
+    const show = () => node.classList.add('loaded');
+    if (node.complete && node.naturalHeight > 0) {
+      show();
+    } else {
+      node.addEventListener('load', show, { once: true });
+      node.addEventListener('error', show, { once: true }); // show placeholder on error too
+    }
+  }
+
   let { data }: { data: { works: Work[] } } = $props();
 
   let selectedWork = $state<Work | null>(null);
@@ -175,10 +186,10 @@
         {#each selectedWork.images as image, i}
           <div class="contact-thumb">
             <img
+              use:revealOnLoad
               src={image.src}
               alt={image.alt ?? `${selectedWork.title} — ${i + 1}`}
-              loading="lazy"
-              onload={(e) => e.currentTarget.classList.add('loaded')}
+              loading="eager"
             />
             {#if image.alt}
               <span class="contact-label">{image.alt}</span>

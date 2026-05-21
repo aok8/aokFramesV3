@@ -98,7 +98,7 @@
 		font-weight: 300;
 		letter-spacing: 0.45em;
 		text-transform: uppercase;
-		color: var(--text-dim, rgba(200, 192, 184, 0.55));
+		color: rgba(200, 192, 184, 0.9);
 		margin: 0 0 1.5rem;
 		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
 	}

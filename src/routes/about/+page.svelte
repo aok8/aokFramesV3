@@ -135,7 +135,7 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.35em;
-    color: rgba(200, 192, 184, 0.55);
+    color: rgba(200, 192, 184, 0.85);
     margin: 0;
   }
 

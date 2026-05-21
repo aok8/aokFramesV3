@@ -113,7 +113,7 @@
 
 	.hero-headline em {
 		font-style: italic;
-		color: var(--gold, #b8936a);
+		color: var(--forest-green, #2D4739);
 	}
 
 	.hero-sub {
@@ -152,7 +152,7 @@
 		width: 4px;
 		height: 4px;
 		border-radius: 50%;
-		background: var(--gold, #b8936a);
+		background: var(--forest-green, #2D4739);
 		animation: scroll-pulse 2s ease-in-out infinite 0.3s;
 	}
 

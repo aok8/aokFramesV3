@@ -10,8 +10,6 @@
 
   let selectedWork = $state<Work | null>(null);
   let hoveredWork = $state<Work | null>(null);
-  let cursorX = $state(0);
-  let cursorY = $state(0);
   let previewEl = $state<HTMLDivElement | null>(null);
   let overlayEl = $state<HTMLDivElement | null>(null);
 
@@ -55,16 +53,11 @@
     if (e.key === 'Escape' && selectedWork) closeOverlay();
   }
 
-  function handleMouseMove(e: MouseEvent) {
-    cursorX = e.clientX;
-    cursorY = e.clientY;
-  }
-
   function padIndex(n: number): string {
     return String(n).padStart(2, '0');
   }
 
-  // GSAP hover bleed-in for the preview image panel
+  // GSAP slide-in for the fixed right-side image panel
   $effect(() => {
     if (!browser || !previewEl) return;
     if (window.matchMedia('(hover: none)').matches) return;
@@ -74,14 +67,14 @@
         gsap.to(previewEl, {
           opacity: 1,
           x: '0%',
-          duration: 0.4,
+          duration: 0.45,
           ease: 'power3.out',
         });
       } else {
         gsap.to(previewEl, {
           opacity: 0,
-          x: '4%',
-          duration: 0.25,
+          x: '100%',
+          duration: 0.3,
           ease: 'power2.in',
         });
       }
@@ -95,8 +88,7 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="works-page" onmousemove={handleMouseMove}>
+<div class="works-page">
   <Navbar />
 
   <main class="works-main">
@@ -141,15 +133,17 @@
 
   <Footer />
 
-  <!-- Floating preview — always in DOM so GSAP can animate it; opacity driven by $effect -->
+  <!-- Fixed right-side image panel — always in DOM, GSAP slides in/out -->
   <div
     bind:this={previewEl}
-    class="hover-preview"
-    style="left: {cursorX + 24}px; top: {cursorY - 60}px; opacity: 0; transform: translateX(4%);"
+    class="side-panel"
+    style="opacity: 0; transform: translateX(100%);"
     aria-hidden="true"
   >
     {#if hoveredWork}
-      <img src={hoveredWork.coverImage} alt={hoveredWork.title} />
+      <img src={hoveredWork.coverImage} alt="" />
+    {:else}
+      <p class="side-panel-hint">HOVER A SERIES<br/>TO PREVIEW</p>
     {/if}
   </div>
 </div>
@@ -201,9 +195,16 @@
   .works-main {
     flex: 1;
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: 680px;
+    margin: 0 auto 0 clamp(2rem, 5vw, 8rem);
     padding: 8rem 2rem 4rem;
+  }
+
+  @media (max-width: 900px) {
+    .works-main {
+      max-width: 100%;
+      margin: 0 auto;
+    }
   }
 
   /* ── Page title ───────────────────────────────────────────── */
@@ -237,7 +238,20 @@
   }
 
   .works-row:hover {
-    background: rgba(184, 147, 106, 0.04);
+    background: rgba(45, 71, 57, 0.06);
+  }
+
+  .works-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.6rem 0;
+    width: 100%;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
   }
 
   .works-row-btn {
@@ -283,7 +297,7 @@
   }
 
   .works-row:hover .row-title {
-    color: var(--gold, #b8936a);
+    color: var(--forest-green, #2D4739);
   }
 
   .row-tags {
@@ -321,30 +335,48 @@
     opacity: 0.5;
   }
 
-  /* ── Floating hover preview ───────────────────────────────── */
-  .hover-preview {
+  /* ── Fixed right-side image panel ────────────────────────── */
+  .side-panel {
     position: fixed;
+    top: 0;
+    right: 0;
+    width: 45vw;
+    height: 100vh;
     z-index: 50;
     pointer-events: none;
-    width: 240px;
-    animation: fadeIn 0.18s ease forwards;
+    background: var(--near-black, #0e0e0e);
+    overflow: hidden;
+    will-change: transform, opacity;
   }
 
-  .hover-preview img {
+  .side-panel img {
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     display: block;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+    opacity: 0.85;
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+  .side-panel-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 100;
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--silver, #c8c0b8);
+    opacity: 0.3;
+    text-align: center;
+    line-height: 2;
+    white-space: nowrap;
   }
 
-  /* Hide hover preview on mobile */
-  @media (max-width: 768px) {
-    .hover-preview {
+  /* Hide side panel on smaller screens */
+  @media (max-width: 900px) {
+    .side-panel {
       display: none;
     }
   }

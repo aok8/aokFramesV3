@@ -16,6 +16,8 @@
 		}
 
 		enabled = true;
+		// Hide the native cursor site-wide once our custom one is active
+		document.documentElement.style.cursor = 'none';
 
 		function onMouseMove(e: MouseEvent) {
 			x = e.clientX;
@@ -25,16 +27,20 @@
 
 		function onMouseOver(e: MouseEvent) {
 			const target = e.target as Element | null;
-			if (target && (target.closest('a') || target.closest('img'))) {
+			if (target && (target.closest('a') || target.closest('button') || target.closest('img'))) {
 				isHovering = true;
 			}
 		}
 
 		function onMouseOut(e: MouseEvent) {
 			const target = e.target as Element | null;
-			if (target && (target.closest('a') || target.closest('img'))) {
+			if (target && (target.closest('a') || target.closest('button') || target.closest('img'))) {
 				const relatedTarget = e.relatedTarget as Element | null;
-				if (!relatedTarget || (!relatedTarget.closest('a') && !relatedTarget.closest('img'))) {
+				if (!relatedTarget || (
+					!relatedTarget.closest('a') &&
+					!relatedTarget.closest('button') &&
+					!relatedTarget.closest('img')
+				)) {
 					isHovering = false;
 				}
 			}
@@ -45,6 +51,7 @@
 		document.addEventListener('mouseout', onMouseOut);
 
 		return () => {
+			document.documentElement.style.cursor = '';
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseover', onMouseOver);
 			document.removeEventListener('mouseout', onMouseOut);
@@ -80,7 +87,7 @@
 			height 0.25s ease,
 			background 0.25s ease,
 			border 0.25s ease,
-			transform 0.1s ease,
+			transform 0.08s linear,
 			opacity 0.3s;
 		will-change: transform;
 	}

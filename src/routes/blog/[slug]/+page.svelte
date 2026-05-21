@@ -162,7 +162,7 @@
     font-weight: 400;
     letter-spacing: 0.35em;
     text-transform: uppercase;
-    color: var(--gold);
+    color: var(--forest-green);
   }
 
   .post-author,
@@ -221,7 +221,7 @@
   }
 
   .post-prose :global(a) {
-    color: var(--gold);
+    color: var(--forest-green);
     text-decoration: underline;
     text-underline-offset: 3px;
     transition: color 0.2s ease;
@@ -240,7 +240,7 @@
   }
 
   .post-prose :global(blockquote) {
-    border-left: 2px solid var(--gold);
+    border-left: 2px solid var(--forest-green);
     margin: 2rem 0;
     padding: 0.5rem 0 0.5rem 1.5rem;
     color: var(--silver);

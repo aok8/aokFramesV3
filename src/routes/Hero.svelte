@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { assetUrl } from '$lib/utils/r2.js';
 
 	let scrollY = $state(0);
 	let mounted = $state(false);
@@ -20,7 +21,7 @@
 		style="transform: translateY({parallaxOffset}px)"
 	>
 		<img
-			src="/directr2/constants/bg.jpg"
+			src={assetUrl('constants/w1920/bg.webp')}
 			alt=""
 			aria-hidden="true"
 			fetchpriority="high"

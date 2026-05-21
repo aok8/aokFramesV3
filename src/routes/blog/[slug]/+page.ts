@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.js';
 import { dev } from '$app/environment';
+import { assetUrl } from '$lib/utils/r2.js';
 import { get } from 'svelte/store';
 import { posts } from '$lib/stores/blog.js';
 import type { BlogPost } from '$lib/types/blog.js'; // Import BlogPost type
@@ -82,7 +83,7 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
             imageExists = imgRes.ok;
         } catch { imageExists = false; }
     } else {
-        imagePath = `/directr2/${imageKey}`;
+        imagePath = assetUrl(imageKey);
         try {
             const imgRes = await fetchFn(imagePath, { method: 'HEAD' });
             imageExists = imgRes.ok;
@@ -136,7 +137,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             // --- CORRECTED IMAGE HANDLING FOR DEV --- 
             let imagePathForComponent: string | undefined = undefined;
             const localImageCheckPath = `/src/content/blog/posts/${decodedSlug}/header.webp`;
-            const r2ImagePath = `/directr2/blog/posts/${decodedSlug}/header.webp`; 
+            const r2ImagePath = assetUrl(`blog/posts/${decodedSlug}/header.webp`);
             let imageExists = false;
 
             try {
@@ -274,7 +275,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             if (matchingItem) {
                  logger.log(`[+page.ts Client Load] Found direct match in R2 items:`, matchingItem);
                  const exactSlugFromKey = foundSlug!; // Use the slug found earlier
-                 const directR2Key = `/directr2/${matchingItem.key}`;
+                 const directR2Key = assetUrl(matchingItem.key);
                  logger.log(`[+page.ts Client Load] Fetching post content from R2 via: ${directR2Key}`);
                  const postResponse = await fetch(directR2Key);
                  logger.log(`[+page.ts Client Load] /directr2 fetch status: ${postResponse.status}`);
@@ -304,12 +305,12 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                      let imageExists = false;
                      let imagePathForComponent: string | undefined = undefined;
                      try {
-                         const imageCheckUrl = `/directr2/${imageR2KeyCheck}`;
+                         const imageCheckUrl = assetUrl(imageR2KeyCheck);
                          logger.log(`[+page.ts Client Load] Checking for header image via HEAD: ${imageCheckUrl}`);
                          const imageResponse = await fetch(imageCheckUrl, { method: 'HEAD' });
                          imageExists = imageResponse.ok;
                          if (imageExists) {
-                             imagePathForComponent = imageCheckUrl; // Use the directr2 path
+                             imagePathForComponent = imageCheckUrl;
                          }
                      } catch (e) {
                          // Ignore HEAD errors, just means no image
@@ -483,7 +484,7 @@ async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): P
             // --- Start Content Fetch (Client Fallback) ---
             let text = '';
             let fetchSource = '';
-            const r2Path = `/directr2/${key}`;
+            const r2Path = assetUrl(key);
             try {
                 const response = await fetchFn(r2Path);
                 if (!response.ok) {
@@ -518,7 +519,7 @@ async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): P
             // --- START Image Check (Client Fallback) ---
             let imagePathForComponent: string | undefined = undefined;
             const imageR2KeyCheck = `blog/posts/${exactSlug}/header.webp`; 
-            const finalImageUrl = `/directr2/${imageR2KeyCheck}`;
+            const finalImageUrl = assetUrl(imageR2KeyCheck);
             let imageExists = false;
 
             try {

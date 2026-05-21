@@ -2,6 +2,7 @@ import { marked } from 'marked';
 import type { Work } from '../types/works.js';
 import { dev } from '$app/environment';
 import matter from 'gray-matter';
+import { assetUrl } from '../utils/r2.js';
 
 // Polyfill Buffer for Cloudflare Workers environment
 if (typeof Buffer === 'undefined') {
@@ -284,13 +285,13 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
 
       // Fix cover image path for development mode
       const coverImage = data.coverImage.startsWith('/')
-        ? `/directr2/works/${encodeURIComponent(exactSlug)}${data.coverImage}`
-        : `/directr2/works/${encodeURIComponent(exactSlug)}/${data.coverImage}`;
+        ? assetUrl(`works/${encodeURIComponent(exactSlug)}${data.coverImage}`)
+        : assetUrl(`works/${encodeURIComponent(exactSlug)}/${data.coverImage}`);
 
       const images = imageFiles.map((file: string) => ({
-        src: `/directr2/works/${encodeURIComponent(exactSlug)}/${file}`,
+        src: assetUrl(`works/${encodeURIComponent(exactSlug)}/${file}`),
         alt: file.split('.')[0], // Use filename without extension as alt text
-        fallback: `/directr2/works/${encodeURIComponent(exactSlug)}/${file}` // Add fallback path
+        fallback: assetUrl(`works/${encodeURIComponent(exactSlug)}/${file}`)
       }));
 
       return {
@@ -400,19 +401,19 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
           return isImage && isNotIndexMd;
         })
         .map(obj => {
-          const imagePath = `/directr2/${obj.key}`;
+          const imagePath = assetUrl(obj.key);
           console.log(`loadWork: Adding image path: ${imagePath}`);
           return {
             src: imagePath,
             alt: obj.key.split('/').pop()?.split('.')[0] || '' // Use filename without extension as alt text
           };
         });
-      
+
       console.log(`loadWork: Found ${images.length} images for work "${exactSlug}"`);
 
       const coverImage = data.coverImage.startsWith('/')
-        ? `/directr2/works/${encodeURIComponent(exactSlug)}${data.coverImage}`
-        : `/directr2/works/${encodeURIComponent(exactSlug)}/${data.coverImage}`;
+        ? assetUrl(`works/${encodeURIComponent(exactSlug)}${data.coverImage}`)
+        : assetUrl(`works/${encodeURIComponent(exactSlug)}/${data.coverImage}`);
       
       console.log(`loadWork: Cover image path: "${coverImage}"`);
       

@@ -3,6 +3,7 @@
   import Footer from '$lib/components/ui/footer.svelte';
   import BlogPostComponent from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
+  import { assetUrl } from '$lib/utils/r2.js';
   import { theme } from '../../theme/theme.js';
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
@@ -104,7 +105,7 @@
                 const key = `blog/posts/${slug}/index.md`;
                 logger.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
 
-                const response = await fetch(`/directr2/${key}`);
+                const response = await fetch(assetUrl(key));
                 if (response.ok) {
                   const text = await response.text();
                   logger.log(`Successfully loaded ${slug} directly`);
@@ -152,7 +153,7 @@
                   const imageKey = `blog/posts/${slug}/header.webp`;
                   let imageExists = false;
                   try {
-                      const imgRes = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
+                      const imgRes = await fetch(assetUrl(imageKey), { method: 'HEAD' });
                       imageExists = imgRes.ok;
                       logger.log(`Client R2 Load: Image check for ${imageKey}: ${imageExists}`);
                   } catch (imgErr) {
@@ -167,7 +168,7 @@
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: imageExists ? `/directr2/${imageKey}` : undefined
+                    image: imageExists ? assetUrl(imageKey) : undefined
                   });
                 } else {
                     logger.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);

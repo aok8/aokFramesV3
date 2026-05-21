@@ -57,14 +57,14 @@
   <meta property="og:url" content="https://aokframes.com/" />
   <meta property="og:title" content="AOKFrames — Film &amp; Digital Photography" />
   <meta property="og:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
-  <meta property="og:image" content="https://aokframes.com/directr2/constants/bg.jpg" />
+  <meta property="og:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://aokframes.com/" />
   <meta name="twitter:title" content="AOKFrames — Film &amp; Digital Photography" />
   <meta name="twitter:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
-  <meta name="twitter:image" content="https://aokframes.com/directr2/constants/bg.jpg" />
+  <meta name="twitter:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 </svelte:head>
 
 <!-- Preloader — first visit only (sessionStorage gated), preloads gallery images -->

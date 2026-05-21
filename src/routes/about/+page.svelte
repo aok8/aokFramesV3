@@ -1,8 +1,9 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
+  import { assetUrl } from '$lib/utils/r2.js';
 
-  const profileImage = '/directr2/constants/Profile_Pic.webp';
+  const profileImage = assetUrl('constants/Profile_Pic.webp');
   const fallbackProfileImage = '/images/constants/Profile_Pic.webp';
   let profileImageError = $state(false);
 </script>

@@ -2,6 +2,7 @@ import { marked } from 'marked';
 import type { BlogPost } from '../types/blog.js';
 import { dev } from '$app/environment';
 import matter from 'gray-matter';
+import { assetUrl } from '../utils/r2.js';
 
 // Development-only imports
 let fs: any;
@@ -327,9 +328,9 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
       author: data.author || 'AOK',
       published: data.published || new Date().toISOString().split('T')[0],
       label: tags,
-      image: imageExists ? 
-        `/directr2/blog/posts/${exactSlug}/header.${imageFormat}` :
-         undefined
+      image: imageExists ?
+        assetUrl(`blog/posts/${exactSlug}/header.${imageFormat}`) :
+        undefined
     };
     
     console.log(`loadBlogPost: Successfully created object for id: ${post.id}`);

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { theme } from '../../theme/theme.js'; // Relative path to theme
   import { Footer, Navbar } from "$lib/components/ui/index.js";
+  import { assetUrl } from '$lib/utils/r2.js';
   import { onMount, afterUpdate } from 'svelte'; // Import lifecycle hooks
 
   // Receive data from load function
@@ -12,7 +13,7 @@
   let imgElement: HTMLImageElement | null = null;
 
   // Image URLs
-  const primaryImageSrc = "/directr2/constants/Prints.webp";
+  const primaryImageSrc = assetUrl('constants/Prints.webp');
   const fallbackImageSrc = "/images/constants/Prints.webp"; // Local fallback
 
   // Check completion after updates for fast-loading images

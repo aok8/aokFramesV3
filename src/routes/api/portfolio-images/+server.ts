@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { assetUrl } from '$lib/utils/r2.js';
 import path from 'node:path';
 import { imageSize } from 'image-size';
 import type { PageServerLoad, RequestEvent } from './$types';
@@ -258,8 +259,8 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestE
           height = !isNaN(height) && height > 0 ? height : 1;
           
           return {
-            url: `/directr2/${obj.key}`, // Use R2 key for URL
-            fallback: `/directr2/${obj.key}`, // Same fallback for simplicity
+            url: assetUrl(obj.key),
+            fallback: assetUrl(obj.key),
             width,
             height,
             _source: `r2-${folder}-${dimensionSource}` // Add source info

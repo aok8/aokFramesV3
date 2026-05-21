@@ -2,6 +2,7 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import BlogPost from '$lib/components/blog/BlogPost.svelte';
+  import { assetUrl } from '$lib/utils/r2.js';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { theme } from '../../../theme/theme.js';
   import { marked } from 'marked';
@@ -32,7 +33,7 @@
     <!-- Hero image -->
     <div class="post-hero">
       <img
-        src="/directr2/blog/posts/{data.post.id}/header.webp"
+        src={assetUrl(`blog/posts/${data.post.id}/header.webp`)}
         alt={data.post.title}
         class="post-hero-img"
         loading="eager"

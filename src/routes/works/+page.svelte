@@ -154,6 +154,9 @@
         {#each selectedWork.images as image, i}
           <div class="contact-thumb">
             <img src={image.src} alt={image.alt ?? `${selectedWork.title} — ${i + 1}`} loading="lazy" />
+            {#if image.alt}
+              <span class="contact-label">{image.alt}</span>
+            {/if}
           </div>
         {/each}
       </div>
@@ -463,6 +466,7 @@
   }
 
   .contact-thumb {
+    position: relative;
     aspect-ratio: 3 / 2;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
@@ -480,6 +484,23 @@
   .contact-thumb:hover img {
     transform: scale(1.04);
     opacity: 1;
+  }
+
+  .contact-label {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.6rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 8px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(240, 235, 227, 0.55);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 1.2rem);
   }
 
   @media (max-width: 1024px) {

@@ -97,6 +97,13 @@
     white-space: nowrap;
   }
 
+  @media (max-width: 768px) {
+    .peek-desc {
+      white-space: normal;
+      padding: 0 1.5rem;
+    }
+  }
+
   .holding-msg {
     font-family: var(--font-display);
     font-style: italic;

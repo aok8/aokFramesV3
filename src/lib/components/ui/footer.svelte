@@ -15,8 +15,8 @@
         Instagram
       </a>
       <span class="divider" aria-hidden="true">·</span>
-      <a href="https://vsco.co/aokframes" target="_blank" rel="noopener noreferrer">
-        VSCO
+      <a href="https://www.newgrain.app/aokframes" target="_blank" rel="noopener noreferrer">
+        NewGrain
       </a>
       <span class="divider" aria-hidden="true">·</span>
       <a href="mailto:aokframes@gmail.com">

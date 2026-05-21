@@ -254,6 +254,19 @@
     text-align: left;
   }
 
+  .works-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.6rem 0;
+    width: 100%;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
   /* ── Row: series number ───────────────────────────────────── */
   .row-number {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);

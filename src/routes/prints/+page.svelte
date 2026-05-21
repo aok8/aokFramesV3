@@ -258,8 +258,8 @@
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.25em;
-    color: #b8936a;
-    border: 1px solid #b8936a;
+    color: var(--forest-green, #2D4739);
+    border: 1px solid var(--forest-green, #2D4739);
     padding: 0.75rem 2rem;
     text-decoration: none;
     display: inline-block;
@@ -267,8 +267,8 @@
   }
 
   .btn-bordered:hover {
-    background-color: #b8936a;
-    color: #0e0e0e;
+    background-color: var(--forest-green, #2D4739);
+    color: var(--warm-white, #f0ebe3);
   }
 
   /* ── Featured work ── */
@@ -308,8 +308,8 @@
   }
 
   .featured-list a:hover {
-    color: #b8936a;
-    border-color: #b8936a;
+    color: var(--forest-green, #2D4739);
+    border-color: var(--forest-green, #2D4739);
   }
 
   /* ── Responsive ── */

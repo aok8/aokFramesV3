@@ -160,7 +160,7 @@
     font-style: italic;
     font-size: clamp(1.5rem, 2.2vw, 2.1rem);
     line-height: 1.45;
-    color: #b8936a;
+    color: var(--forest-green, #2D4739);
     margin: 0;
     padding: 0;
     border: none;

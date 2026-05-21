@@ -57,7 +57,7 @@
 
   .footer-monogram em {
     font-style: italic;
-    color: var(--gold, #b8936a);
+    color: var(--forest-green, #2D4739);
   }
 
   .footer-monogram:hover {

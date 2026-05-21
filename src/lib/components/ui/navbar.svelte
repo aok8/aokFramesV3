@@ -186,7 +186,7 @@
 
   .desktop-links a:hover,
   .desktop-links a.active {
-    color: #b8936a;
+    color: var(--forest-green, #2D4739);
   }
 
   /* Hamburger */
@@ -259,7 +259,7 @@
 
   .mobile-links a:hover,
   .mobile-links a.active {
-    color: #b8936a;
+    color: var(--forest-green, #2D4739);
   }
 
   /* Mobile breakpoint */

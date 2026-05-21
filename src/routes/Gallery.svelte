@@ -167,7 +167,7 @@
 	}
 
 	.view-all-link:hover {
-		color: var(--gold, #b8936a);
+		color: var(--forest-green, #2D4739);
 	}
 
 	.view-all-text {

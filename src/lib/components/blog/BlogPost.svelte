@@ -100,7 +100,7 @@
     font-weight: 400;
     letter-spacing: 0.35em;
     text-transform: uppercase;
-    color: var(--gold);
+    color: var(--forest-green);
   }
 
   /* Title */
@@ -115,7 +115,7 @@
   }
 
   .post-card:hover .card-title {
-    color: var(--gold);
+    color: var(--forest-green);
   }
 
   /* Summary */

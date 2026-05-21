@@ -9,7 +9,7 @@
   let { data }: { data: { works: Work[] } } = $props();
 
   let selectedWork = $state<Work | null>(null);
-  let hoveredWork = $state<Work | null>(null);
+  let hoveredId = $state<string | null>(null);
   let overlayEl = $state<HTMLDivElement | null>(null);
 
   const works = $derived(data.works ?? []);
@@ -81,9 +81,9 @@
           {#each works as work, i}
             <li
               class="works-row"
-              class:hovered={hoveredWork === work}
-              onmouseenter={() => (hoveredWork = work)}
-              onmouseleave={() => (hoveredWork = null)}
+              class:hovered={hoveredId === work.id}
+              onmouseenter={() => (hoveredId = work.id)}
+              onmouseleave={() => (hoveredId = null)}
             >
               <button
                 class="works-row-btn"
@@ -117,7 +117,7 @@
       {#each works as work}
         <div
           class="works-preview-image"
-          style="opacity: {hoveredWork === work && !selectedWork ? 1 : 0}; transform: translateX({hoveredWork === work && !selectedWork ? 0 : 30}px);"
+          style="opacity: {hoveredId === work.id && !selectedWork ? 1 : 0}; transform: translateX({hoveredId === work.id && !selectedWork ? 0 : 30}px);"
         >
           <img src={work.coverImage} alt="" />
         </div>

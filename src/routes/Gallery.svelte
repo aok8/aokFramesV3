@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { getPortfolioImages } from '$lib/utils/images';
+	import { getPortfolioImages } from '$lib/utils/images.js';
+	import { initScrollReveal, initImageHoverEffect, initFadeUpReveal, killScrollTriggers } from '$lib/utils/animations.js';
 
 	interface PortfolioImage {
 		url: string;
@@ -14,16 +15,27 @@
 	let loading = $state(true);
 	let error = $state(false);
 
-	onMount(async () => {
-		if (!browser) return;
-		try {
-			const result = await getPortfolioImages(window.innerWidth);
-			images = result;
-		} catch {
-			error = true;
-		} finally {
-			loading = false;
-		}
+	onMount(() => {
+		if (!browser) return () => {};
+
+		// Run async work in an IIFE so onMount can return a sync cleanup
+		(async () => {
+			try {
+				const result = await getPortfolioImages(window.innerWidth);
+				images = result;
+				// Tick so Svelte has flushed the new image nodes into the DOM
+				await Promise.resolve();
+				initScrollReveal('.gallery-item', { stagger: 0.06, duration: 1.0 });
+				initImageHoverEffect('.gallery-item');
+				initFadeUpReveal('.gallery-header', { duration: 0.7, y: 16 });
+			} catch {
+				error = true;
+			} finally {
+				loading = false;
+			}
+		})();
+
+		return () => killScrollTriggers();
 	});
 </script>
 

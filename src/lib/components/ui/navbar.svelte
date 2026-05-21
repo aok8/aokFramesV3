@@ -68,6 +68,9 @@
         <a href="/about" class:active={currentPath.startsWith('/about')}>About</a>
       </li>
       <li>
+        <a href="/peek" class:active={currentPath.startsWith('/peek')}>Peek</a>
+      </li>
+      <li>
         <a href="/blog" class:active={currentPath.startsWith('/blog')}>Blog</a>
       </li>
       <li>
@@ -100,6 +103,9 @@
       </li>
       <li>
         <a href="/about" onclick={closeMenu} class:active={currentPath.startsWith('/about')}>About</a>
+      </li>
+      <li>
+        <a href="/peek" onclick={closeMenu} class:active={currentPath.startsWith('/peek')}>Peek</a>
       </li>
       <li>
         <a href="/blog" onclick={closeMenu} class:active={currentPath.startsWith('/blog')}>Blog</a>

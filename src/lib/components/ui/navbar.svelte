@@ -1,145 +1,115 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { browser } from '$app/environment'; // Import browser check
-  import { theme } from '../../../theme/theme.js'; // Updated theme import
-  import { fade } from 'svelte/transition';
-  import { page } from '$app/stores'; // Import the page store
+  import { page } from '$app/stores';
 
-  export let backgroundColor: string | undefined = undefined;
-  export let textColor: string | undefined = undefined;
-  // Accept the scroll state prop
-  // export let hasScrolledPastCover = false; // Removed prop
-  
-  let isOverPhoto = true;
-  let navbar: HTMLElement;
-  let isMenuOpen = false;
+  let { backgroundColor, textColor }: { backgroundColor?: string; textColor?: string } = $props();
 
-  // Define CSS variable value based on theme
-  $: navbarScrolledBg = theme.tertiaryTransparent80;
+  let scrollY = $state(0);
+  let isMenuOpen = $state(false);
 
-  // Reactive variables for dynamic mobile menu colors
-  let currentMobileBgColor = theme.background.light; // Default
-  let currentMobileTextColor = theme.text.primary; // Default
+  let isScrolled = $derived(scrollY >= 80);
 
-  function updateNavbarStyle() {
-    if (!navbar || textColor || isMenuOpen) return; // Don't update if textColor is provided or menu is open
-    
-    const navbarRect = navbar.getBoundingClientRect();
-    const photoSection = document.querySelector('.full-size-image');
-    
-    if (photoSection) {
-      const photoRect = photoSection.getBoundingClientRect();
-      isOverPhoto = navbarRect.top < (photoRect.bottom - navbarRect.height);
-    }
-  }
-
-  function toggleMenu() {
-    // Determine colors BEFORE toggling isMenuOpen
-    const currentTextColor = textColor || (isOverPhoto ? 'white' : theme.text.primary);
-    if (currentTextColor === 'white') {
-      // If text was white (over photo), use inverted colors
-      currentMobileBgColor = theme.text.primary; // Rosy brown background
-      currentMobileTextColor = theme.background.light; // Light gray text
+  $effect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
     } else {
-      // Otherwise, use standard mobile colors
-      currentMobileBgColor = theme.background.light; // Light gray background
-      currentMobileTextColor = theme.text.primary; // Rosy brown text
-    }
-
-    isMenuOpen = !isMenuOpen;
-    // Prevent background scroll when menu is open, only in browser
-    if (browser) { 
-      if (isMenuOpen) {
-        document.body.style.overflow = 'hidden';
-      } else {
-        document.body.style.overflow = '';
-      }
-    }
-  }
-
-  onMount(() => {
-    // Only add scroll listener if we're using dynamic colors (and in browser)
-    if (!textColor) { 
-      const handleScroll = () => updateNavbarStyle(); // Define handler once
-      window.addEventListener('scroll', handleScroll);
-      updateNavbarStyle(); // Initial call
-
-      return () => {
-        // Cleanup listener, only in browser
-        if (browser) {
-          window.removeEventListener('scroll', handleScroll);
-        }
-      };
-    }
-  });
-
-  // Reset body overflow when component is destroyed, only in browser
-  onDestroy(() => {
-    if (browser) {
       document.body.style.overflow = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   });
+
+  function toggleMenu() {
+    isMenuOpen = !isMenuOpen;
+  }
+
+  function closeMenu() {
+    isMenuOpen = false;
+  }
+
+  let navBg = $derived(
+    backgroundColor
+      ? backgroundColor
+      : isScrolled
+        ? 'rgba(14, 14, 14, 0.92)'
+        : 'transparent'
+  );
+
+  let navTextColor = $derived(textColor || 'var(--warm-white)');
+
+  let currentPath = $derived($page.url.pathname);
 </script>
 
-<nav 
-  bind:this={navbar}
-  class="navbar {isMenuOpen ? 'menu-open' : ''}"
-  class:over-photo={isOverPhoto}
-  class:has-bg-prop={!!backgroundColor}
-  style="
-    --bg-color: {backgroundColor || 'transparent'}; 
-    /* Use theme color when not over photo */
-    --text-color: {textColor || (isOverPhoto && !isMenuOpen ? 'white' : theme.text.primary)}; 
-    /* Bind to reactive variables */
-    --mobile-bg-color: {currentMobileBgColor}; 
-    --mobile-text-color: {currentMobileTextColor};
-    /* Set CSS variable for scrolled background */
-    --navbar-scrolled-bg: {navbarScrolledBg};
-  "
+<svelte:window bind:scrollY />
+
+<nav
+  class="navbar"
+  class:scrolled={!backgroundColor && isScrolled}
+  style="--nav-bg: {navBg}; --nav-text: {navTextColor};"
 >
   <div class="nav-content">
     <div class="logo">
-      <a href="/">AOK<span>Frames</span></a>
+      <a href="/" onclick={isMenuOpen ? closeMenu : undefined}>
+        <span class="logo-bold">AOK</span><span class="logo-light">Frames</span>
+      </a>
     </div>
+
     <ul class="nav-links desktop-links">
-      {#if $page.url.pathname !== '/'}
-        <li><a href="/">Home</a></li>
+      {#if currentPath !== '/'}
+        <li>
+          <a href="/" class:active={currentPath === '/'}>Home</a>
+        </li>
       {/if}
-      <li><a href="/works">Works</a></li>
-      <li><a href="/about">About</a></li>
-      <li><a href="/blog">Blog</a></li>
-      <li><a href="/prints">Prints/Collabs</a></li>
+      <li>
+        <a href="/works" class:active={currentPath.startsWith('/works')}>Works</a>
+      </li>
+      <li>
+        <a href="/about" class:active={currentPath.startsWith('/about')}>About</a>
+      </li>
+      <li>
+        <a href="/blog" class:active={currentPath.startsWith('/blog')}>Blog</a>
+      </li>
+      <li>
+        <a href="/prints" class:active={currentPath.startsWith('/prints')}>Prints/Collabs</a>
+      </li>
     </ul>
-    <button 
-      class="hamburger-menu {isMenuOpen ? 'open' : ''}" 
-      on:click={toggleMenu}
-      aria-label="Toggle menu"
+
+    <button
+      class="hamburger"
+      class:open={isMenuOpen}
+      onclick={toggleMenu}
+      aria-label="Toggle navigation"
       aria-expanded={isMenuOpen}
-      aria-controls="mobile-menu-overlay"
+      aria-controls="mobile-overlay"
     >
-      <span class="line line-1"></span>
-      <span class="line line-2"></span>
+      <span class="bar bar-1"></span>
+      <span class="bar bar-2"></span>
     </button>
   </div>
-
-  {#if isMenuOpen}
-    <div 
-      class="mobile-menu-overlay"
-      id="mobile-menu-overlay"
-      transition:fade={{ duration: 300 }}
-    >
-      <ul class="nav-links mobile-links">
-        {#if $page.url.pathname !== '/'}
-          <li><a href="/" on:click={toggleMenu}>Home</a></li>
-        {/if}
-        <li><a href="/works" on:click={toggleMenu}>Works</a></li>
-        <li><a href="/about" on:click={toggleMenu}>About</a></li>
-        <li><a href="/blog" on:click={toggleMenu}>Blog</a></li>
-        <li><a href="/prints" on:click={toggleMenu}>Prints/Collabs</a></li>
-      </ul>
-    </div>
-  {/if}
 </nav>
+
+{#if isMenuOpen}
+  <div class="mobile-overlay" id="mobile-overlay" role="dialog" aria-modal="true">
+    <ul class="mobile-links">
+      <li>
+        <a href="/" onclick={closeMenu} class:active={currentPath === '/'}>Home</a>
+      </li>
+      <li>
+        <a href="/works" onclick={closeMenu} class:active={currentPath.startsWith('/works')}>Works</a>
+      </li>
+      <li>
+        <a href="/about" onclick={closeMenu} class:active={currentPath.startsWith('/about')}>About</a>
+      </li>
+      <li>
+        <a href="/blog" onclick={closeMenu} class:active={currentPath.startsWith('/blog')}>Blog</a>
+      </li>
+      <li>
+        <a href="/prints" onclick={closeMenu} class:active={currentPath.startsWith('/prints')}>Prints/Collabs</a>
+      </li>
+    </ul>
+  </div>
+{/if}
 
 <style>
   .navbar {
@@ -147,199 +117,174 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: 4rem;
+    height: 64px;
     z-index: 100;
-    /* Use the CSS variable set inline */
-    background-color: var(--bg-color);
-    /* Ensure transition applies to background */
-    transition: background-color 0.3s ease, color 0.3s ease, height 0.3s ease;
+    background-color: var(--nav-bg);
+    transition: background-color 0.4s ease, backdrop-filter 0.4s ease;
+  }
+
+  .navbar.scrolled {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .nav-content {
-    width: 95%;
+    width: 100%;
+    max-width: 1400px;
     margin: 0 auto;
     height: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 0 2rem;
+    box-sizing: border-box;
   }
 
+  /* Logo */
   .logo {
-    padding-left: 1rem;
-    z-index: 110; /* Ensure logo stays above overlay background */
-    display: none; /* Hide logo on mobile */
+    z-index: 110;
   }
 
   .logo a {
-    font-family: 'Josefin Sans', sans-serif;
-    font-size: 1.5rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 1.25rem;
     text-decoration: none;
-    color: var(--text-color);
+    color: var(--nav-text);
+    display: flex;
+    align-items: baseline;
+    gap: 0.1em;
+    letter-spacing: 0.05em;
   }
 
-  .logo a:hover {
-    opacity: 0.8;
+  .logo-bold {
+    font-weight: 700;
   }
 
-  .logo span {
-    color: color-mix(in srgb, var(--text-color) 80%, transparent);
-    margin-left: 0.25rem;
+  .logo-light {
+    font-weight: 300;
   }
 
-  .nav-links {
+  /* Desktop nav links */
+  .desktop-links {
     list-style: none;
     margin: 0;
-    padding: 0; 
-    display: flex; 
-  }
-
-  .desktop-links {
+    padding: 0;
     display: flex;
-    gap: 2rem;
-    padding-right: 2rem;
+    gap: 2.5rem;
+    align-items: center;
   }
 
-  .nav-links a {
-    color: var(--text-color);
+  .desktop-links a {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
     text-decoration: none;
-    font-size: 1rem;
-    transition: opacity 0.2s ease;
+    color: var(--warm-white, #f0ebe3);
+    transition: color 0.2s ease;
   }
 
-  .nav-links a:hover {
-    opacity: 0.8;
-    text-decoration: underline;
+  .desktop-links a:hover,
+  .desktop-links a.active {
+    color: #b8936a;
   }
 
-  .hamburger-menu {
-    display: none; /* Hidden by default */
+  /* Hamburger */
+  .hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
     background: none;
     border: none;
     cursor: pointer;
     padding: 0.5rem;
-    z-index: 110; /* Ensure hamburger stays above overlay background */
-    margin-right: 0.5rem; /* Adjusted from padding-right on .nav-links */
+    z-index: 110;
+    width: 36px;
+    height: 36px;
   }
 
-  .hamburger-menu .line {
+  .bar {
     display: block;
     width: 24px;
-    height: 3px; /* Slightly thicker lines */
-    background-color: var(--text-color); 
-    margin: 5px 0;
-    transition: transform 0.3s ease, opacity 0.3s ease, background-color 0.3s ease;
+    height: 1.5px;
+    background-color: var(--nav-text);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    transform-origin: center;
   }
 
-  .mobile-menu-overlay {
+  .hamburger.open .bar-1 {
+    transform: translateY(3.75px) rotate(45deg);
+  }
+
+  .hamburger.open .bar-2 {
+    transform: translateY(-3.75px) rotate(-45deg);
+  }
+
+  /* Mobile overlay */
+  .mobile-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100vh;
-    background-color: var(--mobile-bg-color);
-    z-index: 90; /* Below navbar content but above page content */
+    background-color: #0e0e0e;
+    z-index: 99;
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: background-color 0.3s ease;
   }
 
   .mobile-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
     flex-direction: column;
+    align-items: center;
+    gap: 2.5rem;
     text-align: center;
-    gap: 2rem;
   }
 
   .mobile-links a {
-    /* Use dynamic mobile text color variable */
-    color: var(--mobile-text-color); 
-    font-size: 1.8rem; /* Larger for touch */
-    font-weight: bold;
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 2.5rem;
+    font-weight: 300;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    color: var(--warm-white, #f0ebe3);
+    transition: color 0.2s ease;
   }
 
-  .mobile-links a:hover {
-    opacity: 0.8;
-    text-decoration: none; /* Optional: remove underline for mobile */
+  .mobile-links a:hover,
+  .mobile-links a.active {
+    color: #b8936a;
   }
 
-  /* Mobile Styles */
-  @media (max-width: 768px) { /* Adjust breakpoint as needed */
-    .navbar {
-      height: 5rem; /* Thicker navbar */
+  /* Mobile breakpoint */
+  @media (max-width: 768px) {
+    .desktop-links {
+      display: none;
+    }
+
+    .hamburger {
+      display: flex;
     }
 
     .nav-content {
-      justify-content: flex-end; /* Keep flex-end for mobile */
-      padding-right: 1rem; /* Add padding back for mobile */
+      padding: 0 1.25rem;
     }
-    
-    .logo {
-      display: none; /* Keep logo hidden on mobile */
-    }
-
-    .desktop-links {
-      display: none; /* Hide desktop links */
-    }
-
-    .hamburger-menu {
-      display: block; /* Show hamburger */
-      margin-right: 0; /* Remove margin, use padding on parent */
-    }
-
-    .hamburger-menu.open .line-1 {
-      transform: translateY(8px) rotate(45deg); /* Animate to X */
-    }
-
-    .hamburger-menu.open .line-2 {
-      transform: translateY(-0px) rotate(-45deg); /* Animate to X */
-    }
-
-    /* When menu is open, force navbar background and text/icon color using dynamic vars */
-    .navbar.menu-open {
-      background-color: var(--mobile-bg-color); 
-    }
-    .navbar.menu-open .logo a, /* Logo is hidden, but keep for potential future use */
-    .navbar.menu-open .logo span,
-    .navbar.menu-open .hamburger-menu .line {
-      color: var(--mobile-text-color); 
-      background-color: var(--mobile-text-color); /* Hamburger lines color */
-    }
-    .navbar.menu-open .logo span {
-      color: color-mix(in srgb, var(--mobile-text-color) 80%, transparent);
-    }
-
   }
 
-  /* Hide hamburger on larger screens */
+  /* Desktop: ensure overlay hidden */
   @media (min-width: 769px) {
-    .logo {
-      display: block; /* Ensure logo is shown on desktop */
-    }
-    .mobile-menu-overlay {
-        display: none; /* Ensure overlay is hidden */
-    }
-    .hamburger-menu {
-        display: none; /* Ensure hamburger is hidden */
-    }
-    .desktop-links {
-        display: flex; /* Ensure desktop links are shown */
-    }
-  }
-
-  /* Desktop-only style for background based on position */
-  @media (min-width: 769px) { /* Or your preferred desktop breakpoint */
-    /* Apply dynamic background ONLY when backgroundColor prop is NOT set */
-    .navbar:not(.has-bg-prop).over-photo {
-      background-color: transparent; /* Force transparent when over photo */
-    }
-    .navbar:not(.has-bg-prop):not(.over-photo) {
-      background-color: var(--navbar-scrolled-bg); /* Apply scrolled bg when not over photo */
+    .mobile-overlay {
+      display: none;
     }
 
-    /* Ensure logo is visible on desktop */
-    .logo {
-      display: block;
+    .hamburger {
+      display: none;
     }
   }
 </style>
-  

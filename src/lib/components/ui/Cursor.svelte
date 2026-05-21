@@ -69,13 +69,6 @@
 {/if}
 
 <style>
-	/* Force cursor: none on everything when custom cursor is active.
-	   Without !important, browser UA cursor: pointer on a/button wins. */
-	:global(.custom-cursor),
-	:global(.custom-cursor) * {
-		cursor: none !important;
-	}
-
 	.cursor {
 		position: fixed;
 		top: 0;

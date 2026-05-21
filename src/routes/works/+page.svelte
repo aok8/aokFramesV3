@@ -117,13 +117,11 @@
       {#each works as work}
         <div
           class="works-preview-image"
-          class:visible={hoveredWork === work && !selectedWork}
+          style="opacity: {hoveredWork === work && !selectedWork ? 1 : 0}; transform: translateX({hoveredWork === work && !selectedWork ? 0 : 30}px);"
         >
           <img src={work.coverImage} alt="" />
         </div>
       {/each}
-
-      <p class="works-preview-label">Hover a series to preview</p>
     </div>
   </div>
 </div>
@@ -358,21 +356,6 @@
     object-fit: cover;
     display: block;
     opacity: 0.8;
-  }
-
-  .works-preview-label {
-    position: absolute;
-    bottom: 3rem;
-    left: 4rem;
-    z-index: 2;
-    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-weight: 100;
-    font-size: 9px;
-    letter-spacing: 0.35em;
-    color: var(--silver, #c8c0b8);
-    text-transform: uppercase;
-    opacity: 0.45;
-    margin: 0;
   }
 
   /* ── Responsive ───────────────────────────────────────────── */

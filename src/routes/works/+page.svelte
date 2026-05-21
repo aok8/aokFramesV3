@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { browser } from '$app/environment';
   import type { Work } from '$lib/types/works.js';
   import Navbar from '$lib/components/ui/navbar.svelte';
@@ -8,13 +8,56 @@
 
   let { data }: { data: { works: Work[] } } = $props();
 
-  let selectedWork = $state<Work | null>(null);
-  let hoveredId = $state<string | null>(null);
-  let overlayEl = $state<HTMLDivElement | null>(null);
+  let selectedWork  = $state<Work | null>(null);
+  let hoveredId     = $state<string | null>(null);
+  let overlayEl     = $state<HTMLDivElement | null>(null);
   let previewsReady = $state(false);
+
+  // Per-thumbnail loaded flags (index → boolean)
+  let imgLoaded = $state<boolean[]>([]);
+
+  // Lightbox
+  let lightboxIndex = $state<number | null>(null);
+  let lbLoaded      = $state(false);
 
   const works = $derived(data.works ?? []);
 
+  // ── Reset + cache-check when contact sheet opens / changes ──
+  $effect(() => {
+    const work = selectedWork;
+    if (!work) {
+      imgLoaded     = [];
+      lightboxIndex = null;
+      return;
+    }
+    imgLoaded = new Array(work.images.length).fill(false);
+    let active = true;
+    tick().then(() => {
+      if (!active) return;
+      document
+        .querySelectorAll<HTMLImageElement>('.contact-thumb img')
+        .forEach((img, idx) => {
+          if (img.complete && img.naturalHeight > 0) imgLoaded[idx] = true;
+        });
+    });
+    return () => { active = false; };
+  });
+
+  // ── Reset + cache-check when lightbox image changes ─────────
+  $effect(() => {
+    const idx = lightboxIndex;
+    if (idx === null) return;
+    lbLoaded = false;
+    let active = true;
+    tick().then(() => {
+      if (!active) return;
+      const lbImg = document.querySelector<HTMLImageElement>('.lb-img');
+      if (lbImg?.complete && lbImg.naturalHeight > 0) lbLoaded = true;
+    });
+    return () => { active = false; };
+  });
+
+  // ── Works list interactions ──────────────────────────────────
   function handleRowClick(work: Work) {
     selectedWork = work;
     if (browser) document.body.style.overflow = 'hidden';
@@ -26,6 +69,7 @@
   }
 
   function closeOverlay() {
+    lightboxIndex = null;
     if (browser && overlayEl) {
       import('gsap').then(({ gsap }) => {
         gsap.to(overlayEl, {
@@ -48,8 +92,29 @@
     if (e.target === e.currentTarget) closeOverlay();
   }
 
+  // ── Lightbox ─────────────────────────────────────────────────
+  function openLightbox(i: number) { lightboxIndex = i; }
+  function closeLightbox()         { lightboxIndex = null; }
+
+  function prevImage() {
+    if (lightboxIndex === null || !selectedWork) return;
+    lightboxIndex = (lightboxIndex - 1 + selectedWork.images.length) % selectedWork.images.length;
+  }
+
+  function nextImage() {
+    if (lightboxIndex === null || !selectedWork) return;
+    lightboxIndex = (lightboxIndex + 1) % selectedWork.images.length;
+  }
+
+  // ── Keyboard ─────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && selectedWork) closeOverlay();
+    if (lightboxIndex !== null) {
+      if      (e.key === 'ArrowLeft')  { e.preventDefault(); prevImage(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
+      else if (e.key === 'Escape')     { closeLightbox(); }
+    } else if (selectedWork) {
+      if (e.key === 'Escape') closeOverlay();
+    }
   }
 
   function padIndex(n: number): string {
@@ -126,9 +191,8 @@
       <Footer />
     </main>
 
-    <!-- Right: sticky preview panel — stacked images, CSS transitions -->
+    <!-- Right: sticky preview panel -->
     <div class="works-preview" aria-hidden="true">
-      <!-- Gradient bleed from left edge -->
       <div class="works-preview-overlay"></div>
 
       {#each works as work}
@@ -149,7 +213,7 @@
   </div>
 </div>
 
-<!-- Contact sheet overlay -->
+<!-- ── Contact sheet overlay ──────────────────────────────── -->
 {#if selectedWork}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
@@ -164,7 +228,7 @@
     <div class="overlay-inner">
       <div class="overlay-header">
         <h2 class="overlay-title">{selectedWork.title}</h2>
-        <button class="overlay-close" onclick={closeOverlay} aria-label="Close overlay">×</button>
+        <button class="overlay-close" onclick={closeOverlay} aria-label="Close">×</button>
       </div>
 
       {#if selectedWork.description}
@@ -173,11 +237,21 @@
 
       <div class="contact-grid">
         {#each selectedWork.images as image, i}
-          <div class="contact-thumb">
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div
+            class="contact-thumb"
+            role="button"
+            tabindex="0"
+            aria-label={`View ${image.alt ?? `image ${i + 1}`} full size`}
+            onclick={() => openLightbox(i)}
+            onkeydown={(e) => e.key === 'Enter' && openLightbox(i)}
+          >
             <img
               src={image.src}
               alt={image.alt ?? `${selectedWork.title} — ${i + 1}`}
               loading="eager"
+              class:loaded={imgLoaded[i]}
+              onload={() => { imgLoaded[i] = true; }}
             />
             {#if image.alt}
               <span class="contact-label">{image.alt}</span>
@@ -186,6 +260,52 @@
         {/each}
       </div>
     </div>
+  </div>
+{/if}
+
+<!-- ── Lightbox ───────────────────────────────────────────── -->
+{#if lightboxIndex !== null && selectedWork}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label={`Image ${lightboxIndex + 1} of ${selectedWork.images.length}`}
+    onclick={closeLightbox}
+  >
+    <!-- Prev -->
+    <button
+      class="lb-nav lb-prev"
+      onclick={(e) => { e.stopPropagation(); prevImage(); }}
+      aria-label="Previous image"
+    >‹</button>
+
+    <!-- Image frame — keyed so img remounts on index change -->
+    {#key lightboxIndex}
+      <div class="lb-frame" onclick={(e) => e.stopPropagation()}>
+        <img
+          class="lb-img"
+          class:loaded={lbLoaded}
+          src={selectedWork.images[lightboxIndex].src}
+          alt={selectedWork.images[lightboxIndex].alt ?? `${selectedWork.title} — ${lightboxIndex + 1}`}
+          loading="eager"
+          onload={() => { lbLoaded = true; }}
+        />
+      </div>
+    {/key}
+
+    <!-- Next -->
+    <button
+      class="lb-nav lb-next"
+      onclick={(e) => { e.stopPropagation(); nextImage(); }}
+      aria-label="Next image"
+    >›</button>
+
+    <!-- Counter -->
+    <div class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</div>
+
+    <!-- Close (back to contact sheet) -->
+    <button class="lb-close" onclick={closeLightbox} aria-label="Back to gallery">×</button>
   </div>
 {/if}
 
@@ -260,6 +380,7 @@
     border: none;
     color: inherit;
     text-align: left;
+    cursor: pointer;
   }
 
   /* ── Row: series number ───────────────────────────────────── */
@@ -352,7 +473,6 @@
     pointer-events: none;
   }
 
-  /* Gradient bleed — fades panel into background on left edge */
   .works-preview-overlay {
     position: absolute;
     inset: 0;
@@ -361,7 +481,6 @@
     pointer-events: none;
   }
 
-  /* All images stacked; only the hovered one becomes visible */
   .works-preview-image {
     position: absolute;
     inset: 0;
@@ -402,6 +521,7 @@
     0%, 100% { width: 20px; opacity: 0.2; }
     50%       { width: 44px; opacity: 0.55; }
   }
+
   /* ── Responsive ───────────────────────────────────────────── */
   @media (max-width: 900px) {
     .works-container {
@@ -464,6 +584,7 @@
     border: none;
     padding: 0 0.25rem;
     opacity: 0.7;
+    cursor: pointer;
     transition: opacity 0.15s ease, color 0.15s ease;
     flex-shrink: 0;
   }
@@ -497,9 +618,10 @@
     aspect-ratio: 3 / 2;
     overflow: hidden;
     background: #1c1c1c;
+    cursor: pointer;
   }
 
-  /* Shimmer sweep while image loads */
+  /* Shimmer while loading */
   .contact-thumb::after {
     content: '';
     position: absolute;
@@ -513,28 +635,39 @@
     transform: translateX(-100%);
     animation: thumb-shimmer 1.6s ease-in-out infinite;
     pointer-events: none;
-    z-index: 1;
+    z-index: 3;
+    transition: opacity 0.35s ease;
+  }
+
+  /* Stop shimmer and fade it out once image is loaded */
+  .contact-thumb:has(img.loaded)::after {
+    animation: none;
+    opacity: 0;
   }
 
   @keyframes thumb-shimmer {
     to { transform: translateX(300%); }
   }
 
+  /* Image: hidden + slightly zoomed, reveal with fade + zoom-out */
   .contact-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    /* Always at target opacity — unpainted img pixels are transparent,
-       so the dark bg + shimmer show through until the browser decodes
-       the file. No JS reveal needed. */
-    opacity: 0.85;
-    transition: transform 0.22s ease, opacity 0.2s ease;
+    opacity: 0;
+    transform: scale(1.05);
+    transition: opacity 0.5s ease, transform 0.55s ease;
     position: relative;
     z-index: 2;
   }
 
-  .contact-thumb:hover img {
+  .contact-thumb img.loaded {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+
+  .contact-thumb:hover img.loaded {
     transform: scale(1.04);
     opacity: 1;
   }
@@ -554,27 +687,146 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: calc(100% - 1.2rem);
+    z-index: 4;
   }
 
   @media (max-width: 1024px) {
-    .contact-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
+    .contact-grid { grid-template-columns: repeat(4, 1fr); }
   }
-
   @media (max-width: 768px) {
-    .overlay-inner {
-      padding: 1.25rem;
-    }
-
-    .contact-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
+    .overlay-inner { padding: 1.25rem; }
+    .contact-grid  { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .contact-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
-  @media (max-width: 480px) {
-    .contact-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
+  /* ── Lightbox ─────────────────────────────────────────────── */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0, 0, 0, 0.96);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer; /* click dark area → back to contact sheet */
+  }
+
+  /* Image container — stops click propagation */
+  .lb-frame {
+    position: relative;
+    max-width: 88vw;
+    max-height: 88vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+  }
+
+  /* Shimmer placeholder behind lb-img while loading */
+  .lb-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(200, 192, 184, 0.04) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: thumb-shimmer 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .lb-img {
+    max-width: 88vw;
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    position: relative; /* above lb-frame::before */
+  }
+
+  .lb-img.loaded {
+    opacity: 1;
+  }
+
+  /* Prev / Next */
+  .lb-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 301;
+    background: none;
+    border: none;
+    color: rgba(200, 192, 184, 0.45);
+    font-size: 3.5rem;
+    font-weight: 100;
+    width: 4.5rem;
+    height: 6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    line-height: 1;
+  }
+
+  .lb-prev { left: 0.75rem; }
+  .lb-next { right: 0.75rem; }
+
+  .lb-nav:hover {
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  /* Counter */
+  .lb-counter {
+    position: fixed;
+    bottom: 1.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    font-weight: 300;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.4);
+    pointer-events: none;
+  }
+
+  /* Close (back to contact sheet) */
+  .lb-close {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.75rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 100;
+    font-size: 2rem;
+    line-height: 1;
+    color: rgba(200, 192, 184, 0.55);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    z-index: 302;
+    padding: 0.25rem;
+  }
+
+  .lb-close:hover {
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  /* Mobile lightbox */
+  @media (max-width: 640px) {
+    .lb-nav      { font-size: 2.5rem; width: 3rem; }
+    .lb-prev     { left: 0.1rem; }
+    .lb-next     { right: 0.1rem; }
+    .lb-img,
+    .lb-frame    { max-width: 96vw; max-height: 80vh; }
   }
 </style>

@@ -323,6 +323,7 @@
     height: 100vh;
     overflow: hidden;
     pointer-events: none;
+<<<<<<< HEAD
   }
 
   /* Gradient bleed — fades panel into background on left edge */
@@ -350,6 +351,35 @@
     transform: translateX(0);
   }
 
+=======
+  }
+
+  /* Gradient bleed — fades panel into background on left edge */
+  .works-preview-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--near-black, #0e0e0e) 0%, transparent 30%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* All images stacked; only the hovered one becomes visible */
+  .works-preview-image {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateX(30px);
+    transition:
+      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .works-preview-image.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+>>>>>>> origin/Dev/V4
   .works-preview-image img {
     width: 100%;
     height: 100%;
@@ -358,6 +388,24 @@
     opacity: 0.8;
   }
 
+<<<<<<< HEAD
+=======
+  .works-preview-label {
+    position: absolute;
+    bottom: 3rem;
+    left: 4rem;
+    z-index: 2;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 100;
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--silver, #c8c0b8);
+    text-transform: uppercase;
+    opacity: 0.45;
+    margin: 0;
+  }
+
+>>>>>>> origin/Dev/V4
   /* ── Responsive ───────────────────────────────────────────── */
   @media (max-width: 900px) {
     .works-container {

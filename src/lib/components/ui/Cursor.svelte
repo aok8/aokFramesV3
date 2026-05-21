@@ -16,8 +16,8 @@
 		}
 
 		enabled = true;
-		// Hide the native cursor site-wide once our custom one is active
-		document.documentElement.style.cursor = 'none';
+		// Class-based approach ensures cursor: none wins over pointer on a/button
+		document.documentElement.classList.add('custom-cursor');
 
 		function onMouseMove(e: MouseEvent) {
 			x = e.clientX;
@@ -51,7 +51,7 @@
 		document.addEventListener('mouseout', onMouseOut);
 
 		return () => {
-			document.documentElement.style.cursor = '';
+			document.documentElement.classList.remove('custom-cursor');
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseover', onMouseOver);
 			document.removeEventListener('mouseout', onMouseOut);
@@ -69,6 +69,13 @@
 {/if}
 
 <style>
+	/* Force cursor: none on everything when custom cursor is active.
+	   Without !important, browser UA cursor: pointer on a/button wins. */
+	:global(.custom-cursor),
+	:global(.custom-cursor) * {
+		cursor: none !important;
+	}
+
 	.cursor {
 		position: fixed;
 		top: 0;

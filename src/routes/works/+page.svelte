@@ -10,7 +10,6 @@
 
   let selectedWork = $state<Work | null>(null);
   let hoveredWork = $state<Work | null>(null);
-  let previewEl = $state<HTMLDivElement | null>(null);
   let overlayEl = $state<HTMLDivElement | null>(null);
 
   const works = $derived(data.works ?? []);
@@ -18,7 +17,6 @@
   function handleRowClick(work: Work) {
     selectedWork = work;
     if (browser) document.body.style.overflow = 'hidden';
-    // Animate overlay entrance
     if (browser && overlayEl) {
       import('gsap').then(({ gsap }) => {
         gsap.fromTo(overlayEl, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' });
@@ -57,30 +55,6 @@
     return String(n).padStart(2, '0');
   }
 
-  // GSAP slide-in for the fixed right-side image panel
-  $effect(() => {
-    if (!browser || !previewEl) return;
-    if (window.matchMedia('(hover: none)').matches) return;
-
-    import('gsap').then(({ gsap }) => {
-      if (hoveredWork && !selectedWork) {
-        gsap.to(previewEl, {
-          opacity: 1,
-          x: '0%',
-          duration: 0.45,
-          ease: 'power3.out',
-        });
-      } else {
-        gsap.to(previewEl, {
-          opacity: 0,
-          x: '100%',
-          duration: 0.3,
-          ease: 'power2.in',
-        });
-      }
-    });
-  });
-
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
     initFadeUpReveal('.works-row', { stagger: 0.04, duration: 0.6, y: 12 });
@@ -91,60 +65,66 @@
 <div class="works-page">
   <Navbar />
 
-  <main class="works-main">
-    <header class="works-header">
-      <h1 class="works-title">Works</h1>
-    </header>
+  <div class="works-container">
+    <!-- Left: typographic index -->
+    <main class="works-index">
+      <header class="works-header">
+        <h1 class="works-title">Works</h1>
+      </header>
 
-    {#if works.length === 0}
-      <div class="empty-state">
-        <p>No works yet. Please come back later.</p>
-      </div>
-    {:else}
-      <ol class="works-list">
-        {#each works as work, i}
-          <li
-            class="works-row"
-            class:hovered={hoveredWork === work}
-            onmouseenter={() => (hoveredWork = work)}
-            onmouseleave={() => (hoveredWork = null)}
-          >
-            <button
-              class="works-row-btn"
-              onclick={() => handleRowClick(work)}
-              aria-label={`Open ${work.title}`}
+      {#if works.length === 0}
+        <div class="empty-state">
+          <p>No works yet. Please come back later.</p>
+        </div>
+      {:else}
+        <ol class="works-list">
+          {#each works as work, i}
+            <li
+              class="works-row"
+              class:hovered={hoveredWork === work}
+              onmouseenter={() => (hoveredWork = work)}
+              onmouseleave={() => (hoveredWork = null)}
             >
-              <span class="row-number">{padIndex(i + 1)}</span>
+              <button
+                class="works-row-btn"
+                onclick={() => handleRowClick(work)}
+                aria-label={`Open ${work.title}`}
+              >
+                <span class="row-number">{padIndex(i + 1)}</span>
 
-              <div class="row-meta">
-                <span class="row-title">{work.title}</span>
-                {#if work.tags.length > 0}
-                  <span class="row-tags">{work.tags.join(' / ')}</span>
-                {/if}
-              </div>
+                <div class="row-meta">
+                  <span class="row-title">{work.title}</span>
+                  {#if work.tags.length > 0}
+                    <span class="row-tags">{work.tags.join(' / ')}</span>
+                  {/if}
+                </div>
 
-              <span class="row-arrow">→</span>
-            </button>
-          </li>
-        {/each}
-      </ol>
-    {/if}
-  </main>
+                <span class="row-arrow">→</span>
+              </button>
+            </li>
+          {/each}
+        </ol>
+      {/if}
 
-  <Footer />
+      <Footer />
+    </main>
 
-  <!-- Fixed right-side image panel — always in DOM, GSAP slides in/out -->
-  <div
-    bind:this={previewEl}
-    class="side-panel"
-    style="opacity: 0; transform: translateX(100%);"
-    aria-hidden="true"
-  >
-    {#if hoveredWork}
-      <img src={hoveredWork.coverImage} alt="" />
-    {:else}
-      <p class="side-panel-hint">HOVER A SERIES<br/>TO PREVIEW</p>
-    {/if}
+    <!-- Right: sticky preview panel — stacked images, CSS transitions -->
+    <div class="works-preview" aria-hidden="true">
+      <!-- Gradient bleed from left edge -->
+      <div class="works-preview-overlay"></div>
+
+      {#each works as work}
+        <div
+          class="works-preview-image"
+          class:visible={hoveredWork === work && !selectedWork}
+        >
+          <img src={work.coverImage} alt="" />
+        </div>
+      {/each}
+
+      <p class="works-preview-label">Hover a series to preview</p>
+    </div>
   </div>
 </div>
 
@@ -174,6 +154,9 @@
         {#each selectedWork.images as image, i}
           <div class="contact-thumb">
             <img src={image.src} alt={image.alt ?? `${selectedWork.title} — ${i + 1}`} loading="lazy" />
+            {#if image.alt}
+              <span class="contact-label">{image.alt}</span>
+            {/if}
           </div>
         {/each}
       </div>
@@ -191,20 +174,21 @@
     flex-direction: column;
   }
 
-  /* ── Main ─────────────────────────────────────────────────── */
-  .works-main {
+  /* ── Two-column grid ──────────────────────────────────────── */
+  .works-container {
     flex: 1;
-    width: 100%;
-    max-width: 680px;
-    margin: 0 auto 0 clamp(2rem, 5vw, 8rem);
-    padding: 8rem 2rem 4rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
   }
 
-  @media (max-width: 900px) {
-    .works-main {
-      max-width: 100%;
-      margin: 0 auto;
-    }
+  /* ── Left: works index ────────────────────────────────────── */
+  .works-index {
+    padding: 8rem 3rem 4rem clamp(2rem, 5vw, 6rem);
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
   }
 
   /* ── Page title ───────────────────────────────────────────── */
@@ -216,7 +200,7 @@
     font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
     font-weight: 300;
     font-style: italic;
-    font-size: clamp(3.5rem, 7vw, 7rem);
+    font-size: clamp(3.5rem, 5vw, 7rem);
     line-height: 1;
     color: var(--warm-white, #f0ebe3);
     margin: 0;
@@ -229,12 +213,12 @@
     margin: 0;
     padding: 0;
     border-top: 1px solid rgba(200, 192, 184, 0.08);
+    flex: 1;
   }
 
   .works-row {
     border-bottom: 1px solid rgba(200, 192, 184, 0.08);
     transition: background 0.18s ease;
-    position: relative;
   }
 
   .works-row:hover {
@@ -250,20 +234,6 @@
     background: none;
     border: none;
     color: inherit;
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .works-row-btn {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1.6rem 0;
-    width: 100%;
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
     text-align: left;
   }
 
@@ -277,6 +247,12 @@
     opacity: 0.5;
     min-width: 2.2rem;
     flex-shrink: 0;
+    transition: color 0.3s ease, opacity 0.3s ease;
+  }
+
+  .works-row:hover .row-number {
+    color: var(--forest-green, #2D4739);
+    opacity: 1;
   }
 
   /* ── Row: title + tags ────────────────────────────────────── */
@@ -290,14 +266,14 @@
   .row-title {
     font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
     font-weight: 300;
-    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    font-size: clamp(1.8rem, 2.5vw, 2.5rem);
     line-height: 1.1;
-    color: var(--warm-white, #f0ebe3);
-    transition: color 0.18s ease;
+    color: var(--silver, #c8c0b8);
+    transition: color 0.3s ease;
   }
 
   .works-row:hover .row-title {
-    color: var(--forest-green, #2D4739);
+    color: var(--warm-white, #f0ebe3);
   }
 
   .row-tags {
@@ -307,7 +283,14 @@
     letter-spacing: 0.25em;
     text-transform: uppercase;
     color: var(--silver, #c8c0b8);
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .works-row:hover .row-tags {
     opacity: 0.55;
+    transform: translateX(0);
   }
 
   /* ── Row: arrow ───────────────────────────────────────────── */
@@ -335,49 +318,75 @@
     opacity: 0.5;
   }
 
-  /* ── Fixed right-side image panel ────────────────────────── */
-  .side-panel {
-    position: fixed;
+  /* ── Right: sticky preview panel ─────────────────────────── */
+  .works-preview {
+    position: sticky;
     top: 0;
-    right: 0;
-    width: 45vw;
     height: 100vh;
-    z-index: 50;
-    pointer-events: none;
-    background: var(--near-black, #0e0e0e);
     overflow: hidden;
-    will-change: transform, opacity;
+    pointer-events: none;
   }
 
-  .side-panel img {
+  /* Gradient bleed — fades panel into background on left edge */
+  .works-preview-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--near-black, #0e0e0e) 0%, transparent 30%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* All images stacked; only the hovered one becomes visible */
+  .works-preview-image {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateX(30px);
+    transition:
+      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .works-preview-image.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .works-preview-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    opacity: 0.85;
+    opacity: 0.8;
   }
 
-  .side-panel-hint {
+  .works-preview-label {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    bottom: 3rem;
+    left: 4rem;
+    z-index: 2;
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 100;
     font-size: 9px;
     letter-spacing: 0.35em;
-    text-transform: uppercase;
     color: var(--silver, #c8c0b8);
-    opacity: 0.3;
-    text-align: center;
-    line-height: 2;
-    white-space: nowrap;
+    text-transform: uppercase;
+    opacity: 0.45;
+    margin: 0;
   }
 
-  /* Hide side panel on smaller screens */
+  /* ── Responsive ───────────────────────────────────────────── */
   @media (max-width: 900px) {
-    .side-panel {
+    .works-container {
+      grid-template-columns: 1fr;
+    }
+
+    .works-preview {
       display: none;
+    }
+
+    .works-index {
+      padding: 6rem 1.25rem 3rem;
     }
   }
 
@@ -426,7 +435,6 @@
     color: var(--silver, #c8c0b8);
     background: none;
     border: none;
-    cursor: pointer;
     padding: 0 0.25rem;
     opacity: 0.7;
     transition: opacity 0.15s ease, color 0.15s ease;
@@ -458,10 +466,10 @@
   }
 
   .contact-thumb {
+    position: relative;
     aspect-ratio: 3 / 2;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
-    cursor: pointer;
   }
 
   .contact-thumb img {
@@ -478,7 +486,23 @@
     opacity: 1;
   }
 
-  /* ── Responsive grid ──────────────────────────────────────── */
+  .contact-label {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.6rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 8px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(240, 235, 227, 0.55);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 1.2rem);
+  }
+
   @media (max-width: 1024px) {
     .contact-grid {
       grid-template-columns: repeat(4, 1fr);
@@ -486,10 +510,6 @@
   }
 
   @media (max-width: 768px) {
-    .works-main {
-      padding: 6rem 1.25rem 3rem;
-    }
-
     .overlay-inner {
       padding: 1.25rem;
     }

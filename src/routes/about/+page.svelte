@@ -46,7 +46,10 @@
     <div class="bio-inner">
       <div class="bio-pull">
         <blockquote class="pull-quote">
-          "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer."
+          "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer.
+          It's because of this, that I have a hard time categorizing my work, it's more a collection of such.
+          I find joy in being able to see the changes in what caught my eye, and also bring back memories of what exactly it was that excited me.
+          Hopefully, through this, you'll be excited to see what I've been up to."
         </blockquote>
       </div>
 
@@ -55,12 +58,7 @@
           Alain is a photographer with a love for visual storytelling.
           Originally from New Jersey and now based in Seattle, he brings four years of photographic experience to his work,
           including three years immersed in the art of film.
-          Whether in vivid color or classic black and white, he seeks to capture a collection of awe-inspiring images.
-        </p>
-        <p>
-          It's because of this that he has a hard time categorizing his work — it's more a collection of moments.
-          He finds joy in being able to see the changes in what caught his eye, and in bringing back memories of what
-          exactly it was that excited him. Hopefully, through this, you'll be excited to see what he's been up to.
+          Whether in vivid color or classic black and white, he seeks to capture a collection of awe inspiring images.
         </p>
       </div>
     </div>

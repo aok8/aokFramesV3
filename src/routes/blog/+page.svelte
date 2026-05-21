@@ -9,6 +9,7 @@
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { dev } from '$app/environment';
 	import { logger } from '$lib/utils/logger.js';
+  import { initFadeUpReveal } from '$lib/utils/animations.js';
 
   // Type definition for Layout data
   type ExpectedLayoutData = {
@@ -235,6 +236,10 @@
           }
        }
     }
+
+    // Reveal post cards after all data loading settles
+    await Promise.resolve();
+    initFadeUpReveal('.post-card', { stagger: 0.07, duration: 0.65, y: 18 });
   });
 </script>
 

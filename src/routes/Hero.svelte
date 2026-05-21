@@ -32,7 +32,7 @@
 	<div class="hero-content" class:visible={mounted}>
 		<p class="hero-eyebrow">Film &amp; Digital · Seattle</p>
 		<h1 class="hero-headline">Moments<br /><em>in Light</em></h1>
-		<p class="hero-sub">Photography by Alain Okou</p>
+		<p class="hero-sub">Photography by Alain Kouassi</p>
 	</div>
 
 	<div class="scroll-indicator" aria-hidden="true">

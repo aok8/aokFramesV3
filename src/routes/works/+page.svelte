@@ -4,6 +4,7 @@
   import type { Work, WorkImage } from '$lib/types/works.js';
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
+  import { initFadeUpReveal } from '$lib/utils/animations.js';
 
   let { data }: { data: { works: Work[] } } = $props();
 
@@ -11,17 +12,39 @@
   let hoveredWork = $state<Work | null>(null);
   let cursorX = $state(0);
   let cursorY = $state(0);
+  let previewEl = $state<HTMLDivElement | null>(null);
+  let overlayEl = $state<HTMLDivElement | null>(null);
 
   const works = $derived(data.works ?? []);
 
   function handleRowClick(work: Work) {
     selectedWork = work;
     if (browser) document.body.style.overflow = 'hidden';
+    // Animate overlay entrance
+    if (browser && overlayEl) {
+      import('gsap').then(({ gsap }) => {
+        gsap.fromTo(overlayEl, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' });
+      });
+    }
   }
 
   function closeOverlay() {
-    selectedWork = null;
-    if (browser) document.body.style.overflow = '';
+    if (browser && overlayEl) {
+      import('gsap').then(({ gsap }) => {
+        gsap.to(overlayEl, {
+          opacity: 0,
+          duration: 0.2,
+          ease: 'power2.in',
+          onComplete: () => {
+            selectedWork = null;
+            document.body.style.overflow = '';
+          },
+        });
+      });
+    } else {
+      selectedWork = null;
+      if (browser) document.body.style.overflow = '';
+    }
   }
 
   function handleOverlayBackdropClick(e: MouseEvent) {
@@ -41,8 +64,33 @@
     return String(n).padStart(2, '0');
   }
 
+  // GSAP hover bleed-in for the preview image panel
+  $effect(() => {
+    if (!browser || !previewEl) return;
+    if (window.matchMedia('(hover: none)').matches) return;
+
+    import('gsap').then(({ gsap }) => {
+      if (hoveredWork && !selectedWork) {
+        gsap.to(previewEl, {
+          opacity: 1,
+          x: '0%',
+          duration: 0.4,
+          ease: 'power3.out',
+        });
+      } else {
+        gsap.to(previewEl, {
+          opacity: 0,
+          x: '4%',
+          duration: 0.25,
+          ease: 'power2.in',
+        });
+      }
+    });
+  });
+
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
+    initFadeUpReveal('.works-row', { stagger: 0.04, duration: 0.6, y: 12 });
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 </script>
@@ -93,22 +141,24 @@
 
   <Footer />
 
-  <!-- Floating preview on hover (desktop) -->
-  {#if hoveredWork && !selectedWork}
-    <div
-      class="hover-preview"
-      style="left: {cursorX + 24}px; top: {cursorY - 60}px;"
-      aria-hidden="true"
-    >
+  <!-- Floating preview — always in DOM so GSAP can animate it; opacity driven by $effect -->
+  <div
+    bind:this={previewEl}
+    class="hover-preview"
+    style="left: {cursorX + 24}px; top: {cursorY - 60}px; opacity: 0; transform: translateX(4%);"
+    aria-hidden="true"
+  >
+    {#if hoveredWork}
       <img src={hoveredWork.coverImage} alt={hoveredWork.title} />
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
 
 <!-- Contact sheet overlay -->
 {#if selectedWork}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
+    bind:this={overlayEl}
     class="overlay"
     onclick={handleOverlayBackdropClick}
     role="dialog"

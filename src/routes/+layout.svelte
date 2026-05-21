@@ -1,23 +1,50 @@
 <script lang="ts">
-  // Darkroom v4 root layout
-  // Fonts loaded here so they are available globally across every route.
   import '../app.css';
 
-  // Cormorant Garamond — display serif used for headlines, pull quotes, blog body
   import '@fontsource/cormorant-garamond/300.css';
   import '@fontsource/cormorant-garamond/300-italic.css';
   import '@fontsource/cormorant-garamond/400.css';
   import '@fontsource/cormorant-garamond/400-italic.css';
 
-  // Josefin Sans — UI labels, nav, captions, all-caps metadata
   import '@fontsource/josefin-sans/100.css';
   import '@fontsource/josefin-sans/300.css';
   import '@fontsource/josefin-sans/400.css';
   import '@fontsource/josefin-sans/600.css';
 
+  import { navigating } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   import Cursor from '$lib/components/ui/Cursor.svelte';
 
   let { children } = $props();
+
+  let overlay = $state<HTMLDivElement | null>(null);
+  let isTransitioning = $state(false);
+
+  $effect(() => {
+    if (!browser || !overlay) return;
+    if ($navigating && !isTransitioning) {
+      isTransitioning = true;
+      import('gsap').then(({ gsap }) => {
+        gsap.to(overlay, {
+          opacity: 1,
+          duration: 0.18,
+          ease: 'power1.in',
+          onStart: () => { overlay!.style.pointerEvents = 'all'; },
+        });
+      });
+    } else if (!$navigating && isTransitioning) {
+      isTransitioning = false;
+      import('gsap').then(({ gsap }) => {
+        gsap.to(overlay, {
+          opacity: 0,
+          duration: 0.28,
+          ease: 'power1.out',
+          onComplete: () => { overlay!.style.pointerEvents = 'none'; },
+        });
+      });
+    }
+  });
 </script>
 
 <svelte:head>
@@ -45,6 +72,7 @@
 <!-- Page transition overlay — animated in Sprint 6 via GSAP + $navigating store.
      Sits above all page content, below the cursor. -->
 <div
+  bind:this={overlay}
   id="page-transition-overlay"
   aria-hidden="true"
   style="

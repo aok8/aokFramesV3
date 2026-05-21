@@ -89,7 +89,7 @@
 
   .peek-desc {
     font-family: var(--font-ui);
-    font-size: clamp(6px, 1.75vw, 10px);
+    font-size: min(10px, 2.4vw);
     font-weight: 300;
     letter-spacing: 0.15em;
     line-height: 2;

@@ -42,8 +42,17 @@
         )
       );
 
-      // Fire the rest in background — browser caches them while user reads the page
+      // Fire the rest of the gallery images in background
       rest.forEach(({ url }) => { new Image().src = url; });
+
+      // Fire works cover preloads in background — so /works hover is instant
+      // Don't await; this runs in parallel while the user browses the home page
+      fetch('/api/works-covers')
+        .then((r) => r.json())
+        .then((covers: { coverImage: string }[]) => {
+          covers.forEach(({ coverImage }) => { new Image().src = coverImage; });
+        })
+        .catch(() => {});
 
       sessionStorage.setItem(SESSION_KEY, '1');
     } catch {

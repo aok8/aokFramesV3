@@ -146,29 +146,30 @@
 
   .bio-inner {
     display: grid;
-    grid-template-columns: 1fr 1.4fr;
-    gap: 5rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 6rem;
     max-width: 1100px;
     margin: 0 auto;
-    align-items: start;
+    align-items: center;
   }
 
   .pull-quote {
     font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
     font-weight: 300;
     font-style: italic;
-    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-    line-height: 1.45;
+    font-size: clamp(1rem, 1.35vw, 1.3rem);
+    line-height: 1.75;
     color: var(--forest-green, #2D4739);
     margin: 0;
-    padding: 0;
+    padding: 0 0 0 1.5rem;
     border: none;
+    border-left: 1px solid rgba(45, 71, 57, 0.4);
   }
 
   .bio-body p {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 300;
-    font-size: 13px;
+    font-size: clamp(0.875rem, 1.05vw, 1rem);
     line-height: 1.9;
     color: #c8c0b8;
     margin: 0 0 1.4em 0;

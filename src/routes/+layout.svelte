@@ -15,6 +15,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import Cursor from '$lib/components/ui/Cursor.svelte';
+  import Preloader from '$lib/components/ui/Preloader.svelte';
 
   let { children } = $props();
 
@@ -65,6 +66,9 @@
   <meta name="twitter:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
   <meta name="twitter:image" content="https://aokframes.com/directr2/constants/bg.jpg" />
 </svelte:head>
+
+<!-- Preloader — first visit only (sessionStorage gated), preloads gallery images -->
+<Preloader />
 
 <!-- Custom cursor — renders nothing on touch devices (guarded inside component) -->
 <Cursor />

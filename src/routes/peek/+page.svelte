@@ -89,19 +89,12 @@
 
   .peek-desc {
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: clamp(6px, 1.75vw, 10px);
     font-weight: 300;
     letter-spacing: 0.15em;
     line-height: 2;
     color: rgba(200, 192, 184, 0.85);
     white-space: nowrap;
-  }
-
-  @media (max-width: 768px) {
-    .peek-desc {
-      white-space: normal;
-      padding: 0 1.5rem;
-    }
   }
 
   .holding-msg {

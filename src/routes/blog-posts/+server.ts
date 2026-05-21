@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import matter from 'gray-matter';
 import type { BlogPost } from '$lib/types/blog.js';
+import { assetUrl } from '$lib/utils/r2.js';
 
 // Simple wrapper to match the endpoint expected by the client
 export const GET = (async ({ platform, fetch }) => {
@@ -123,13 +124,13 @@ export const GET = (async ({ platform, fetch }) => {
             
             let finalImagePath = null;
             if (imageExists) {
-              finalImagePath = `/directr2/${imageKey}`;
+              finalImagePath = assetUrl(imageKey);
             } else {
               // Try alternate path
               const altImageKey = imagePrefix === 'blog/images/' ? `images/${slug}.jpg` : `blog/images/${slug}.jpg`;
               imageExists = await platform.env.ASSETSBUCKET.head(altImageKey);
               if (imageExists) {
-                finalImagePath = `/directr2/${altImageKey}`;
+                finalImagePath = assetUrl(altImageKey);
               }
             }
             

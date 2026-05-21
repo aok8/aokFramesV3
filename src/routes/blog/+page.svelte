@@ -3,12 +3,14 @@
   import Footer from '$lib/components/ui/footer.svelte';
   import BlogPostComponent from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
+  import { assetUrl } from '$lib/utils/r2.js';
   import { theme } from '../../theme/theme.js';
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { dev } from '$app/environment';
 	import { logger } from '$lib/utils/logger.js';
+  import { initFadeUpReveal } from '$lib/utils/animations.js';
 
   // Type definition for Layout data
   type ExpectedLayoutData = {
@@ -103,7 +105,7 @@
                 const key = `blog/posts/${slug}/index.md`;
                 logger.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
 
-                const response = await fetch(`/directr2/${key}`);
+                const response = await fetch(assetUrl(key));
                 if (response.ok) {
                   const text = await response.text();
                   logger.log(`Successfully loaded ${slug} directly`);
@@ -147,17 +149,9 @@
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
                   logger.log('Extracted tags:', tags);
                   
-                  // Check for header.webp
+                  // Always include the header image URL — the <img> onerror handles missing ones
                   const imageKey = `blog/posts/${slug}/header.webp`;
-                  let imageExists = false;
-                  try {
-                      const imgRes = await fetch(`/directr2/${imageKey}`, { method: 'HEAD' });
-                      imageExists = imgRes.ok;
-                      logger.log(`Client R2 Load: Image check for ${imageKey}: ${imageExists}`);
-                  } catch (imgErr) {
-                      logger.warn(`Client R2 Load: Image check failed for ${imageKey}`, imgErr);
-                  }
-                  
+
                   loadedPosts.push({
                     id: slug,
                     title,
@@ -166,7 +160,7 @@
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: imageExists ? `/directr2/${imageKey}` : undefined
+                    image: assetUrl(imageKey)
                   });
                 } else {
                     logger.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);
@@ -235,40 +229,41 @@
           }
        }
     }
+
+    // Reveal post cards after all data loading settles
+    await Promise.resolve();
+    initFadeUpReveal('.post-card', { stagger: 0.07, duration: 0.65, y: 18 });
   });
 </script>
 
-<div class="blog-container" style="--bg-color: {theme.tertiary}; --text-color: {theme.text.primary}; --secondary-color: {theme.secondary};">
-  <Navbar 
-    backgroundColor={theme.text.primary}
-    textColor={theme.background.light}
-  />
+<div class="journal-page">
+  <Navbar />
 
-  <main class="blog-main-content">
-    <div class="content-wrapper">
-      <div class="page-header">
-        <h1 class="page-title">Blog</h1>
-        <p class="page-subtitle">
-          Exploring the art of photography, one frame at a time. Join me on my journey.
-        </p>
-      </div>
+  <main class="journal-main">
+    <div class="journal-wrapper">
+
+      <header class="journal-header">
+        <h1 class="journal-title">Journal</h1>
+        <p class="journal-subtitle">Light, shadow, and the moments between</p>
+      </header>
 
       {#if isLoading}
-        <div class="loading-container">
-          <div class="loading-spinner"></div>
-          <p class="loading-text">Loading blog posts...</p>
+        <div class="state-block">
+          <div class="loading-ring"></div>
+          <span class="state-text">Loading…</span>
         </div>
       {:else if $posts && $posts.length > 0}
-        <div class="posts-grid">
+        <div class="posts-list">
           {#each $posts as post (post.id)}
-            <BlogPostComponent {post} isPreview={true} />
+            <BlogPostComponent {post} />
           {/each}
         </div>
       {:else if loadError}
-        <p class="status-text error-text">Failed to load blog posts.</p>
+        <p class="state-text state-error">Failed to load posts.</p>
       {:else}
-        <p class="status-text no-posts-text">No blog posts available yet.</p>
+        <p class="state-text">No posts yet.</p>
       {/if}
+
     </div>
   </main>
 
@@ -276,152 +271,106 @@
 </div>
 
 <style>
-  .blog-container {
+  .journal-page {
     min-height: 100vh;
-    width: 100%;
-    background-color: var(--bg-color);
-    color: var(--text-color);
+    background-color: var(--near-black);
+    color: var(--warm-white);
     display: flex;
     flex-direction: column;
   }
-  @media (max-width: 768px) {
-    .blog-container {
-      padding-top: 4rem;
-    }
-  }
 
-  main {
+  .journal-main {
     flex: 1;
+    padding-top: 7rem;
+    padding-bottom: 5rem;
   }
 
-  .blog-main-content {
-    min-height: 100vh;
-    padding-top: 4rem; /* py-16 */
-    padding-bottom: 4rem; /* py-16 */
+  .journal-wrapper {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
   }
 
-  .content-wrapper {
-    max-width: 80rem; /* max-w-7xl */
-    margin-left: auto; /* mx-auto */
-    margin-right: auto; /* mx-auto */
-    padding-left: 1rem; /* px-4 */
-    padding-right: 1rem; /* px-4 */
-  }
-
-  .page-header {
-    max-width: 64rem; /* max-w-4xl */
-    margin-left: auto; /* mx-auto */
-    margin-right: auto; /* mx-auto */
-    margin-bottom: 3rem; /* mb-12 */
-    text-align: center; /* text-center */
-  }
-
-  .page-title {
-    font-size: 2.25rem; /* text-4xl */
-    line-height: 2.5rem; /* text-4xl */
-    font-weight: 700; /* font-bold */
-    color: color-mix(in srgb, var(--secondary-color) 80%, black); 
-    margin-bottom: 1rem; /* mb-4 */
-  }
-
-  .page-subtitle {
-    font-size: 1.125rem; /* text-lg */
-    line-height: 1.75rem; /* text-lg */
-    color: var(--secondary-color); 
-  }
-
-  .loading-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding-top: 5rem; /* py-20 */
-    padding-bottom: 5rem; /* py-20 */
-  }
-
-  .loading-spinner {
-    height: 3rem; /* h-12 */
-    width: 3rem; /* w-12 */
-    border-top-width: 2px; /* border-t-2 */
-    border-bottom-width: 2px; /* border-b-2 */
-    border-color: rgb(17 24 39); /* border-gray-900 */
-    border-radius: 9999px; /* rounded-full */
-    animation: spin 1s linear infinite;
-  }
-
-  .loading-text {
-    margin-left: 1rem; /* ml-4 */
-    font-size: 1.125rem; /* text-lg */
-    line-height: 1.75rem; /* text-lg */
-    color: var(--secondary-color); 
-  }
-
-  .posts-grid {
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr)); /* grid-cols-1 */
-    gap: 2rem; /* gap-8 */
-  }
-
-  .status-text {
+  /* Header */
+  .journal-header {
     text-align: center;
-    padding-top: 2.5rem; /* py-10 */
-    padding-bottom: 2.5rem; /* py-10 */
+    margin-bottom: 4rem;
   }
 
-  .error-text {
-    color: rgb(220 38 38); /* text-red-600 */
+  .journal-title {
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--warm-white);
+    letter-spacing: 0.02em;
+    margin: 0 0 0.75rem;
+    line-height: 1;
   }
 
-  .no-posts-text {
-     color: var(--secondary-color);
+  .journal-subtitle {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.85);
+    margin: 0;
   }
 
-  /* Responsive styles */
-  @media (min-width: 640px) { /* sm: */
-    .content-wrapper {
-      padding-left: 1.5rem; /* sm:px-6 */
-      padding-right: 1.5rem; /* sm:px-6 */
-    }
+  /* Posts list */
+  .posts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid rgba(200, 192, 184, 0.08);
   }
 
-  @media (min-width: 768px) { /* md: */
-    .posts-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)); /* md:grid-cols-2 */
-    }
+  /* Loading / state */
+  .state-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 5rem 0;
   }
 
-  @media (min-width: 1024px) { /* lg: */
-    .content-wrapper {
-      padding-left: 2rem; /* lg:px-8 */
-      padding-right: 2rem; /* lg:px-8 */
-    }
-    .posts-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr)); /* lg:grid-cols-3 */
-    }
+  .loading-ring {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 1px solid rgba(200, 192, 184, 0.2);
+    border-top-color: var(--silver);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+
+  .state-text {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 4rem 0;
+  }
+
+  .state-error {
+    color: rgba(220, 80, 80, 0.7);
   }
 
   @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
   }
 
-  /* Mobile-specific adjustment for grid */
-  @media (max-width: 768px) {
-    .posts-grid {
-      gap: 1rem; /* Tighter spacing for mobile */
+  @media (max-width: 640px) {
+    .journal-main {
+      padding-top: 5rem;
+      padding-bottom: 3rem;
     }
-    
-    .blog-main-content {
-      padding-top: 2rem; /* Reduce padding on mobile */
-      padding-bottom: 2rem;
-    }
-    
-    .page-header {
-      margin-bottom: 1.5rem; /* Less margin under header on mobile */
+
+    .journal-header {
+      margin-bottom: 2.5rem;
     }
   }
-
 </style> 

@@ -3,6 +3,7 @@ import { loadBlogPosts } from '$lib/server/blog.js';
 import type { RequestHandler } from './$types.js';
 import matter from 'gray-matter';
 import type { BlogPost } from '$lib/types/blog.js';
+import { assetUrl } from '$lib/utils/r2.js';
 import { dev } from '$app/environment';
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -156,7 +157,7 @@ export const GET: RequestHandler = async (event) => {
               author: data.author || 'AOK',
               published: data.published || uploadedDate.split('T')[0],
               label: data.label || 'Photography',
-              image: imageExists ? `/directr2/${imageKey}` : undefined
+              image: imageExists ? assetUrl(imageKey) : undefined
             } as BlogPost;
           } catch (error) {
             console.error(`Error processing blog post ${obj.key}:`, error);

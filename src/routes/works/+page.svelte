@@ -1,837 +1,832 @@
-<!-- Works Page -->
 <script lang="ts">
-  import { onMount, afterUpdate, tick } from 'svelte';
-  import { fade } from 'svelte/transition';
+  import { onMount, tick } from 'svelte';
   import { browser } from '$app/environment';
   import type { Work } from '$lib/types/works.js';
-  import { Modal } from '$lib/components/ui/index.js';
-  import { theme } from '../../theme/theme.js';
-  import Carousel from '../../lib/components/Carousel.svelte';
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
-  // Import Swiper JS
-  import Swiper from 'swiper';
-  import { Navigation, Pagination } from 'swiper/modules';
-  import 'swiper/css';
-  import 'swiper/css/navigation'; // If using Swiper's navigation buttons
-  import 'swiper/css/pagination'; // If using Swiper's pagination
+  import { initFadeUpReveal } from '$lib/utils/animations.js';
 
-  export let data: { works: Work[] };
-  
-  let selectedWork: Work | null = null;
-  let selectedImageIndex = 0;
-  let enlargedImage: { src: string; alt: string } | null = null;
-  let showNsfwWarning = false;
-  let nsfwWorkToShow: Work | null = null;
-  // Updated sortedImages declaration
-  $: sortedImages = selectedWork ? [...selectedWork.images].sort((a, b) => {
-    const aNum = parseInt(a.alt.replace(/\D/g, '')) || 0;
-    const bNum = parseInt(b.alt.replace(/\D/g, '')) || 0;
-    return aNum - bNum;
-  }) : [];
-  let carouselIndex = 0;
-  
-  // Swiper instances
-  let imageSwiper: Swiper | null = null;
-  let imageSwiperContainer: HTMLElement;
-  
-  // Sort works by published date (newest first)
-  $: sortedWorks = [...(data.works || [])].sort((a, b) => {
-    // Helper function to check if a date is valid
-    const isValidDate = (dateStr: string | undefined) => {
-      if (!dateStr) return false;
-      const date = new Date(dateStr);
-      return !isNaN(date.getTime());
-    };
-    
-    // Check if both works have valid published dates
-    const aHasValidDate = isValidDate(a.published);
-    const bHasValidDate = isValidDate(b.published);
-    
-    // If either date is invalid, sort accordingly
-    if (!aHasValidDate && !bHasValidDate) return 0; // Both invalid, maintain order
-    if (!aHasValidDate) return 1; // a is invalid, put at end
-    if (!bHasValidDate) return -1; // b is invalid, put at end
-    
-    // Both dates are valid, sort normally
-    return new Date(b.published).getTime() - new Date(a.published).getTime();
-  });
-  
-  // References for scrolling
-  let thumbnailContainerRef: HTMLDivElement;
-  let thumbnailButtonRefs: HTMLButtonElement[] = [];
-  let thumbnailScrollLeft = 0; // Store scroll position
+  let { data }: { data: { works: Work[] } } = $props();
 
-  // Calculate a slightly darker tertiary color for the detail view background
-  $: darkerTertiary = `color-mix(in srgb, ${theme.tertiary} 90%, black)`;
+  let selectedWork  = $state<Work | null>(null);
+  let hoveredId     = $state<string | null>(null);
+  let overlayEl     = $state<HTMLDivElement | null>(null);
+  let previewsReady = $state(false);
 
-  // Reactive scroll for thumbnails
-  $: if (
-    browser && 
-    selectedWork && 
-    !enlargedImage && 
-    !isClosingEnlarged && // Ensure not in the process of closing
-    !isOpeningWorkDetail && // Ensure not in the process of opening
-    !isManuallyScrollingThumbnail && // Don't scroll if we just manually set it
-    thumbnailContainerRef && 
-    thumbnailButtonRefs[selectedImageIndex]
-  ) {
-    const targetThumbnail = thumbnailButtonRefs[selectedImageIndex];
-    if (targetThumbnail) {
-      // Check if target is already reasonably centered to avoid tiny visual jumps.
-      const containerRect = thumbnailContainerRef.getBoundingClientRect();
-      const thumbnailRect = targetThumbnail.getBoundingClientRect();
-      const containerCenter = containerRect.left + containerRect.width / 2;
-      const thumbnailCenter = thumbnailRect.left + thumbnailRect.width / 2;
-      
-      // Only scroll if the thumbnail is significantly off-center
-      if (Math.abs(containerCenter - thumbnailCenter) > thumbnailRect.width / 2) {
-        targetThumbnail.scrollIntoView({
-          behavior: 'auto', 
-          block: 'nearest',
-          inline: 'center'
+  // Per-thumbnail loaded flags (index → boolean)
+  let imgLoaded = $state<boolean[]>([]);
+
+  // Lightbox
+  let lightboxIndex = $state<number | null>(null);
+  let lbLoaded      = $state(false);
+
+  const works = $derived(data.works ?? []);
+
+  // ── Reset + cache-check when contact sheet opens / changes ──
+  $effect(() => {
+    const work = selectedWork;
+    if (!work) {
+      imgLoaded     = [];
+      lightboxIndex = null;
+      return;
+    }
+    imgLoaded = new Array(work.images.length).fill(false);
+    let active = true;
+    tick().then(() => {
+      if (!active) return;
+      document
+        .querySelectorAll<HTMLImageElement>('.contact-thumb img')
+        .forEach((img, idx) => {
+          if (img.complete && img.naturalHeight > 0) imgLoaded[idx] = true;
         });
-      }
-    }
-  }
+    });
+    return () => { active = false; };
+  });
 
-  // Loading state tracking
-  let mainImageLoading = true;
-  let mainImageLoaded = false;
-  let thumbnailLoading: boolean[] = [];
-  let thumbnailLoaded: boolean[] = [];
-  
-  // References to image elements
-  let mainImageElement: HTMLImageElement | null = null;
-  let slideImageElements: (HTMLImageElement | null)[] = [];
-  let thumbnailElements: (HTMLImageElement | null)[] = [];
+  // ── Reset + cache-check when lightbox image changes ─────────
+  $effect(() => {
+    const idx = lightboxIndex;
+    if (idx === null) return;
+    lbLoaded = false;
+    let active = true;
+    tick().then(() => {
+      if (!active) return;
+      const lbImg = document.querySelector<HTMLImageElement>('.lb-img');
+      if (lbImg?.complete && lbImg.naturalHeight > 0) lbLoaded = true;
+    });
+    return () => { active = false; };
+  });
 
-  let isClosingEnlarged = false; // New flag
-  let isOpeningWorkDetail = false; // Flag to control initial scrollIntoView on open
-  let isManuallyScrollingThumbnail = false; // New flag to control reactive scroll
-
-  function handleWorkClick(work: Work) {
-    if (work.nsfw) {
-      showNsfwWarning = true;
-      nsfwWorkToShow = work;
-    } else {
-      openWorkDetail(work);
-    }
-  }
-
-  async function openWorkDetail(work: Work) {
-    isOpeningWorkDetail = true;
-    isManuallyScrollingThumbnail = true; // Prevent reactive scroll during open
-
-    const workIndex = sortedWorks.findIndex(w => w.id === work.id);
-    if (workIndex >= 0) {
-      carouselIndex = workIndex;
-    }
+  // ── Works list interactions ──────────────────────────────────
+  function handleRowClick(work: Work) {
     selectedWork = work;
-    selectedImageIndex = 0; // Default to first image
     if (browser) document.body.style.overflow = 'hidden';
-    
-    resetImageLoadingStates();
-    // Ensure thumbnailButtonRefs is sized for the new images
-    thumbnailButtonRefs = new Array(sortedImages.length).fill(null);
-
-    await tick(); // Let Svelte render the detail view structure
-
-    initImageSwiper(); // Initialize Swiper after the detail view is rendered
-    
-    // After Swiper is initialized and DOM is ready, scroll initial thumbnail into view
-    if (browser && thumbnailContainerRef && thumbnailButtonRefs[selectedImageIndex]) {
-      const originalScrollBehavior = thumbnailContainerRef.style.scrollBehavior;
-      thumbnailContainerRef.style.scrollBehavior = 'auto'; // Force instant
-      thumbnailButtonRefs[selectedImageIndex].scrollIntoView({
-        behavior: 'auto', block: 'nearest', inline: 'center'
+    if (browser && overlayEl) {
+      import('gsap').then(({ gsap }) => {
+        gsap.fromTo(overlayEl, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' });
       });
-      requestAnimationFrame(() => { // Restore after paint
-        thumbnailContainerRef.style.scrollBehavior = originalScrollBehavior;
-        isManuallyScrollingThumbnail = false; // Allow reactive scroll now
-        isOpeningWorkDetail = false; 
+    }
+  }
+
+  function closeOverlay() {
+    lightboxIndex = null;
+    if (browser && overlayEl) {
+      import('gsap').then(({ gsap }) => {
+        gsap.to(overlayEl, {
+          opacity: 0,
+          duration: 0.2,
+          ease: 'power2.in',
+          onComplete: () => {
+            selectedWork = null;
+            document.body.style.overflow = '';
+          },
+        });
       });
     } else {
-       await tick();
-       if (browser) {
-            requestAnimationFrame(() => {
-                isManuallyScrollingThumbnail = false;
-                isOpeningWorkDetail = false;
-            });
-       } else {
-           isManuallyScrollingThumbnail = false;
-           isOpeningWorkDetail = false;
-       }
+      selectedWork = null;
+      if (browser) document.body.style.overflow = '';
     }
   }
 
-  function resetImageLoadingStates() {
-    if (!selectedWork) return;
-    mainImageLoading = true;
-    mainImageLoaded = false;
-    thumbnailLoading = Array(sortedImages.length).fill(true);
-    thumbnailLoaded = Array(sortedImages.length).fill(false);
-    slideImageElements = Array(sortedImages.length).fill(null);
-    thumbnailElements = Array(sortedImages.length).fill(null);
-    // No need to reset thumbnailButtonRefs here, it's handled in openWorkDetail
-
-    if (browser) {
-      if (sortedImages.length > 0 && sortedImages[selectedImageIndex]) {
-        const mainImg = new Image();
-        mainImg.onload = () => handleMainImageLoad();
-        mainImg.src = sortedImages[selectedImageIndex].src;
-      }
-      sortedImages.forEach((image, i) => {
-        if (image && image.src) {
-          const thumbImg = new Image();
-          thumbImg.onload = () => handleThumbnailLoad(i);
-          thumbImg.src = image.src;
-        }
-      });
-    }
+  function handleOverlayBackdropClick(e: MouseEvent) {
+    if (e.target === e.currentTarget) closeOverlay();
   }
 
-  function closeWorkDetail() {
-    if (imageSwiper) {
-      imageSwiper.destroy();
-      imageSwiper = null;
-    }
-    const currentWork = selectedWork;
-    if (currentWork) {
-      const workIndex = sortedWorks.findIndex(w => w.id === currentWork.id);
-      if (workIndex !== -1) {
-        carouselIndex = workIndex;
-      }
-    }
-    selectedWork = null;
-    enlargedImage = null;
-    if (browser) document.body.style.overflow = '';
+  // ── Lightbox ─────────────────────────────────────────────────
+  function openLightbox(i: number) { lightboxIndex = i; }
+  function closeLightbox()         { lightboxIndex = null; }
+
+  function prevImage() {
+    if (lightboxIndex === null || !selectedWork) return;
+    lightboxIndex = (lightboxIndex - 1 + selectedWork.images.length) % selectedWork.images.length;
   }
 
   function nextImage() {
-    if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
-    imageSwiper.slideNext(400);
+    if (lightboxIndex === null || !selectedWork) return;
+    lightboxIndex = (lightboxIndex + 1) % selectedWork.images.length;
   }
 
-  function prevImage() {
-    if (!selectedWork || !imageSwiper || sortedImages.length === 0) return;
-    imageSwiper.slidePrev(400);
-  }
-
-  function enlargeImage(image: { src: string; alt: string }) {
-    if (thumbnailContainerRef) {
-      thumbnailScrollLeft = thumbnailContainerRef.scrollLeft;
-    }
-    enlargedImage = image;
-    mainImageLoading = true;
-    mainImageLoaded = false;
-  }
-
-  async function closeEnlargedImage() {
-    isClosingEnlarged = true;
-    isManuallyScrollingThumbnail = true; // Prevent reactive scroll during close
-
-    enlargedImage = null;
-    mainImageLoading = true; 
-    mainImageLoaded = false;
-
-    await tick(); 
-
-    if (browser && thumbnailContainerRef) {
-      const originalScrollBehavior = thumbnailContainerRef.style.scrollBehavior;
-      thumbnailContainerRef.style.scrollBehavior = 'auto'; // Force instant
-      thumbnailContainerRef.scrollLeft = thumbnailScrollLeft;
-      requestAnimationFrame(() => { // Restore after paint
-        thumbnailContainerRef.style.scrollBehavior = originalScrollBehavior;
-      });
-    }
-    
-    initImageSwiper(); 
-    
-    if (browser) {
-        requestAnimationFrame(() => {
-            isClosingEnlarged = false;
-            isManuallyScrollingThumbnail = false; // Allow reactive scroll again
-        });
-    } else {
-        await tick(); 
-        isClosingEnlarged = false;
-        isManuallyScrollingThumbnail = false;
-    }
-  }
-
-  function handleThumbnailClick(index: number) {
-    if (isManuallyScrollingThumbnail) return; // Prevent clicks during manual scroll operations
-
-    isManuallyScrollingThumbnail = true; // Indicate we're about to manually control scroll
-    if (imageSwiper) {
-      imageSwiper.slideToLoop(index, 0); // Instantly go to slide
-    } else {
-      selectedImageIndex = index; // Fallback if swiper not ready
-    }
-
-    if (browser) {
-        requestAnimationFrame(() => {
-            isManuallyScrollingThumbnail = false;
-        });
-    } else {
-        tick().then(() => isManuallyScrollingThumbnail = false);
-    }
-  }
-
-  function handleNsfwConfirm() {
-    showNsfwWarning = false;
-    if (nsfwWorkToShow) {
-      openWorkDetail(nsfwWorkToShow);
-      nsfwWorkToShow = null;
-    }
-  }
-
-  function handleNsfwCancel() {
-    showNsfwWarning = false;
-    nsfwWorkToShow = null;
-  }
-
-  // Image loading handlers
-  function handleMainImageLoad() {
-    mainImageLoaded = true;
-    mainImageLoading = false;
-  }
-  
-  function handleThumbnailLoad(index: number) {
-    thumbnailLoaded[index] = true;
-    thumbnailLoading[index] = false;
-    // Force reactivity
-    thumbnailLoaded = [...thumbnailLoaded];
-    thumbnailLoading = [...thumbnailLoading];
-  }
-  
-  // Handle slide image load
-  function handleSlideImageLoad(index: number) {
-    if (index === selectedImageIndex) {
-      handleMainImageLoad();
-    }
-  }
-
-  // Add keyboard navigation
+  // ── Keyboard ─────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
-    if (!selectedWork) return;
-
-    // Stop keyboard navigation if it's being handled by form elements
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      e.target instanceof HTMLSelectElement
-    ) {
-      return;
-    }
-
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      e.stopPropagation(); // Prevent event from bubbling
-      prevImage();
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      e.stopPropagation(); // Prevent event from bubbling
-      nextImage();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation(); // Prevent event from bubbling
-      if (enlargedImage) {
-        closeEnlargedImage();
-      } else {
-        closeWorkDetail();
-      }
+    if (lightboxIndex !== null) {
+      if      (e.key === 'ArrowLeft')  { e.preventDefault(); prevImage(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
+      else if (e.key === 'Escape')     { closeLightbox(); }
+    } else if (selectedWork) {
+      if (e.key === 'Escape') closeOverlay();
     }
   }
-  
-  // Initialize image swiper for touch navigation
-  function initImageSwiper() {
-    if (!imageSwiperContainer || !selectedWork || sortedImages.length === 0) {
-      if (imageSwiper) {
-          imageSwiper.destroy();
-          imageSwiper = null;
-      }
-      return;
-    }
 
-    if (imageSwiper) {
-      imageSwiper.destroy();
-      imageSwiper = null;
-    }
-
-    imageSwiper = new Swiper(imageSwiperContainer, {
-      modules: [Navigation, Pagination],
-      initialSlide: selectedImageIndex,
-      slidesPerView: 1,
-      spaceBetween: 0,
-      grabCursor: true,
-      threshold: 10,
-      resistance: false,
-      loop: true, // ENABLE LOOP PERMANENTLY
-      speed: 400, // Default transition speed for normal swiping/arrows
-      touchStartPreventDefault: false,
-      touchMoveStopPropagation: false,
-      touchStartForcePreventDefault: false,
-      cssMode: false,
-      keyboard: {
-        enabled: false,
-      },
-      navigation: { // Optional: if you want Swiper's built-in nav buttons
-        nextEl: '.swiper-button-next-custom', // Custom class for next button
-        prevEl: '.swiper-button-prev-custom', // Custom class for prev button
-      },
-      on: {
-        slideChange: (swiper) => {
-          // Set the new index using swiper's realIndex from the new active slide
-          const newIndex = swiper.realIndex;
-          
-          // If a real change is detected
-          if (selectedImageIndex !== newIndex) {
-             selectedImageIndex = newIndex; 
-          }
-          
-          mainImageLoading = true;
-          mainImageLoaded = false;
-        },
-        init: (swiper) => {
-          if (swiper.params.loop) {
-            selectedImageIndex = swiper.realIndex;
-          }
-          // Use slideToLoop when loop is true, ensure speed 0 for no animation on init correction
-          if (swiper.activeIndex !== selectedImageIndex) { // activeIndex can be used here if loop slides not yet fully calc'd
-            swiper.slideToLoop(selectedImageIndex, 0, false); 
-          }
-          mainImageLoading = true;
-          mainImageLoaded = false;
-        }
-      }
-    });
+  function padIndex(n: number): string {
+    return String(n).padStart(2, '0');
   }
-
-  // Check for images that are already loaded on mount/update
-  afterUpdate(() => {
-    if (!selectedWork) return;
-    
-    // Check slide images for current index
-    const currentSlideImage = slideImageElements[selectedImageIndex];
-    if (selectedImageIndex >= 0 && 
-        currentSlideImage && 
-        currentSlideImage.complete && 
-        currentSlideImage.naturalWidth > 0 && 
-        !mainImageLoaded) {
-      handleMainImageLoad();
-    }
-    
-    // Check thumbnails
-    thumbnailElements.forEach((img, i) => {
-      if (img?.complete && img?.naturalWidth > 0 && !thumbnailLoaded[i]) {
-        handleThumbnailLoad(i);
-      }
-    });
-  });
 
   onMount(() => {
-    // Ensure page scrolls to top on initial load
-    window.scrollTo(0, 0);
-    // Add keyboard event listener
     window.addEventListener('keydown', handleKeydown);
-    return () => {
-      window.removeEventListener('keydown', handleKeydown);
-      // Clean up swiper instances
-      if (imageSwiper) {
-        imageSwiper.destroy();
-      }
-    };
+    initFadeUpReveal('.works-row', { stagger: 0.04, duration: 0.6, y: 12 });
+
+    // Preload all cover images so hover reveals are instant
+    const coverUrls = works.map(w => w.coverImage).filter(Boolean);
+    if (coverUrls.length === 0) {
+      previewsReady = true;
+    } else {
+      let loaded = 0;
+      coverUrls.forEach(src => {
+        const img = new Image();
+        img.onload = img.onerror = () => {
+          if (++loaded === coverUrls.length) previewsReady = true;
+        };
+        img.src = src;
+      });
+    }
+
+    return () => window.removeEventListener('keydown', handleKeydown);
   });
 </script>
 
-<div class="works-container" style="--bg-color: {theme.tertiary}; --text-color: {theme.text.primary};">
-  {#if !selectedWork}
-    <Navbar 
-      backgroundColor={theme.text.primary}
-      textColor={theme.background.light}
-    />
-  {/if}
+<div class="works-page">
+  <Navbar />
 
-  <main class="works-main-content">
-    <div class="content-wrapper">
-      {#if !selectedWork}
-        <h1 class="text-4xl md:text-5xl font-bold mb-12 text-center" style="color: {theme.text.primary};">Works</h1>
-      {/if}
-      
-      <!-- No works message -->
-      {#if !selectedWork && (!data.works || data.works.length === 0)}
-        <div class="flex flex-col items-center justify-center py-16">
-          <p class="text-xl text-center" style="color: {theme.secondary};">
-            There are currently no works added. Please come back later!
-          </p>
-        </div>
-      {/if}
-      
-      <!-- Main Carousel -->
-      {#if !selectedWork && data.works && data.works.length > 0}
-        <Carousel 
-          works={sortedWorks} 
-          onWorkClick={handleWorkClick}
-          currentIndex={carouselIndex}
-          on:indexChange={(e) => carouselIndex = e.detail}
-        />
-      {/if}
-    </div>
-  </main>
+  <div class="works-container">
+    <!-- Left: typographic index -->
+    <main class="works-index">
+      <header class="works-header">
+        <h1 class="works-title">Works</h1>
+      </header>
 
-  {#if !selectedWork}
-    <Footer />
-  {/if}
-  
-  <!-- Work Detail View -->
-  {#if selectedWork}
-    <div class="fixed inset-0 z-[100] flex flex-col" style="background-color: {darkerTertiary};">
-      <!-- Header with title and close button -->
-      <div class="p-4 flex items-center justify-between" style="background-color: {theme.secondary};">
-        <div class="overflow-hidden">
-          <h2 class="text-2xl font-bold text-white truncate">{selectedWork.title}</h2>
-          <div class="flex items-center text-white/80 text-sm mt-1 space-x-2">
-            <time datetime={selectedWork.published} class="flex-shrink-0">
-              {new Date(selectedWork.published).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </time>
-            {#if selectedWork.tags.length > 0}
-              <span class="flex-shrink-0">•</span>
-              <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent max-w-[calc(100vw-12rem)]">
-                {#each selectedWork.tags as tag}
-                  <span class="bg-white/10 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 snap-start">{tag}</span>
-                {/each}
-              </div>
-            {/if}
-          </div>
+      {#if works.length === 0}
+        <div class="empty-state">
+          <p>No works yet. Please come back later.</p>
         </div>
-        <button 
-          class="p-2 rounded-full hover:bg-white/10 transition-colors text-white flex-shrink-0"
-          on:click={closeWorkDetail}
-          aria-label="Close detail view"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 6 6 18"></path>
-            <path d="m6 6 12 12"></path>
-          </svg>
-        </button>
-      </div>
-      
-      <!-- Description -->
-      <div class="px-4 py-2 text-sm sm:text-base"
-      style="color: {theme.secondary};"
-      >
-        {selectedWork.description}
-      </div>
-      
-      <!-- Main content area -->
-      <div class="flex-1 overflow-auto p-4">
-        {#if !enlargedImage}
-          <!-- Gallery view with swiper -->
-          <div class="relative flex items-center justify-center h-[60vh]">
-            <div bind:this={imageSwiperContainer} class="swiper w-full h-full">
-              <div class="swiper-wrapper">
-                {#each sortedImages as image, i}
-                  <div class="swiper-slide">
-                    <div 
-                      class="w-full h-full flex items-center justify-center cursor-pointer relative"
-                      on:click={() => enlargeImage(image)}
-                      on:keydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          enlargeImage(image);
-                        }
-                      }}
-                      role="button"
-                      tabindex="0"
-                      aria-label={`View enlarged image of ${image.alt}`}
-                    >
-                      <!-- Loading skeleton -->
-                      {#if (i === selectedImageIndex && mainImageLoading && !mainImageLoaded)}
-                        <div class="absolute inset-0 flex items-center justify-center bg-gray-200 animate-pulse">
-                          <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
-                        </div>
-                      {/if}
-                      
-                      <!-- Slide image -->
-                      <img 
-                        bind:this={slideImageElements[i]}
-                        src={image.src} 
-                        alt={image.alt} 
-                        class="max-h-full max-w-full object-contain transition-opacity duration-300"
-                        class:opacity-0={i === selectedImageIndex && !mainImageLoaded}
-                        class:opacity-100={i !== selectedImageIndex || mainImageLoaded}
-                        on:load={() => handleSlideImageLoad(i)}
-                        on:error={() => {
-                          if (i === selectedImageIndex) mainImageLoading = false;
-                        }}
-                      />
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            </div>
-            
-            <!-- Navigation buttons - only shown when multiple images -->
-            {#if sortedImages.length > 1}
-              <button 
-                class="swiper-button-prev-custom absolute left-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                aria-label="Previous image"
-                on:click|preventDefault|stopPropagation={prevImage}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m15 18-6-6 6-6"></path>
-                </svg>
-              </button>
-              
-              <button 
-                class="swiper-button-next-custom absolute right-4 z-10 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                aria-label="Next image"
-                on:click|preventDefault|stopPropagation={nextImage}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m9 18 6-6-6-6"></path>
-                </svg>
-              </button>
-            {/if}
-          </div>
-          
-          <!-- Thumbnails -->
-          <div class="mt-2 md:mt-4 fixed bottom-4 left-0 right-0 flex justify-center">
-            <div class="inline-block rounded-lg bg-black/20 backdrop-blur-sm py-4 px-4 max-w-[90vw] w-auto mx-auto">
-              <div 
-                bind:this={thumbnailContainerRef}
-                class="flex gap-2 overflow-x-auto scroll-smooth scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent max-w-full snap-x snap-mandatory" 
-                style="scrollbar-width: thin;">
-                {#each sortedImages as image, i}
-                  <button 
-                    bind:this={thumbnailButtonRefs[i]}
-                    class="flex-shrink-0 h-16 sm:h-20 w-16 sm:w-20 rounded-lg overflow-hidden transition-all duration-200 border-2 hover:brightness-110 relative snap-center"
-                    class:border-white={i === selectedImageIndex}
-                    class:border-transparent={i !== selectedImageIndex}
-                    on:click={() => handleThumbnailClick(i)}
-                  >
-                    <!-- Thumbnail loading skeleton -->
-                    {#if thumbnailLoading[i] && !thumbnailLoaded[i]}
-                      <div class="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-                        <div class="animate-spin rounded-full h-6 w-6 border-3 border-white/20 border-t-white"></div>
-                      </div>
-                    {/if}
-                    
-                    <!-- Thumbnail image -->
-                    <img 
-                      bind:this={thumbnailElements[i]}
-                      src={image.src} 
-                      alt={`Thumbnail ${i+1}`} 
-                      class="h-full w-full object-cover transition-opacity duration-300"
-                      class:opacity-0={!thumbnailLoaded[i]}
-                      class:opacity-100={thumbnailLoaded[i]}
-                      on:load={() => handleThumbnailLoad(i)}
-                      on:error={() => {
-                        thumbnailLoading[i] = false;
-                        thumbnailLoading = [...thumbnailLoading];
-                      }}
-                    />
-                  </button>
-                {/each}
-              </div>
-            </div>
-          </div>
-        {:else}
-          <!-- Enlarged image view -->
-          <div 
-            class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
-            on:click={closeEnlargedImage}
-            on:keydown={(e) => {
-              if (e.key === 'Escape') {
-                closeEnlargedImage();
-              }
-            }}
-            role="dialog"
-            tabindex="-1"
-            aria-modal="true"
-            aria-label="Enlarged image view"
-          >
-            <!-- Loading skeleton -->
-            {#if mainImageLoading && !mainImageLoaded}
-              <div class="absolute inset-0 flex items-center justify-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white"></div>
-              </div>
-            {/if}
-            
-            <!-- Enlarged image -->
-            <img 
-              bind:this={mainImageElement}
-              src={enlargedImage.src} 
-              alt={enlargedImage.alt} 
-              class="max-h-[90vh] max-w-[90vw] object-contain transition-opacity duration-300"
-              class:opacity-0={!mainImageLoaded}
-              class:opacity-100={mainImageLoaded}
-              on:load={handleMainImageLoad}
-              on:error={() => {
-                mainImageLoading = false;
-              }}
-            />
-            
-            <button 
-              class="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Close enlarged view"
-              on:click|stopPropagation={closeEnlargedImage}
+      {:else}
+        <ol class="works-list">
+          {#each works as work, i}
+            <li
+              class="works-row"
+              class:hovered={hoveredId === work.id}
+              onmouseenter={() => { if (previewsReady) hoveredId = work.id; }}
+              onmouseleave={() => (hoveredId = null)}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 6 6 18"></path>
-                <path d="m6 6 12 12"></path>
-              </svg>
-            </button>
-          </div>
-        {/if}
-      </div>
-    </div>
-  {/if}
-</div>
+              <button
+                class="works-row-btn"
+                onclick={() => handleRowClick(work)}
+                aria-label={`Open ${work.title}`}
+              >
+                <span class="row-number">{padIndex(i + 1)}</span>
 
-<!-- NSFW Warning Modal -->
-<Modal
-  bind:open={showNsfwWarning}
-  onClose={handleNsfwCancel}
->
-  <div class="p-4 sm:p-6 rounded-lg w-[90vw] sm:w-auto max-w-md mx-auto" style="background-color: {theme.secondary};">
-    <h3 class="text-lg font-semibold mb-3 sm:mb-4 text-white">NSFW Content Warning</h3>
-    <p class="mb-3 text-white/90">This work contains NSFW (Not Safe For Work) content. Are you sure you want to proceed?</p>
-    
-    {#if nsfwWorkToShow?.nsfw_tags && nsfwWorkToShow.nsfw_tags.length > 0}
-      <div class="mb-4 sm:mb-6">
-        <p class="text-white/90 mb-1.5">Content may contain:</p>
-        <div class="flex flex-wrap gap-2">
-          {#each nsfwWorkToShow.nsfw_tags as tag}
-            <span class="bg-white/10 px-2 py-0.5 rounded text-white/80 text-sm">{tag}</span>
+                <div class="row-meta">
+                  <span class="row-title">{work.title}</span>
+                  {#if work.tags.length > 0}
+                    <span class="row-tags">{work.tags.join(' / ')}</span>
+                  {/if}
+                </div>
+
+                <span class="row-arrow">→</span>
+              </button>
+            </li>
           {/each}
+        </ol>
+      {/if}
+
+      <Footer />
+    </main>
+
+    <!-- Right: sticky preview panel -->
+    <div class="works-preview" aria-hidden="true">
+      <div class="works-preview-overlay"></div>
+
+      {#each works as work}
+        <div
+          class="works-preview-image"
+          style="opacity: {hoveredId === work.id && !selectedWork ? 1 : 0}; transform: translateX({hoveredId === work.id && !selectedWork ? 0 : 30}px);"
+        >
+          <img src={work.coverImage} alt="" />
         </div>
-      </div>
-    {/if}
-    
-    <div class="flex justify-end gap-3 sm:gap-4">
-      <button
-        class="px-3 sm:px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-sm sm:text-base"
-        on:click={handleNsfwCancel}
-      >
-        Cancel
-      </button>
-      <button
-        class="px-3 sm:px-4 py-2 rounded transition-colors hover:brightness-110 text-sm sm:text-base"
-        style="background-color: {theme.tertiary}; color: {theme.secondary};"
-        on:click={handleNsfwConfirm}
-      >
-        Proceed
-      </button>
+      {/each}
+
+      {#if !previewsReady}
+        <div class="preview-loading">
+          <span class="preview-loading-bar"></span>
+        </div>
+      {/if}
     </div>
   </div>
-</Modal>
+</div>
+
+<!-- ── Contact sheet overlay ──────────────────────────────── -->
+{#if selectedWork}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    bind:this={overlayEl}
+    class="overlay"
+    onclick={handleOverlayBackdropClick}
+    role="dialog"
+    tabindex="-1"
+    aria-modal="true"
+    aria-label={`Images for ${selectedWork.title}`}
+  >
+    <div class="overlay-inner">
+      <div class="overlay-header">
+        <h2 class="overlay-title">{selectedWork.title}</h2>
+        <button class="overlay-close" onclick={closeOverlay} aria-label="Close">×</button>
+      </div>
+
+      {#if selectedWork.description}
+        <p class="overlay-desc">{selectedWork.description}</p>
+      {/if}
+
+      <div class="contact-grid">
+        {#each selectedWork.images as image, i}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div
+            class="contact-thumb"
+            role="button"
+            tabindex="0"
+            aria-label={`View ${image.alt ?? `image ${i + 1}`} full size`}
+            onclick={() => openLightbox(i)}
+            onkeydown={(e) => e.key === 'Enter' && openLightbox(i)}
+          >
+            <img
+              src={image.src}
+              alt={image.alt ?? `${selectedWork.title} — ${i + 1}`}
+              loading="eager"
+              class:loaded={imgLoaded[i]}
+              onload={() => { imgLoaded[i] = true; }}
+            />
+            {#if image.alt}
+              <span class="contact-label">{image.alt}</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ── Lightbox ───────────────────────────────────────────── -->
+{#if lightboxIndex !== null && selectedWork}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label={`Image ${lightboxIndex + 1} of ${selectedWork.images.length}`}
+    onclick={closeLightbox}
+  >
+    <!-- Prev -->
+    <button
+      class="lb-nav lb-prev"
+      onclick={(e) => { e.stopPropagation(); prevImage(); }}
+      aria-label="Previous image"
+    >‹</button>
+
+    <!-- Image frame — keyed so img remounts on index change -->
+    {#key lightboxIndex}
+      <div class="lb-frame" onclick={(e) => e.stopPropagation()}>
+        <img
+          class="lb-img"
+          class:loaded={lbLoaded}
+          src={selectedWork.images[lightboxIndex].src}
+          alt={selectedWork.images[lightboxIndex].alt ?? `${selectedWork.title} — ${lightboxIndex + 1}`}
+          loading="eager"
+          onload={() => { lbLoaded = true; }}
+        />
+      </div>
+    {/key}
+
+    <!-- Next -->
+    <button
+      class="lb-nav lb-next"
+      onclick={(e) => { e.stopPropagation(); nextImage(); }}
+      aria-label="Next image"
+    >›</button>
+
+    <!-- Counter -->
+    <div class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</div>
+
+    <!-- Close (back to contact sheet) -->
+    <button class="lb-close" onclick={closeLightbox} aria-label="Back to gallery">×</button>
+  </div>
+{/if}
 
 <style>
-  /* Import Swiper CSS */
-  :global(.swiper) {
-    width: 100%;
-    height: 100%;
-  }
-
-  :global(.swiper-slide) {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .works-container {
+  /* ── Page shell ───────────────────────────────────────────── */
+  .works-page {
     min-height: 100vh;
-    width: 100%;
-    background-color: var(--bg-color);
-    color: var(--text-color);
+    background: var(--near-black, #0e0e0e);
+    color: var(--warm-white, #f0ebe3);
     display: flex;
     flex-direction: column;
-    overflow-x: hidden; /* Prevent horizontal scroll */
   }
 
-  .works-main-content {
+  /* ── Two-column grid ──────────────────────────────────────── */
+  .works-container {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Left: works index ────────────────────────────────────── */
+  .works-index {
+    padding: 8rem 3rem 4rem clamp(2rem, 5vw, 6rem);
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Page title ───────────────────────────────────────────── */
+  .works-header {
+    margin-bottom: 4rem;
+  }
+
+  .works-title {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(3.5rem, 5vw, 7rem);
+    line-height: 1;
+    color: var(--warm-white, #f0ebe3);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Works list ───────────────────────────────────────────── */
+  .works-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid rgba(200, 192, 184, 0.08);
+    flex: 1;
+  }
+
+  .works-row {
+    border-bottom: 1px solid rgba(200, 192, 184, 0.08);
+    transition: background 0.18s ease;
+  }
+
+  .works-row:hover {
+    background: rgba(45, 71, 57, 0.06);
+  }
+
+  .works-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.6rem 0;
+    width: 100%;
+    background: none;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* ── Row: series number ───────────────────────────────────── */
+  .row-number {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 100;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--silver, #c8c0b8);
+    opacity: 0.5;
+    min-width: 2.2rem;
+    flex-shrink: 0;
+    transition: color 0.3s ease, opacity 0.3s ease;
+  }
+
+  .works-row:hover .row-number {
+    color: var(--forest-green, #2D4739);
+    opacity: 1;
+  }
+
+  /* ── Row: title + tags ────────────────────────────────────── */
+  .row-meta {
     flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .row-title {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 300;
+    font-size: clamp(1.8rem, 2.5vw, 2.5rem);
+    line-height: 1.1;
+    color: var(--silver, #c8c0b8);
+    transition: color 0.3s ease;
+  }
+
+  .works-row:hover .row-title {
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  .row-tags {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--silver, #c8c0b8);
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .works-row:hover .row-tags {
+    opacity: 0.55;
+    transform: translateX(0);
+  }
+
+  /* ── Row: arrow ───────────────────────────────────────────── */
+  .row-arrow {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 1rem;
+    color: var(--silver, #c8c0b8);
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  .works-row:hover .row-arrow {
+    opacity: 0.6;
+    transform: translateX(4px);
+  }
+
+  /* ── Empty state ──────────────────────────────────────────── */
+  .empty-state {
     padding: 4rem 0;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 0.875rem;
+    letter-spacing: 0.1em;
+    color: var(--silver, #c8c0b8);
+    opacity: 0.5;
   }
 
-  .content-wrapper {
+  /* ── Right: sticky preview panel ─────────────────────────── */
+  .works-preview {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .works-preview-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--near-black, #0e0e0e) 0%, transparent 30%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .works-preview-image {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateX(30px);
+    transition:
+      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .works-preview-image img {
     width: 100%;
-    max-width: 80rem;
-    margin: 0 auto;
-    padding: 0 1rem;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0.8;
   }
 
-  @media (max-width: 768px) {
+  /* ── Preview loading indicator ────────────────────────────── */
+  .preview-loading {
+    position: absolute;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .preview-loading-bar {
+    display: block;
+    height: 1px;
+    width: 32px;
+    background: rgba(200, 192, 184, 0.35);
+    animation: preview-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes preview-pulse {
+    0%, 100% { width: 20px; opacity: 0.2; }
+    50%       { width: 44px; opacity: 0.55; }
+  }
+
+  /* ── Responsive ───────────────────────────────────────────── */
+  @media (max-width: 900px) {
     .works-container {
-      padding-top: 0; /* Remove top padding as navbar handles it */
+      grid-template-columns: 1fr;
     }
 
-    .works-main-content {
-      padding: 6rem 0 2rem; /* Increased top padding for mobile to account for navbar */
+    .works-preview {
+      display: none;
     }
 
-    .content-wrapper {
-      padding: 0 1rem;
-    }
-  }
-
-  /* Tablet-specific adjustments */
-  @media (min-width: 769px) and (max-width: 1023px) {
-    .works-main-content {
-      padding-bottom: 2rem; /* Reduce space below carousel for tablets */
+    .works-index {
+      padding: 6rem 1.25rem 3rem;
     }
   }
 
-  @media (min-width: 640px) {
-    .content-wrapper {
-      padding: 0 1.5rem;
-    }
+  /* ── Contact sheet overlay ────────────────────────────────── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(14, 14, 14, 0.97);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
-  @media (min-width: 1024px) {
-    .content-wrapper {
-      padding: 0 2rem;
-    }
+  .overlay-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    padding: 2rem;
   }
 
-  /* Default styling for swiper navigation buttons if you aren't using Flowbite's or custom ones */
-  :global(.swiper-button-next),
-  :global(.swiper-button-prev) {
-    color: white; /* Example color */
-    background-color: rgba(0,0,0,0.3);
-    padding: 8px;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
+  .overlay-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .overlay-title {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    color: var(--warm-white, #f0ebe3);
+    margin: 0;
+    line-height: 1.1;
+  }
+
+  .overlay-close {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 100;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--silver, #c8c0b8);
+    background: none;
+    border: none;
+    padding: 0 0.25rem;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .overlay-close:hover {
+    opacity: 1;
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  .overlay-desc {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    color: var(--silver, #c8c0b8);
+    opacity: 0.6;
+    margin: 0 0 2rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Contact sheet grid ───────────────────────────────────── */
+  .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    flex: 1;
+  }
+
+  .contact-thumb {
+    position: relative;
+    aspect-ratio: 3 / 2;
+    overflow: hidden;
+    background: #1c1c1c;
+    cursor: pointer;
+  }
+
+  /* Shimmer while loading */
+  .contact-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(200, 192, 184, 0.06) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: thumb-shimmer 1.6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 3;
+    transition: opacity 0.35s ease;
+  }
+
+  /* Stop shimmer and fade it out once image is loaded */
+  .contact-thumb:has(img.loaded)::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  @keyframes thumb-shimmer {
+    to { transform: translateX(300%); }
+  }
+
+  /* Image: hidden + slightly zoomed, reveal with fade + zoom-out */
+  .contact-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0;
+    transform: scale(1.05);
+    transition: opacity 0.5s ease, transform 0.55s ease;
+    position: relative;
+    z-index: 2;
+  }
+
+  .contact-thumb img.loaded {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+
+  .contact-thumb:hover img.loaded {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+
+  .contact-label {
+    position: absolute;
+    bottom: 0.5rem;
+    left: 0.6rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 8px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(240, 235, 227, 0.55);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 1.2rem);
+    z-index: 4;
+  }
+
+  @media (max-width: 1024px) {
+    .contact-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .overlay-inner { padding: 1.25rem; }
+    .contact-grid  { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .contact-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ── Lightbox ─────────────────────────────────────────────── */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(0, 0, 0, 0.96);
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-  :global(.swiper-button-next::after),
-  :global(.swiper-button-prev::after) {
-    font-size: 16px; /* Adjust size of arrow icon */
+    cursor: pointer; /* click dark area → back to contact sheet */
   }
 
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color, rgba(255,255,255,0.2)) var(--scrollbar-track-color, transparent);
+  /* Image container — stops click propagation */
+  .lb-frame {
+    position: relative;
+    max-width: 88vw;
+    max-height: 88vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
   }
-  .scrollbar-thumb-white\/20::-webkit-scrollbar-thumb {
-    background-color: rgba(255,255,255,0.2);
+
+  /* Shimmer placeholder behind lb-img while loading */
+  .lb-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(200, 192, 184, 0.04) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: thumb-shimmer 2s ease-in-out infinite;
+    pointer-events: none;
   }
-  .scrollbar-track-transparent::-webkit-scrollbar-track {
-    background-color: transparent;
+
+  .lb-img {
+    max-width: 88vw;
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    position: relative; /* above lb-frame::before */
   }
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+
+  .lb-img.loaded {
+    opacity: 1;
   }
-</style> 
+
+  /* Prev / Next */
+  .lb-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 301;
+    background: none;
+    border: none;
+    color: rgba(200, 192, 184, 0.45);
+    font-size: 3.5rem;
+    font-weight: 100;
+    width: 4.5rem;
+    height: 6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    line-height: 1;
+  }
+
+  .lb-prev { left: 0.75rem; }
+  .lb-next { right: 0.75rem; }
+
+  .lb-nav:hover {
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  /* Counter */
+  .lb-counter {
+    position: fixed;
+    bottom: 1.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    font-weight: 300;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.4);
+    pointer-events: none;
+  }
+
+  /* Close (back to contact sheet) */
+  .lb-close {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.75rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 100;
+    font-size: 2rem;
+    line-height: 1;
+    color: rgba(200, 192, 184, 0.55);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    z-index: 302;
+    padding: 0.25rem;
+  }
+
+  .lb-close:hover {
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  /* Mobile lightbox */
+  @media (max-width: 640px) {
+    .lb-nav      { font-size: 2.5rem; width: 3rem; }
+    .lb-prev     { left: 0.1rem; }
+    .lb-next     { right: 0.1rem; }
+    .lb-img,
+    .lb-frame    { max-width: 96vw; max-height: 80vh; }
+  }
+</style>

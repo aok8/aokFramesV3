@@ -1,86 +1,100 @@
 <script lang="ts">
-  import { theme } from '../../../theme/theme.js';
-  
   let { class_name = '' }: { class_name?: string } = $props();
-  
-  // Get current year for copyright
   const currentYear = new Date().getFullYear();
 </script>
 
-<footer class="footer {class_name}"
-    style="--bg-color: {theme.background.light}; --text-color: {theme.text.primary};"
->
-  <div class="footer-content">
-      <h3>AOKFrames</h3>
-      <a href="mailto:aokframes@gmail.com" class="email">aokframes@gmail.com</a>
-      <a href="https://instagram.com/aokframes" target="_blank" rel="noopener noreferrer" class="instagram" aria-label="Visit AOK Frames on Instagram">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-          </svg>
+<footer class="footer {class_name}">
+  <div class="footer-inner">
+
+    <a href="/" class="footer-monogram">
+      <em>AOK</em>Frames
+    </a>
+
+    <nav class="footer-links" aria-label="Footer navigation">
+      <a href="https://instagram.com/aokframes" target="_blank" rel="noopener noreferrer">
+        Instagram
       </a>
-      <p class="copyright">© {currentYear} aokframes</p>
+      <span class="divider" aria-hidden="true">·</span>
+      <a href="https://www.newgrain.app/aokframes" target="_blank" rel="noopener noreferrer">
+        NewGrain
+      </a>
+      <span class="divider" aria-hidden="true">·</span>
+      <a href="mailto:aokframes@gmail.com">
+        Contact
+      </a>
+    </nav>
+
+    <p class="footer-copy">© {currentYear} AOKFrames</p>
+
   </div>
 </footer>
 
 <style>
-    .footer {
-        padding: 2rem;
-        background-color: color-mix(in srgb, var(--bg-color) 80%, black);
-        color: var(--text-color);
-    }
+  .footer {
+    background-color: var(--near-black, #0e0e0e);
+    border-top: 1px solid rgba(200, 192, 184, 0.08);
+    padding: 48px 32px;
+  }
 
-    .footer-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-    }
+  .footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
 
-    .footer-content h3 {
-        font-size: 1.5rem;
-        font-weight: 300;
-        color: var(--text-color);
-    }
+  .footer-monogram {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    color: var(--warm-white, #f0ebe3);
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
 
-    .email {
-        color: var(--text-color);
-        text-decoration: none;
-        transition: color 0.2s;
-    }
+  .footer-monogram em {
+    font-style: italic;
+    color: var(--forest-green, #2D4739);
+  }
 
-    .email:hover {
-        opacity: 0.8;
-    }
+  .footer-monogram:hover {
+    color: var(--silver, #c8c0b8);
+  }
 
-    .instagram {
-        color: var(--text-color);
-        transition: color 0.2s;
-    }
+  .footer-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
-    .instagram:hover {
-        opacity: 0.8;
-    }
-    
-    .copyright {
-        font-size: 0.8rem;
-        margin-top: 0.5rem;
-        opacity: 0.7;
-    }
+  .footer-links a {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--text-dim, rgba(200, 192, 184, 0.45));
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
 
-    @media (max-width: 768px) {
-        .about-content {
-            flex-direction: column;
-            text-align: center;
-        }
+  .footer-links a:hover {
+    color: var(--silver, #c8c0b8);
+  }
 
-        .profile-photo {
-            width: 150px;
-            height: 150px;
-        }
-    }
-</style> 
+  .divider {
+    color: var(--text-dim, rgba(200, 192, 184, 0.45));
+    font-size: 9px;
+  }
+
+  .footer-copy {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-dim, rgba(200, 192, 184, 0.3));
+    margin: 0;
+  }
+</style>

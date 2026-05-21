@@ -32,7 +32,7 @@
       </div>
 
       <div class="hero-text">
-        <h1 class="hero-name">Alain Okou</h1>
+        <h1 class="hero-name">Alain Kouassi</h1>
         <p class="hero-subtitle">Seattle Photographer · Film &amp; Digital</p>
       </div>
     </div>

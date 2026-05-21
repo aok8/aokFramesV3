@@ -149,17 +149,9 @@
                   const tags = frontmatter.tags || frontmatter.label || 'Photography';
                   logger.log('Extracted tags:', tags);
                   
-                  // Check for header.webp
+                  // Always include the header image URL — the <img> onerror handles missing ones
                   const imageKey = `blog/posts/${slug}/header.webp`;
-                  let imageExists = false;
-                  try {
-                      const imgRes = await fetch(assetUrl(imageKey), { method: 'HEAD' });
-                      imageExists = imgRes.ok;
-                      logger.log(`Client R2 Load: Image check for ${imageKey}: ${imageExists}`);
-                  } catch (imgErr) {
-                      logger.warn(`Client R2 Load: Image check failed for ${imageKey}`, imgErr);
-                  }
-                  
+
                   loadedPosts.push({
                     id: slug,
                     title,
@@ -168,7 +160,7 @@
                     author: frontmatter.author || 'AOK',
                     published: frontmatter.published || new Date().toISOString().split('T')[0],
                     label: tags,
-                    image: imageExists ? assetUrl(imageKey) : undefined
+                    image: assetUrl(imageKey)
                   });
                 } else {
                     logger.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);

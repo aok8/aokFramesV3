@@ -79,6 +79,13 @@
   }
 }
 
+/* Custom cursor — suppresses native cursor on all elements including a/button.
+   Must be outside @layer so it beats the cursor:pointer rule in @layer base. */
+html.custom-cursor,
+html.custom-cursor * {
+  cursor: none !important;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    FILM GRAIN OVERLAY
    Applied once at the html level so it sits above every page.

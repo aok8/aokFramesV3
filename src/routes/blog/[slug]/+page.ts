@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.js';
 import { dev } from '$app/environment';
+import { assetUrl } from '$lib/utils/r2.js';
 import { get } from 'svelte/store';
 import { posts } from '$lib/stores/blog.js';
 import type { BlogPost } from '$lib/types/blog.js'; // Import BlogPost type
@@ -71,22 +72,21 @@ async function createPostObject(slug: string, frontmatter: any, markdownContent:
         }
     }
 
-    // Check for header.webp
-    const imageKey = `/src/content/blog/posts/${slug}/header.webp`;
+    // Check for header.webp — in dev, probe same-origin; in prod skip HEAD (CORS) and always include
+    const r2ImageKey = `blog/posts/${slug}/header.webp`;
     let imagePath: string | undefined = undefined;
     let imageExists = false;
     if (dev) {
-        imagePath = `/src/content/blog/posts/${slug}/header.webp`;
+        const localPath = `/src/content/blog/posts/${slug}/header.webp`;
         try {
-            const imgRes = await fetchFn(imagePath, { method: 'HEAD' });
+            const imgRes = await fetchFn(localPath, { method: 'HEAD' });
             imageExists = imgRes.ok;
         } catch { imageExists = false; }
+        if (imageExists) imagePath = assetUrl(r2ImageKey);
     } else {
-        imagePath = `/directr2/${imageKey}`;
-        try {
-            const imgRes = await fetchFn(imagePath, { method: 'HEAD' });
-            imageExists = imgRes.ok;
-        } catch { imageExists = false; }
+        // Can't HEAD cross-origin CDN without CORS headers; assume image exists
+        imagePath = assetUrl(r2ImageKey);
+        imageExists = true;
     }
     
     logger.log(`Image check for ${slug}: ${imageExists ? imagePath : 'None'}`);
@@ -133,24 +133,24 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             const titleMatch = markdownContent.match(/^#\s+(.*)/m);
             const title = titleMatch ? titleMatch[1] : decodedSlug;
             
-            // --- CORRECTED IMAGE HANDLING FOR DEV --- 
+            // --- IMAGE HANDLING ---
+            // Dev: probe local path; Prod: always include CDN URL (no CORS HEAD allowed)
+            const r2ImagePath = assetUrl(`blog/posts/${decodedSlug}/header.webp`);
             let imagePathForComponent: string | undefined = undefined;
-            const localImageCheckPath = `/src/content/blog/posts/${decodedSlug}/header.webp`;
-            const r2ImagePath = `/directr2/blog/posts/${decodedSlug}/header.webp`; 
-            let imageExists = false;
 
-            try {
-                const imageResponse = await fetch(localImageCheckPath, { method: 'HEAD' }); 
-                imageExists = imageResponse.ok;
-                logger.log(`Dev image check for ${localImageCheckPath}: ${imageExists}`);
-            } catch (imgErr) {
-                logger.warn(`Dev image check failed for ${localImageCheckPath}:`, imgErr);
+            if (dev) {
+                const localImageCheckPath = `/src/content/blog/posts/${decodedSlug}/header.webp`;
+                try {
+                    const imageResponse = await fetch(localImageCheckPath, { method: 'HEAD' });
+                    if (imageResponse.ok) imagePathForComponent = r2ImagePath;
+                    logger.log(`Dev image check for ${localImageCheckPath}: ${imageResponse.ok}`);
+                } catch (imgErr) {
+                    logger.warn(`Dev image check failed for ${localImageCheckPath}:`, imgErr);
+                }
+            } else {
+                imagePathForComponent = r2ImagePath;
             }
-
-            if (imageExists) {
-                imagePathForComponent = r2ImagePath; 
-            }
-            // --- END CORRECTED IMAGE HANDLING --- 
+            // --- END IMAGE HANDLING --- 
 
             // --- START: Summary Extraction for Dev ---
             const lines = markdownContent.split('\n');
@@ -274,7 +274,7 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
             if (matchingItem) {
                  logger.log(`[+page.ts Client Load] Found direct match in R2 items:`, matchingItem);
                  const exactSlugFromKey = foundSlug!; // Use the slug found earlier
-                 const directR2Key = `/directr2/${matchingItem.key}`;
+                 const directR2Key = assetUrl(matchingItem.key);
                  logger.log(`[+page.ts Client Load] Fetching post content from R2 via: ${directR2Key}`);
                  const postResponse = await fetch(directR2Key);
                  logger.log(`[+page.ts Client Load] /directr2 fetch status: ${postResponse.status}`);
@@ -299,21 +299,9 @@ export const load: PageLoad = async ({ data, params, fetch }) => {
                          if (line.trim() !== '') { summary = line.trim(); break; }
                      }
                      
-                     // Check image existence
-                     const imageR2KeyCheck = `blog/posts/${exactSlugFromKey}/header.webp`; 
-                     let imageExists = false;
-                     let imagePathForComponent: string | undefined = undefined;
-                     try {
-                         const imageCheckUrl = `/directr2/${imageR2KeyCheck}`;
-                         logger.log(`[+page.ts Client Load] Checking for header image via HEAD: ${imageCheckUrl}`);
-                         const imageResponse = await fetch(imageCheckUrl, { method: 'HEAD' });
-                         imageExists = imageResponse.ok;
-                         if (imageExists) {
-                             imagePathForComponent = imageCheckUrl; // Use the directr2 path
-                         }
-                     } catch (e) {
-                         // Ignore HEAD errors, just means no image
-                     }
+                     // Always include header image — CDN CORS blocks HEAD; let <img> handle 404s
+                     const imageR2KeyCheck = `blog/posts/${exactSlugFromKey}/header.webp`;
+                     const imagePathForComponent: string | undefined = assetUrl(imageR2KeyCheck);
                      
                      const post: BlogPost = {
                          id: exactSlugFromKey, 
@@ -483,7 +471,7 @@ async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): P
             // --- Start Content Fetch (Client Fallback) ---
             let text = '';
             let fetchSource = '';
-            const r2Path = `/directr2/${key}`;
+            const r2Path = assetUrl(key);
             try {
                 const response = await fetchFn(r2Path);
                 if (!response.ok) {
@@ -515,22 +503,10 @@ async function fetchAllPosts(items: { key: string }[], fetchFn: typeof fetch): P
             
             const tags = frontmatter.tags || frontmatter.label || 'Photography';
 
-            // --- START Image Check (Client Fallback) ---
-            let imagePathForComponent: string | undefined = undefined;
-            const imageR2KeyCheck = `blog/posts/${exactSlug}/header.webp`; 
-            const finalImageUrl = `/directr2/${imageR2KeyCheck}`;
-            let imageExists = false;
-
-            try {
-                const imgRes = await fetchFn(finalImageUrl, { method: 'HEAD' });
-                imageExists = imgRes.ok;
-                if (imageExists) {
-                    imagePathForComponent = finalImageUrl; 
-                }
-            } catch (imgErr) {
-                // Ignore HEAD errors, just means no image
-            }
-            // --- END Image Check ---
+            // --- Image URL (Client Fallback) ---
+            // Skip HEAD check — CDN CORS blocks it; always include and let <img> handle 404s
+            const imagePathForComponent: string | undefined = assetUrl(`blog/posts/${exactSlug}/header.webp`);
+            // --- End Image URL ---
 
             loadedPosts.push({
                 id: exactSlug, 

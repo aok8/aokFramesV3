@@ -2,6 +2,7 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import BlogPost from '$lib/components/blog/BlogPost.svelte';
+  import { assetUrl } from '$lib/utils/r2.js';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { theme } from '../../../theme/theme.js';
   import { marked } from 'marked';
@@ -11,10 +12,16 @@
   // Get tertiary color for inline style
   $: tertiaryColor = theme.tertiary;
 
-  // Render markdown content to HTML
-  $: htmlContent = data.post?.content
-    ? (marked.parse(data.post.content, { gfm: true, breaks: true, async: false }) as string)
-    : '';
+  // Render markdown content to HTML, rewriting relative img srcs to CDN URLs
+  $: htmlContent = (() => {
+    if (!data.post?.content) return '';
+    const raw = marked.parse(data.post.content, { gfm: true, breaks: true, async: false }) as string;
+    // Any src that isn't absolute (http/https/// /data:) belongs to this post's R2 folder
+    return raw.replace(
+      /(<img[^>]+src=")(?!https?:\/\/|\/\/|\/|data:)([^"]+)(")/gi,
+      (_, pre, src, post) => `${pre}${assetUrl(`blog/posts/${data.post.id}/${src}`)}${post}`
+    );
+  })();
 </script>
 
 <div class="post-page">
@@ -32,7 +39,7 @@
     <!-- Hero image -->
     <div class="post-hero">
       <img
-        src="/directr2/blog/posts/{data.post.id}/header.webp"
+        src={assetUrl(`blog/posts/${data.post.id}/header.webp`)}
         alt={data.post.title}
         class="post-hero-img"
         loading="eager"

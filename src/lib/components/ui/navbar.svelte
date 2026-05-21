@@ -158,6 +158,7 @@
 
   .logo-bold {
     font-weight: 700;
+    color: var(--forest-green, #2D4739);
   }
 
   .logo-light {

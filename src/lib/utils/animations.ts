@@ -34,13 +34,35 @@ export async function initScrollReveal(
 
   ScrollTrigger.batch(selector, {
     start,
-    onEnter: (batch) =>
-      gsap.to(batch, {
-        clipPath: 'inset(0% 0% 0% 0%)',
-        duration,
-        ease: 'power3.out',
-        stagger,
-      }),
+    onEnter: (batch) => {
+      const readyNow: HTMLElement[] = [];
+
+      batch.forEach((el: HTMLElement) => {
+        const img = el.querySelector<HTMLImageElement>('img');
+
+        const reveal = () =>
+          gsap.to(el, { clipPath: 'inset(0% 0% 0% 0%)', duration, ease: 'power3.out' });
+
+        // Image already in cache / decoded — animate as part of the stagger group
+        if (!img || (img.complete && img.naturalHeight > 0)) {
+          readyNow.push(el);
+        } else {
+          // Image still loading — hold the clip until it finishes, then reveal solo
+          img.addEventListener('load',  reveal, { once: true });
+          img.addEventListener('error', reveal, { once: true });
+        }
+      });
+
+      // Fire staggered batch for elements that were already loaded
+      if (readyNow.length > 0) {
+        gsap.to(readyNow, {
+          clipPath: 'inset(0% 0% 0% 0%)',
+          duration,
+          ease: 'power3.out',
+          stagger,
+        });
+      }
+    },
     once: true,
   });
 }

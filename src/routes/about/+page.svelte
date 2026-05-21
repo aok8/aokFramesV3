@@ -1,8 +1,9 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
+  import { assetUrl } from '$lib/utils/r2.js';
 
-  const profileImage = '/directr2/constants/Profile_Pic.webp';
+  const profileImage = assetUrl('constants/Profile_Pic.webp');
   const fallbackProfileImage = '/images/constants/Profile_Pic.webp';
   let profileImageError = $state(false);
 </script>
@@ -45,7 +46,10 @@
     <div class="bio-inner">
       <div class="bio-pull">
         <blockquote class="pull-quote">
-          "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer."
+          "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer.
+          It's because of this, that I have a hard time categorizing my work, it's more a collection of such.
+          I find joy in being able to see the changes in what caught my eye, and also bring back memories of what exactly it was that excited me.
+          Hopefully, through this, you'll be excited to see what I've been up to."
         </blockquote>
       </div>
 
@@ -54,12 +58,7 @@
           Alain is a photographer with a love for visual storytelling.
           Originally from New Jersey and now based in Seattle, he brings four years of photographic experience to his work,
           including three years immersed in the art of film.
-          Whether in vivid color or classic black and white, he seeks to capture a collection of awe-inspiring images.
-        </p>
-        <p>
-          It's because of this that he has a hard time categorizing his work — it's more a collection of moments.
-          He finds joy in being able to see the changes in what caught his eye, and in bringing back memories of what
-          exactly it was that excited him. Hopefully, through this, you'll be excited to see what he's been up to.
+          Whether in vivid color or classic black and white, he seeks to capture a collection of awe inspiring images.
         </p>
       </div>
     </div>
@@ -136,7 +135,7 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.35em;
-    color: rgba(200, 192, 184, 0.55);
+    color: rgba(200, 192, 184, 0.85);
     margin: 0;
   }
 
@@ -147,29 +146,30 @@
 
   .bio-inner {
     display: grid;
-    grid-template-columns: 1fr 1.4fr;
-    gap: 5rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 6rem;
     max-width: 1100px;
     margin: 0 auto;
-    align-items: start;
+    align-items: center;
   }
 
   .pull-quote {
     font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
     font-weight: 300;
     font-style: italic;
-    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-    line-height: 1.45;
-    color: var(--forest-green, #2D4739);
+    font-size: clamp(1rem, 1.35vw, 1.3rem);
+    line-height: 1.75;
+    color: #6a9e82;
     margin: 0;
-    padding: 0;
+    padding: 0 0 0 1.5rem;
     border: none;
+    border-left: 1px solid rgba(45, 71, 57, 0.4);
   }
 
   .bio-body p {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 300;
-    font-size: 13px;
+    font-size: clamp(0.875rem, 1.05vw, 1rem);
     line-height: 1.9;
     color: #c8c0b8;
     margin: 0 0 1.4em 0;

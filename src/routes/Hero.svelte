@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { assetUrl } from '$lib/utils/r2.js';
 
 	let scrollY = $state(0);
 	let mounted = $state(false);
@@ -20,7 +21,7 @@
 		style="transform: translateY({parallaxOffset}px)"
 	>
 		<img
-			src="/directr2/constants/bg.jpg"
+			src={assetUrl('constants/w1920/bg.webp')}
 			alt=""
 			aria-hidden="true"
 			fetchpriority="high"
@@ -97,8 +98,9 @@
 		font-weight: 300;
 		letter-spacing: 0.45em;
 		text-transform: uppercase;
-		color: var(--text-dim, rgba(200, 192, 184, 0.55));
+		color: rgba(200, 192, 184, 0.9);
 		margin: 0 0 1.5rem;
+		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
 	}
 
 	.hero-headline {
@@ -109,11 +111,13 @@
 		letter-spacing: -0.01em;
 		color: var(--warm-white, #f0ebe3);
 		margin: 0 0 2rem;
+		text-shadow: 0 2px 28px rgba(255, 255, 255, 0.45);
 	}
 
 	.hero-headline em {
 		font-style: italic;
 		color: var(--forest-green, #2D4739);
+		text-shadow: 0 2px 20px rgba(255, 255, 255, 0.7);
 	}
 
 	.hero-sub {
@@ -124,6 +128,7 @@
 		text-transform: uppercase;
 		color: var(--silver, #c8c0b8);
 		margin: 0;
+		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
 	}
 
 	/* Scroll indicator */

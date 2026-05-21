@@ -42,12 +42,18 @@ export const GET: RequestHandler = async ({ platform, params, request }: {
     
     serverLogger.log('Fetching from R2 bucket with key:', path);
     
+    // Determine if this is an image request for long-lived caching
+    const isImage = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(params.path);
+    const cacheControl = isImage
+      ? 'public, max-age=31536000, immutable'   // 1 year — images never change in place
+      : 'public, max-age=86400';                // 1 day for other assets
+
     // Set CORS headers to allow access from the frontend
     const headers = new Headers({
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
-      'Cache-Control': 'public, max-age=86400' // Cache for a day in browser
+      'Cache-Control': cacheControl
     });
     
     // Handle CORS preflight requests

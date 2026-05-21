@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import type { Work, WorkImage } from '$lib/types/works.js';
+  import type { Work } from '$lib/types/works.js';
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import { initFadeUpReveal } from '$lib/utils/animations.js';
@@ -111,28 +111,28 @@
     {:else}
       <ol class="works-list">
         {#each works as work, i}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
           <li
             class="works-row"
             class:hovered={hoveredWork === work}
-            onclick={() => handleRowClick(work)}
             onmouseenter={() => (hoveredWork = work)}
             onmouseleave={() => (hoveredWork = null)}
-            role="button"
-            tabindex="0"
-            onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && handleRowClick(work)}
-            aria-label={`Open ${work.title}`}
           >
-            <span class="row-number">{padIndex(i + 1)}</span>
+            <button
+              class="works-row-btn"
+              onclick={() => handleRowClick(work)}
+              aria-label={`Open ${work.title}`}
+            >
+              <span class="row-number">{padIndex(i + 1)}</span>
 
-            <div class="row-meta">
-              <span class="row-title">{work.title}</span>
-              {#if work.tags.length > 0}
-                <span class="row-tags">{work.tags.join(' / ')}</span>
-              {/if}
-            </div>
+              <div class="row-meta">
+                <span class="row-title">{work.title}</span>
+                {#if work.tags.length > 0}
+                  <span class="row-tags">{work.tags.join(' / ')}</span>
+                {/if}
+              </div>
 
-            <span class="row-arrow">→</span>
+              <span class="row-arrow">→</span>
+            </button>
           </li>
         {/each}
       </ol>
@@ -162,6 +162,7 @@
     class="overlay"
     onclick={handleOverlayBackdropClick}
     role="dialog"
+    tabindex="-1"
     aria-modal="true"
     aria-label={`Images for ${selectedWork.title}`}
   >
@@ -230,18 +231,26 @@
   }
 
   .works-row {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1.6rem 0;
     border-bottom: 1px solid rgba(200, 192, 184, 0.08);
-    cursor: pointer;
     transition: background 0.18s ease;
     position: relative;
   }
 
   .works-row:hover {
     background: rgba(184, 147, 106, 0.04);
+  }
+
+  .works-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.6rem 0;
+    width: 100%;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
   }
 
   /* ── Row: series number ───────────────────────────────────── */

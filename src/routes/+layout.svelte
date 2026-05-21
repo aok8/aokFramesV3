@@ -49,21 +49,21 @@
 
 <svelte:head>
   <title>AOKFrames</title>
-  <meta name="description" content="Seattle based photographer capturing moments and telling stories through film and digital images." />
+  <meta name="description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://aokframesv3.pages.dev/" />
-  <meta property="og:title" content="AOKFrames" />
-  <meta property="og:description" content="Seattle based photographer — film and digital. Capturing moments and telling stories through images." />
-  <meta property="og:image" content="https://aokframesv3.pages.dev/directr2/constants/bg.jpg" />
+  <meta property="og:url" content="https://aokframes.com/" />
+  <meta property="og:title" content="AOKFrames — Film &amp; Digital Photography" />
+  <meta property="og:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
+  <meta property="og:image" content="https://aokframes.com/directr2/constants/bg.jpg" />
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="https://aokframesv3.pages.dev/" />
-  <meta property="twitter:title" content="AOKFrames" />
-  <meta property="twitter:description" content="Seattle based photographer — film and digital. Capturing moments and telling stories through images." />
-  <meta property="twitter:image" content="https://aokframesv3.pages.dev/directr2/constants/bg.jpg" />
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://aokframes.com/" />
+  <meta name="twitter:title" content="AOKFrames — Film &amp; Digital Photography" />
+  <meta name="twitter:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
+  <meta name="twitter:image" content="https://aokframes.com/directr2/constants/bg.jpg" />
 </svelte:head>
 
 <!-- Custom cursor — renders nothing on touch devices (guarded inside component) -->

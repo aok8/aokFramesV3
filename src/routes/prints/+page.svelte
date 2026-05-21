@@ -166,11 +166,11 @@
 
   .page-subtitle {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-weight: 100;
+    font-weight: 300;
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.35em;
-    color: rgba(200, 192, 184, 0.45);
+    color: rgba(200, 192, 184, 0.85);
     margin: 0;
   }
 

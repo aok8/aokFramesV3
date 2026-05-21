@@ -311,10 +311,10 @@
   .journal-subtitle {
     font-family: var(--font-ui);
     font-size: 10px;
-    font-weight: 100;
+    font-weight: 300;
     letter-spacing: 0.3em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: rgba(200, 192, 184, 0.85);
     margin: 0;
   }
 

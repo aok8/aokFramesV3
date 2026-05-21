@@ -6,17 +6,6 @@
   import Footer from '$lib/components/ui/footer.svelte';
   import { initFadeUpReveal } from '$lib/utils/animations.js';
 
-  // Svelte action: reveal image whether it's already cached or still downloading
-  function revealOnLoad(node: HTMLImageElement) {
-    const show = () => node.classList.add('loaded');
-    if (node.complete && node.naturalHeight > 0) {
-      show();
-    } else {
-      node.addEventListener('load', show, { once: true });
-      node.addEventListener('error', show, { once: true }); // show placeholder on error too
-    }
-  }
-
   let { data }: { data: { works: Work[] } } = $props();
 
   let selectedWork = $state<Work | null>(null);
@@ -186,7 +175,6 @@
         {#each selectedWork.images as image, i}
           <div class="contact-thumb">
             <img
-              use:revealOnLoad
               src={image.src}
               alt={image.alt ?? `${selectedWork.title} — ${i + 1}`}
               loading="eager"
@@ -537,24 +525,16 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    opacity: 0;
-    transition: transform 0.22s ease, opacity 0.4s ease;
+    /* Always at target opacity — unpainted img pixels are transparent,
+       so the dark bg + shimmer show through until the browser decodes
+       the file. No JS reveal needed. */
+    opacity: 0.85;
+    transition: transform 0.22s ease, opacity 0.2s ease;
     position: relative;
     z-index: 2;
   }
 
-  /* Kill shimmer and reveal image once loaded */
-  .contact-thumb img.loaded {
-    opacity: 0.85;
-  }
-
-  .contact-thumb img.loaded ~ * ,
-  .contact-thumb:has(img.loaded)::after {
-    animation: none;
-    opacity: 0;
-  }
-
-  .contact-thumb:hover img.loaded {
+  .contact-thumb:hover img {
     transform: scale(1.04);
     opacity: 1;
   }

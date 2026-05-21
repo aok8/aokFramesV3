@@ -11,6 +11,7 @@
   let selectedWork = $state<Work | null>(null);
   let hoveredId = $state<string | null>(null);
   let overlayEl = $state<HTMLDivElement | null>(null);
+  let previewsReady = $state(false);
 
   const works = $derived(data.works ?? []);
 
@@ -58,6 +59,22 @@
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
     initFadeUpReveal('.works-row', { stagger: 0.04, duration: 0.6, y: 12 });
+
+    // Preload all cover images so hover reveals are instant
+    const coverUrls = works.map(w => w.coverImage).filter(Boolean);
+    if (coverUrls.length === 0) {
+      previewsReady = true;
+    } else {
+      let loaded = 0;
+      coverUrls.forEach(src => {
+        const img = new Image();
+        img.onload = img.onerror = () => {
+          if (++loaded === coverUrls.length) previewsReady = true;
+        };
+        img.src = src;
+      });
+    }
+
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 </script>
@@ -82,7 +99,7 @@
             <li
               class="works-row"
               class:hovered={hoveredId === work.id}
-              onmouseenter={() => (hoveredId = work.id)}
+              onmouseenter={() => { if (previewsReady) hoveredId = work.id; }}
               onmouseleave={() => (hoveredId = null)}
             >
               <button
@@ -122,6 +139,12 @@
           <img src={work.coverImage} alt="" />
         </div>
       {/each}
+
+      {#if !previewsReady}
+        <div class="preview-loading">
+          <span class="preview-loading-bar"></span>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -151,7 +174,12 @@
       <div class="contact-grid">
         {#each selectedWork.images as image, i}
           <div class="contact-thumb">
-            <img src={image.src} alt={image.alt ?? `${selectedWork.title} — ${i + 1}`} loading="lazy" />
+            <img
+              src={image.src}
+              alt={image.alt ?? `${selectedWork.title} — ${i + 1}`}
+              loading="lazy"
+              onload={(e) => e.currentTarget.classList.add('loaded')}
+            />
             {#if image.alt}
               <span class="contact-label">{image.alt}</span>
             {/if}
@@ -352,6 +380,29 @@
     display: block;
     opacity: 0.8;
   }
+
+  /* ── Preview loading indicator ────────────────────────────── */
+  .preview-loading {
+    position: absolute;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .preview-loading-bar {
+    display: block;
+    height: 1px;
+    width: 32px;
+    background: rgba(200, 192, 184, 0.35);
+    animation: preview-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes preview-pulse {
+    0%, 100% { width: 20px; opacity: 0.2; }
+    50%       { width: 44px; opacity: 0.55; }
+  }
   /* ── Responsive ───────────────────────────────────────────── */
   @media (max-width: 900px) {
     .works-container {
@@ -446,7 +497,28 @@
     position: relative;
     aspect-ratio: 3 / 2;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
+    background: #1c1c1c;
+  }
+
+  /* Shimmer sweep while image loads */
+  .contact-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(200, 192, 184, 0.06) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: thumb-shimmer 1.6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @keyframes thumb-shimmer {
+    to { transform: translateX(300%); }
   }
 
   .contact-thumb img {
@@ -454,11 +526,24 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 0.22s ease, opacity 0.22s ease;
+    opacity: 0;
+    transition: transform 0.22s ease, opacity 0.4s ease;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Kill shimmer and reveal image once loaded */
+  .contact-thumb img.loaded {
     opacity: 0.85;
   }
 
-  .contact-thumb:hover img {
+  .contact-thumb img.loaded ~ * ,
+  .contact-thumb:has(img.loaded)::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .contact-thumb:hover img.loaded {
     transform: scale(1.04);
     opacity: 1;
   }

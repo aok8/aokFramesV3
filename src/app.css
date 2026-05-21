@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Flowbite kept until legacy components are removed in Sprint 7 */
-@plugin 'flowbite/plugin';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    DARKROOM DESIGN TOKENS
@@ -25,28 +23,7 @@
     --font-display:  'Cormorant Garamond', Georgia, serif;
     --font-ui:       'Josefin Sans', sans-serif;
 
-    /* ── Shadcn/bits-ui tokens kept so legacy components don't break ── */
-    /* These will be removed in Sprint 7 once all old components are gone */
-    --background:             222.2 84% 4.9%;
-    --foreground:             210 40% 98%;
-    --muted:                  217.2 32.6% 17.5%;
-    --muted-foreground:       215 20.2% 65.1%;
-    --popover:                222.2 84% 4.9%;
-    --popover-foreground:     210 40% 98%;
-    --card:                   222.2 84% 4.9%;
-    --card-foreground:        210 40% 98%;
-    --border:                 217.2 32.6% 17.5%;
-    --input:                  217.2 32.6% 17.5%;
-    --primary:                210 40% 98%;
-    --primary-foreground:     222.2 47.4% 11.2%;
-    --secondary:              217.2 32.6% 17.5%;
-    --secondary-foreground:   210 40% 98%;
-    --accent:                 217.2 32.6% 17.5%;
-    --accent-foreground:      210 40% 98%;
-    --destructive:            0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --ring:                   212.7 26.8% 83.9%;
-    --radius:                 0.5rem;
+    --radius: 0.5rem;
   }
 }
 
@@ -56,7 +33,6 @@
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
-    @apply border-border;
   }
 
   html {
@@ -95,6 +71,12 @@
     font: inherit;
     color: inherit;
   }
+
+  /* Keyboard focus ring — gold outline, only shown for keyboard nav */
+  :focus-visible {
+    outline: 2px solid var(--gold, #b8936a);
+    outline-offset: 3px;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -123,5 +105,3 @@ body::after {
   }
 }
 
-/* Flowbite source (kept until legacy components removed) */
-@source "../node_modules/flowbite-svelte/dist";

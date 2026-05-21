@@ -2,8 +2,16 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" href="/directr2/constants/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#0e0e0e" />
+
+		<!-- Favicon (served from Cloudflare R2 via /directr2 proxy) -->
+		<link rel="icon" href="/directr2/constants/favicon.png" />
+
+		<!-- Font preconnect hints — reduces first-render latency for web fonts -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
 		%sveltekit.head%
 
 		<!-- Main Favicon (references public/images/favicon.png -> R2 constants/favicon.png) -->

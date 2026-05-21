@@ -21,6 +21,20 @@
   const doubled = $derived(ghost ? [] : [...images, ...images]);
   const frameCount = $derived(ghost ? GHOST_FRAMES * 2 : doubled.length);
   const perfHoles = $derived(Array(HOLES_PER_FRAME * frameCount).fill(0));
+
+  // Track loaded state per frame — resets whenever the image list changes
+  let imgLoaded = $state<boolean[]>([]);
+
+  $effect(() => {
+    imgLoaded = new Array(doubled.length).fill(false);
+  });
+
+  // Svelte action — catches images that are already cached (complete before onload fires)
+  function checkLoaded(node: HTMLImageElement, idx: number) {
+    if (node.complete && node.naturalHeight > 0) {
+      imgLoaded[idx] = true;
+    }
+  }
 </script>
 
 <section class="strip-section">
@@ -50,10 +64,15 @@
         {:else}
           {#each doubled as image, i}
             <div class="film-frame" style="height: {height}px;">
+              <div class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></div>
               <img
                 src={image.url}
                 alt=""
                 loading={i < 4 ? 'eager' : 'lazy'}
+                class:img-loaded={imgLoaded[i]}
+                use:checkLoaded={i}
+                onload={() => { imgLoaded[i] = true; }}
+                onerror={() => { imgLoaded[i] = true; }}
               />
               <span class="frame-num">{String((i % images.length) + 1).padStart(2, '0')}</span>
             </div>
@@ -108,14 +127,49 @@
     background: #111;
   }
 
+  /* Shimmer placeholder — sits above the dark frame bg, below the grain */
+  .frame-shimmer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background: linear-gradient(
+      90deg,
+      #141414 0%,
+      #1e1e1e 40%,
+      #252525 50%,
+      #1e1e1e 60%,
+      #141414 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-sweep 1.6s ease-in-out infinite;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+
+  .frame-shimmer.shimmer-done {
+    opacity: 0;
+  }
+
+  @keyframes shimmer-sweep {
+    0%   { background-position: 150% 0; }
+    100% { background-position: -150% 0; }
+  }
+
   .film-frame img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
     filter: sepia(6%) contrast(1.05);
-    transition: filter 0.4s ease;
+    opacity: 0;
+    transition: opacity 0.5s ease, filter 0.4s ease;
     pointer-events: none;
+  }
+
+  .film-frame img.img-loaded {
+    opacity: 1;
   }
 
   .strip-inner:hover .film-frame:hover img {

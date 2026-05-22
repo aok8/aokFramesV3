@@ -16,11 +16,13 @@
   $: htmlContent = (() => {
     if (!data.post?.content) return '';
     const raw = marked.parse(data.post.content, { gfm: true, breaks: true, async: false }) as string;
-    // Any src that isn't absolute (http/https/// /data:) belongs to this post's R2 folder
-    return raw.replace(
+    // Any src that isn't absolute (http/https// /data:) belongs to this post's R2 folder
+    const withCdn = raw.replace(
       /(<img[^>]+src=")(?!https?:\/\/|\/\/|\/|data:)([^"]+)(")/gi,
       (_, pre, src, post) => `${pre}${assetUrl(`blog/posts/${data.post.id}/${src}`)}${post}`
     );
+    // Strip the leading <h1> — the title is already rendered above as .post-title
+    return withCdn.replace(/^<h1[^>]*>[\s\S]*?<\/h1>\s*/i, '');
   })();
 </script>
 

@@ -239,6 +239,13 @@
     pointer-events: none;
   }
 
+  @media (max-width: 768px) {
+    .strip-fade-left,
+    .strip-fade-right {
+      width: 40px;
+    }
+  }
+
   .strip-fade-left {
     left: 0;
     background: linear-gradient(to right, var(--near-black), transparent);

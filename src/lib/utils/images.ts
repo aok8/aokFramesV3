@@ -5,6 +5,7 @@ interface PortfolioImage {
   fallback: string;
   width: number;
   height: number;
+  alt: string;
 }
 
 export const getPortfolioImages = async (screenWidth: number): Promise<PortfolioImage[]> => {

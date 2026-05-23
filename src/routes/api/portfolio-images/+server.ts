@@ -56,6 +56,7 @@ interface PortfolioImage {
   fallback: string;
   width: number;
   height: number;
+  alt: string;
   _source?: string; // Optional field for debug information
 }
 
@@ -78,6 +79,24 @@ function getWidthFolder(clientWidth: number): { folder: string, dimensionsMap: D
   }
 }
 
+// Fetch alt text map from R2. Returns an empty object if the file is missing or unparseable.
+async function fetchAltMap(platform: any): Promise<Record<string, string>> {
+  try {
+    if (!platform?.env?.ASSETSBUCKET) return {};
+    const obj = await platform.env.ASSETSBUCKET.get('portfolio/alt.json');
+    if (!obj) return {};
+    const text = await obj.text();
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+    return {};
+  } catch {
+    // Missing file, invalid JSON, or any R2 error — degrade gracefully
+    return {};
+  }
+}
+
 // GET API route
 export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestEvent): Promise<Response> => {
   console.log('[portfolio-images] Endpoint called');
@@ -94,9 +113,13 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestE
   try {
     const startTime = Date.now();
     let images: PortfolioImage[] = [];
-    
+
+    // Fetch alt text map from R2 (portfolio/alt.json). Fails silently — alt="" if missing.
+    const altMap = await fetchAltMap(platform);
+    logEvent(`[portfolio-images] Alt map loaded: ${Object.keys(altMap).length} entries`);
+
     // Get client width from query parameters (or default to max size)
-    const clientWidth = request?.url 
+    const clientWidth = request?.url
       ? parseInt(new URL(request.url).searchParams.get('width') || '1920', 10)
       : 1920;
     
@@ -177,6 +200,7 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestE
               fallback: `/images/Portfolio/${folder}/${file}`,
               width,
               height,
+              alt: altMap[file] || '',
               _source: `local-dev-${folder}`
             });
         }
@@ -263,7 +287,8 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestE
             fallback: assetUrl(obj.key),
             width,
             height,
-            _source: `r2-${folder}-${dimensionSource}` // Add source info
+            alt: altMap[filename] || '',
+            _source: `r2-${folder}-${dimensionSource}`
           };
         });
     }

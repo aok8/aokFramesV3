@@ -16,7 +16,6 @@
     <div class="error-message">
       <p>Sorry, this page doesn't exist. It's probably hidden somewhere with Kodak Aerochrome.</p>
       <p>There may be a typo in the URL or the page may have been moved.</p>
-      <p>You can return home by clicking <a href="/">here</a>.</p>
     </div>
     <a href="/" class="btn-bordered">Back to Home</a>
   </main>

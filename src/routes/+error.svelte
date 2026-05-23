@@ -25,7 +25,6 @@
       {#if status === 404}
         <p>Sorry, this page doesn't exist. It's probably hidden somewhere with Kodak Aerochrome.</p>
         <p>There may be a typo in the URL or the page may have been moved.</p>
-        <p>You can return home by clicking <a href="/">here</a>.</p>
       {:else}
         <p>{message}</p>
       {/if}

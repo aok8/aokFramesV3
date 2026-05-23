@@ -4,13 +4,9 @@
   import BlogPost from '$lib/components/blog/BlogPost.svelte';
   import { assetUrl } from '$lib/utils/r2.js';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
-  import { theme } from '../../../theme/theme.js';
   import { marked } from 'marked';
 
   export let data: { post: BlogPostType };
-
-  // Get tertiary color for inline style
-  $: tertiaryColor = theme.tertiary;
 
   // Render markdown content to HTML, rewriting relative img srcs to CDN URLs
   $: htmlContent = (() => {

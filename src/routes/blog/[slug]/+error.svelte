@@ -1,51 +1,93 @@
 <script lang="ts">
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
-  import { theme } from '../../../theme/theme.js';
-  import { page } from '$app/stores';
 </script>
 
-<Navbar 
-  backgroundColor={theme.text.primary}
-  textColor={theme.background.light}
-/>
+<svelte:head>
+  <title>Post Not Found — AOKFrames</title>
+</svelte:head>
 
-<main class="min-h-screen py-16 pt-24 md:pt-20" style="background-color: {theme.background.light}; color: {theme.text.primary};">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8 mt-4 md:mt-0">
-      <a
-        href="/blog"
-        class="inline-flex items-center hover:opacity-80"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5 mr-2"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        Back to Blog
-      </a>
-    </div>
+<div class="error-page">
+  <Navbar />
 
-    <div class="text-center py-16">
-      <p class="text-gray-600">
-        The blog post you're looking for doesn't exist.
-      </p>
-    </div>
-  </div>
-</main>
+  <main class="error-main">
+    <p class="error-eyebrow">Journal</p>
+    <h1 class="error-code">404</h1>
+    <p class="error-message">This post doesn't exist.</p>
+    <a href="/blog" class="btn-bordered">Back to Journal</a>
+  </main>
 
-<Footer /> 
+  <Footer />
+</div>
 
 <style>
-  p {
-    font-size: 1.5rem;
+  .error-page {
+    min-height: 100vh;
+    background-color: #0e0e0e;
+    color: #f0ebe3;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .error-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8rem 2rem 6rem;
+    gap: 1.5rem;
+  }
+
+  .error-eyebrow {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    font-weight: 300;
+    letter-spacing: 0.45em;
+    text-transform: uppercase;
+    color: var(--forest-green, #2D4739);
+    margin: 0;
+  }
+
+  .error-code {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(6rem, 18vw, 14rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: rgba(200, 192, 184, 0.12);
+    margin: 0;
+  }
+
+  .error-message {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.7);
+    margin: 0;
+  }
+
+  .btn-bordered {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 400;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--forest-green, #2D4739);
+    border: 1px solid var(--forest-green, #2D4739);
+    padding: 0.75rem 2rem;
+    text-decoration: none;
+    display: inline-block;
     margin-top: 1rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .btn-bordered:hover {
+    background-color: var(--forest-green, #2D4739);
+    color: var(--warm-white, #f0ebe3);
   }
 </style>

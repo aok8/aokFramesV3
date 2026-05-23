@@ -4,7 +4,6 @@
   import BlogPostComponent from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
   import { assetUrl } from '$lib/utils/r2.js';
-  import { theme } from '../../theme/theme.js';
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';

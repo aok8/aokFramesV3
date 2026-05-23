@@ -9,6 +9,7 @@
 		fallback: string;
 		width: number;
 		height: number;
+		alt: string;
 	}
 
 	let images = $state<PortfolioImage[]>([]);
@@ -62,7 +63,7 @@
 						src={image.url}
 						width={image.width}
 						height={image.height}
-						alt=""
+						alt={image.alt}
 						loading="lazy"
 						decoding="async"
 					/>

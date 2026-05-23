@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { getPortfolioImages } from '$lib/utils/images.js';
 	import { initScrollReveal, initImageHoverEffect, initFadeUpReveal, killScrollTriggers } from '$lib/utils/animations.js';
+	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 
 	interface PortfolioImage {
 		url: string;
@@ -15,6 +16,21 @@
 	let images = $state<PortfolioImage[]>([]);
 	let loading = $state(true);
 	let error = $state(false);
+
+	// Lightbox state
+	let lbOpen = $state(false);
+	let lbSrc = $state('');
+	let lbAlt = $state('');
+
+	function openLightbox(image: PortfolioImage) {
+		lbSrc = image.url;
+		lbAlt = image.alt;
+		lbOpen = true;
+	}
+
+	function closeLightbox() {
+		lbOpen = false;
+	}
 
 	onMount(() => {
 		if (!browser) return () => {};
@@ -58,7 +74,7 @@
 	{:else}
 		<div class="gallery-grid">
 			{#each images as image}
-				<a href="/works" class="gallery-item" tabindex="0">
+				<button class="gallery-item" onclick={() => openLightbox(image)} aria-label="View photo">
 					<img
 						src={image.url}
 						width={image.width}
@@ -67,10 +83,12 @@
 						loading="lazy"
 						decoding="async"
 					/>
-				</a>
+				</button>
 			{/each}
 		</div>
 	{/if}
+
+	<Lightbox src={lbSrc} alt={lbAlt} open={lbOpen} onclose={closeLightbox} />
 
 	<div class="gallery-cta">
 		<a href="/works" class="view-all-link">
@@ -110,11 +128,20 @@
 	}
 
 	.gallery-item {
+		/* Reset button defaults */
+		appearance: none;
+		background: none;
+		border: none;
+		padding: 0;
+		text-align: left;
+		/* Layout */
 		display: block;
+		width: 100%;
 		break-inside: avoid;
 		margin-bottom: 10px;
 		overflow: hidden;
 		position: relative;
+		cursor: zoom-in;
 	}
 
 	.gallery-item img {

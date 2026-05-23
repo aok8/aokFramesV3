@@ -225,7 +225,7 @@
     font-weight: 300;
     letter-spacing: 0.45em;
     text-transform: uppercase;
-    color: var(--forest-green, #2D4739);
+    color: #6a9e82;
     margin: 0 0 0.5rem 0;
   }
 

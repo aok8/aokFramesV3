@@ -18,19 +18,21 @@
 	let error = $state(false);
 
 	// Lightbox state
-	let lbOpen = $state(false);
-	let lbSrc = $state('');
-	let lbAlt = $state('');
+	let lbOpen  = $state(false);
+	let lbIndex = $state(0);
 
-	function openLightbox(image: PortfolioImage) {
-		lbSrc = image.url;
-		lbAlt = image.alt;
-		lbOpen = true;
+	const lbImages = $derived(images.map(img => ({ src: img.url, alt: img.alt })));
+
+	function openLightbox(idx: number) {
+		lbIndex = idx;
+		lbOpen  = true;
 	}
 
-	function closeLightbox() {
-		lbOpen = false;
-	}
+	function closeLightbox() { lbOpen = false; }
+
+	function prevImage() { if (lbIndex > 0) lbIndex--; }
+
+	function nextImage() { if (lbIndex < images.length - 1) lbIndex++; }
 
 	onMount(() => {
 		if (!browser) return () => {};
@@ -73,8 +75,8 @@
 		</div>
 	{:else}
 		<div class="gallery-grid">
-			{#each images as image}
-				<button class="gallery-item" onclick={() => openLightbox(image)} aria-label="View photo">
+			{#each images as image, i}
+				<button class="gallery-item" onclick={() => openLightbox(i)} aria-label="View photo">
 					<img
 						src={image.url}
 						width={image.width}
@@ -91,7 +93,7 @@
 		</div>
 	{/if}
 
-	<Lightbox src={lbSrc} alt={lbAlt} open={lbOpen} onclose={closeLightbox} />
+	<Lightbox images={lbImages} index={lbIndex} open={lbOpen} onclose={closeLightbox} onprev={prevImage} onnext={nextImage} />
 
 	<div class="gallery-cta">
 		<a href="/works" class="view-all-link">

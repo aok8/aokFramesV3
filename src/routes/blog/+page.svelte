@@ -236,6 +236,14 @@
   });
 </script>
 
+<svelte:head>
+  <title>Journal — AOKFrames</title>
+  <meta name="description" content="Writing on photography, film, and the process behind the work — by Alain Kouassi." />
+  <meta property="og:title" content="Journal — AOKFrames" />
+  <meta property="og:description" content="Writing on photography, film, and the process behind the work — by Alain Kouassi." />
+  <meta property="og:url" content="https://aokframes.com/blog" />
+</svelte:head>
+
 <div class="journal-page">
   <Navbar />
 

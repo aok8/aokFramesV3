@@ -31,6 +31,14 @@
 
 </script>
 
+<svelte:head>
+  <title>Prints &amp; Collabs — AOKFrames</title>
+  <meta name="description" content="Original photography prints and limited edition collaborations from Alain Kouassi." />
+  <meta property="og:title" content="Prints &amp; Collabs — AOKFrames" />
+  <meta property="og:description" content="Original photography prints and limited edition collaborations from Alain Kouassi." />
+  <meta property="og:url" content="https://aokframes.com/prints" />
+</svelte:head>
+
 <div class="prints-page">
   <Navbar />
 

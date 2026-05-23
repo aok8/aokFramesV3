@@ -10,6 +10,14 @@
   const strip2 = $derived(data.images.filter((_: unknown, i: number) => i % 2 !== 0));
 </script>
 
+<svelte:head>
+  <title>Quick-Peek — AOKFrames</title>
+  <meta name="description" content="A rolling preview of recently processed film — images I'm working through before they become a series or get archived." />
+  <meta property="og:title" content="Quick-Peek — AOKFrames" />
+  <meta property="og:description" content="A rolling preview of recently processed film — images I'm working through before they become a series or get archived." />
+  <meta property="og:url" content="https://aokframes.com/peek" />
+</svelte:head>
+
 <div class="peek-page">
   <Navbar />
 
@@ -73,7 +81,7 @@
     font-weight: 300;
     letter-spacing: 0.45em;
     text-transform: uppercase;
-    color: var(--green-light);
+    color: var(--forest-green);
     margin-bottom: 1rem;
   }
 
@@ -133,7 +141,7 @@
     font-size: 9px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: var(--green-light);
+    color: var(--forest-green);
     opacity: 0.6;
     margin-top: 0.5rem;
   }

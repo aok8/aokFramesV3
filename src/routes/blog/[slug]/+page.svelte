@@ -26,6 +26,17 @@
   })();
 </script>
 
+<svelte:head>
+  <title>{data.post.title} — AOKFrames</title>
+  <meta name="description" content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`} />
+  <meta property="og:title" content="{data.post.title} — AOKFrames" />
+  <meta property="og:description" content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`} />
+  <meta property="og:url" content="https://aokframes.com/blog/{data.post.id}" />
+  <meta property="og:image" content="https://assets.aokframes.com/blog/posts/{data.post.id}/header.webp" />
+  <meta name="twitter:title" content="{data.post.title} — AOKFrames" />
+  <meta name="twitter:image" content="https://assets.aokframes.com/blog/posts/{data.post.id}/header.webp" />
+</svelte:head>
+
 <div class="post-page">
   <Navbar />
 

@@ -3,6 +3,13 @@
 
   let { post }: { post: BlogPost } = $props();
 
+  let imgLoaded = $state(false);
+
+  // Catches images already in the browser cache (complete before onload fires)
+  function checkLoaded(node: HTMLImageElement) {
+    if (node.complete && node.naturalHeight > 0) imgLoaded = true;
+  }
+
   function formatDate(dateStr: string): string {
     try {
       return new Date(dateStr).toLocaleDateString('en-US', {
@@ -19,11 +26,16 @@
 <a href="/blog/{encodeURIComponent(post.id)}" class="post-card" aria-label={post.title}>
   {#if post.image}
     <div class="card-image-wrap">
+      <div class="card-shimmer" class:shimmer-done={imgLoaded}></div>
       <img
         src={post.image}
         alt={post.title}
         class="card-image"
+        class:img-loaded={imgLoaded}
         loading="lazy"
+        use:checkLoaded
+        onload={() => { imgLoaded = true; }}
+        onerror={() => { imgLoaded = true; }}
       />
     </div>
   {/if}
@@ -70,12 +82,47 @@
     position: relative;
   }
 
+  /* Shimmer */
+  .card-shimmer {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(
+      90deg,
+      #141414 0%,
+      #1e1e1e 40%,
+      #252525 50%,
+      #1e1e1e 60%,
+      #141414 100%
+    );
+    background-size: 200% 100%;
+    animation: card-shimmer-sweep 1.6s ease-in-out infinite;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+
+  .card-shimmer.shimmer-done {
+    opacity: 0;
+  }
+
+  @keyframes card-shimmer-sweep {
+    0%   { background-position: 150% 0; }
+    100% { background-position: -150% 0; }
+  }
+
   .card-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 0.35s ease;
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.35s ease;
+    position: relative;
+    z-index: 2;
+  }
+
+  .card-image.img-loaded {
+    opacity: 1;
   }
 
   .post-card:hover .card-image {

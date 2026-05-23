@@ -83,6 +83,9 @@
 						loading="lazy"
 						decoding="async"
 					/>
+					{#if image.alt}
+						<span class="photo-label">{image.alt}</span>
+					{/if}
 				</button>
 			{/each}
 		</div>
@@ -156,6 +159,26 @@
 	.gallery-item:focus img {
 		transform: scale(1.02);
 		filter: brightness(1.05);
+	}
+
+	.photo-label {
+		position: absolute;
+		bottom: 10px;
+		left: 12px;
+		font-family: var(--font-ui);
+		font-size: 9px;
+		letter-spacing: 0.25em;
+		text-transform: uppercase;
+		color: rgba(240, 235, 227, 0.45);
+		pointer-events: none;
+		user-select: none;
+		transition: color 0.4s ease;
+		z-index: 1;
+	}
+
+	.gallery-item:hover .photo-label,
+	.gallery-item:focus .photo-label {
+		color: rgba(240, 235, 227, 0.7);
 	}
 
 	/* Skeleton loaders */

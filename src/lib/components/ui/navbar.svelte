@@ -71,7 +71,7 @@
         <a href="/peek" class:active={currentPath.startsWith('/peek')}>Peek</a>
       </li>
       <li>
-        <a href="/blog" class:active={currentPath.startsWith('/blog')}>Blog</a>
+        <a href="/blog" class:active={currentPath.startsWith('/blog')}>Journal</a>
       </li>
       <li>
         <a href="/prints" class:active={currentPath.startsWith('/prints')}>Prints/Collabs</a>

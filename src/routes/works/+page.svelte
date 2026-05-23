@@ -106,6 +106,20 @@
     lightboxIndex = (lightboxIndex + 1) % selectedWork.images.length;
   }
 
+  // ── Swipe ────────────────────────────────────────────────────
+  let touchStartX = 0;
+
+  function handleTouchStart(e: TouchEvent) {
+    touchStartX = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: TouchEvent) {
+    const delta = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(delta) < 50) return;
+    if (delta > 0) prevImage();
+    else nextImage();
+  }
+
   // ── Keyboard ─────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
     if (lightboxIndex !== null) {
@@ -143,6 +157,14 @@
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 </script>
+
+<svelte:head>
+  <title>Works — AOKFrames</title>
+  <meta name="description" content="Selected photography series by Alain Kouassi — film and digital works from 2022 to present." />
+  <meta property="og:title" content="Works — AOKFrames" />
+  <meta property="og:description" content="Selected photography series by Alain Kouassi — film and digital works from 2022 to present." />
+  <meta property="og:url" content="https://aokframes.com/works" />
+</svelte:head>
 
 <div class="works-page">
   <Navbar />
@@ -272,6 +294,8 @@
     aria-modal="true"
     aria-label={`Image ${lightboxIndex + 1} of ${selectedWork.images.length}`}
     onclick={closeLightbox}
+    ontouchstart={handleTouchStart}
+    ontouchend={handleTouchEnd}
   >
     <!-- Prev -->
     <button

@@ -1,24 +1,52 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  let {
-    src = '',
-    alt = '',
-    open = false,
-    onclose
-  }: {
+  interface LightboxImage {
     src: string;
     alt: string;
-    open: boolean;
-    onclose: () => void;
-  } = $props();
-
-  // Close on Escape key
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onclose();
   }
 
-  // Close when clicking the backdrop (not the image itself)
+  let {
+    images = [],
+    index = 0,
+    open = false,
+    onclose,
+    onprev,
+    onnext
+  }: {
+    images: LightboxImage[];
+    index: number;
+    open: boolean;
+    onclose: () => void;
+    onprev?: () => void;
+    onnext?: () => void;
+  } = $props();
+
+  const current = $derived(images[index] ?? { src: '', alt: '' });
+  const hasPrev  = $derived(index > 0);
+  const hasNext  = $derived(index < images.length - 1);
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (!open) return;
+    if (e.key === 'Escape')     onclose();
+    if (e.key === 'ArrowLeft'  && hasPrev) onprev?.();
+    if (e.key === 'ArrowRight' && hasNext) onnext?.();
+  }
+
+  // Swipe tracking
+  let touchStartX = 0;
+
+  function handleTouchStart(e: TouchEvent) {
+    touchStartX = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: TouchEvent) {
+    const delta = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(delta) < 50) return;
+    if (delta > 0 && hasPrev) onprev?.();
+    if (delta < 0 && hasNext) onnext?.();
+  }
+
   function handleBackdropClick(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
   }
@@ -28,7 +56,6 @@
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
-  // Lock body scroll while open
   $effect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -41,7 +68,15 @@
 
 {#if open}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="lb-backdrop" onclick={handleBackdropClick} role="dialog" aria-modal="true" aria-label="Image lightbox">
+  <div
+    class="lb-backdrop"
+    onclick={handleBackdropClick}
+    ontouchstart={handleTouchStart}
+    ontouchend={handleTouchEnd}
+    role="dialog"
+    aria-modal="true"
+    aria-label="Image lightbox"
+  >
     <button class="lb-close" onclick={onclose} aria-label="Close lightbox">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <line x1="1" y1="1" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -49,12 +84,20 @@
       </svg>
     </button>
 
-    <div class="lb-frame">
-      <img class="lb-img" {src} {alt} />
-      {#if alt}
-        <span class="lb-label">{alt}</span>
+    {#if hasPrev}
+      <button class="lb-nav lb-prev" onclick={(e) => { e.stopPropagation(); onprev?.(); }} aria-label="Previous image">‹</button>
+    {/if}
+
+    <div class="lb-frame" onclick={(e) => e.stopPropagation()}>
+      <img class="lb-img" src={current.src} alt={current.alt} />
+      {#if current.alt}
+        <span class="lb-label">{current.alt}</span>
       {/if}
     </div>
+
+    {#if hasNext}
+      <button class="lb-nav lb-next" onclick={(e) => { e.stopPropagation(); onnext?.(); }} aria-label="Next image">›</button>
+    {/if}
   </div>
 {/if}
 
@@ -99,6 +142,34 @@
     color: rgba(200, 192, 184, 1);
   }
 
+  /* Prev / Next arrows */
+  .lb-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1001;
+    background: none;
+    border: none;
+    color: rgba(200, 192, 184, 0.4);
+    font-size: 3.5rem;
+    font-weight: 100;
+    width: 4rem;
+    height: 6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    line-height: 1;
+  }
+
+  .lb-prev { left: 0.5rem; }
+  .lb-next { right: 0.5rem; }
+
+  .lb-nav:hover {
+    color: rgba(200, 192, 184, 1);
+  }
+
   .lb-frame {
     max-width: min(90vw, 1200px);
     max-height: 90vh;
@@ -117,7 +188,7 @@
   .lb-img {
     display: block;
     max-width: 100%;
-    max-height: calc(90vh - 2rem); /* leave room for label */
+    max-height: calc(90vh - 2rem);
     width: auto;
     height: auto;
     object-fit: contain;
@@ -153,5 +224,13 @@
       top: 0.75rem;
       right: 1rem;
     }
+
+    .lb-nav {
+      font-size: 2.5rem;
+      width: 3rem;
+    }
+
+    .lb-prev { left: 0.1rem; }
+    .lb-next { right: 0.1rem; }
   }
 </style>

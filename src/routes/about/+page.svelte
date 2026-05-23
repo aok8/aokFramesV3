@@ -8,6 +8,14 @@
   let profileImageError = $state(false);
 </script>
 
+<svelte:head>
+  <title>About — AOKFrames</title>
+  <meta name="description" content="Alain Kouassi is a Seattle-based photographer working in film and digital — capturing the moments just before and after things happen." />
+  <meta property="og:title" content="About — AOKFrames" />
+  <meta property="og:description" content="Alain Kouassi is a Seattle-based photographer working in film and digital — capturing the moments just before and after things happen." />
+  <meta property="og:url" content="https://aokframes.com/about" />
+</svelte:head>
+
 <div class="about-page">
   <Navbar />
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { theme } from '../../theme/theme.js'; // Relative path to theme
   import { Footer, Navbar } from "$lib/components/ui/index.js";
   import { assetUrl } from '$lib/utils/r2.js';
   import { onMount, afterUpdate } from 'svelte'; // Import lifecycle hooks

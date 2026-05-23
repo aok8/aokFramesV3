@@ -51,6 +51,9 @@
 
     <div class="lb-frame">
       <img class="lb-img" {src} {alt} />
+      {#if alt}
+        <span class="lb-label">{alt}</span>
+      {/if}
     </div>
   </div>
 {/if}
@@ -100,8 +103,8 @@
     max-width: min(90vw, 1200px);
     max-height: 90vh;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    align-items: flex-start;
     cursor: default;
     animation: lb-scale-in 0.2s ease;
   }
@@ -114,11 +117,22 @@
   .lb-img {
     display: block;
     max-width: 100%;
-    max-height: 90vh;
+    max-height: calc(90vh - 2rem); /* leave room for label */
     width: auto;
     height: auto;
     object-fit: contain;
     box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+  }
+
+  .lb-label {
+    margin-top: 0.6rem;
+    font-family: var(--font-ui);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(240, 235, 227, 0.45);
+    pointer-events: none;
+    user-select: none;
   }
 
   @media (max-width: 640px) {
@@ -132,7 +146,7 @@
     }
 
     .lb-img {
-      max-height: 85vh;
+      max-height: calc(85vh - 2rem);
     }
 
     .lb-close {

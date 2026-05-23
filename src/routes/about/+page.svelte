@@ -216,6 +216,7 @@
   .featured-inner {
     max-width: 1100px;
     margin: 0 auto;
+    text-align: center;
   }
 
   .featured-eyebrow {
@@ -244,6 +245,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 0.75rem;
   }
 

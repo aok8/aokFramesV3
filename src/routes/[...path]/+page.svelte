@@ -13,7 +13,11 @@
   <main class="error-main">
     <p class="error-eyebrow">Error</p>
     <h1 class="error-code">404</h1>
-    <p class="error-message">This page doesn't exist.</p>
+    <div class="error-message">
+      <p>Sorry, this page doesn't exist. It's probably hidden somewhere with Kodak Aerochrome.</p>
+      <p>There may be a typo in the URL or the page may have been moved.</p>
+      <p>You can return home by clicking <a href="/">here</a>.</p>
+    </div>
     <a href="/" class="btn-bordered">Back to Home</a>
   </main>
 
@@ -62,13 +66,26 @@
   }
 
   .error-message {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .error-message p {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 300;
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
     color: rgba(200, 192, 184, 0.7);
     margin: 0;
+    line-height: 1.8;
+  }
+
+  .error-message a {
+    color: var(--forest-green, #2D4739);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .btn-bordered {

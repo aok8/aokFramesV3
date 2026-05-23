@@ -25,6 +25,7 @@ vite.config.ts.timestamp-*
 
 # Portfolio alt text (local copy — see portfolio-alt.json.example for format)
 portfolio-alt.json
+alt.json
 
 # Personal Documentation
 /docs

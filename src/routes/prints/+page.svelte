@@ -118,21 +118,6 @@
         </a>
       </div>
 
-      <!-- Featured work -->
-      <div class="featured">
-        <h2 class="featured-title">Featured Work</h2>
-        <ul class="featured-list">
-          <li>
-            <a
-              href="https://www.ephemere.tokyo/store/p/anarchy2"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Ephemere Anarchy2
-            </a>
-          </li>
-        </ul>
-      </div>
     </div>
   </section>
 
@@ -278,47 +263,6 @@
   .btn-bordered:hover {
     background-color: var(--forest-green, #2D4739);
     color: var(--warm-white, #f0ebe3);
-  }
-
-  /* ── Featured work ── */
-  .featured {
-    width: 100%;
-    text-align: center;
-  }
-
-  .featured-title {
-    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
-    font-weight: 300;
-    font-size: 1.6rem;
-    color: #f0ebe3;
-    margin: 0 0 1rem 0;
-  }
-
-  .featured-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .featured-list li {
-    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-weight: 300;
-    font-size: 13px;
-    color: #c8c0b8;
-    margin-bottom: 0.5rem;
-  }
-
-  .featured-list a {
-    color: #c8c0b8;
-    text-decoration: none;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid rgba(200, 192, 184, 0.2);
-    transition: color 0.2s, border-color 0.2s;
-  }
-
-  .featured-list a:hover {
-    color: var(--forest-green, #2D4739);
-    border-color: var(--forest-green, #2D4739);
   }
 
   /* ── Responsive ── */

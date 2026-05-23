@@ -74,6 +74,27 @@
 
   <hr class="divider" />
 
+  <!-- Featured Work -->
+  <section class="featured">
+    <div class="featured-inner">
+      <p class="featured-eyebrow">Featured</p>
+      <h2 class="featured-title">Work</h2>
+      <ul class="featured-list">
+        <li>
+          <a
+            href="https://www.ephemere.tokyo/store/p/anarchy2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ephemere Anarchy2
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
   <Footer />
 </div>
 
@@ -187,6 +208,66 @@
     margin-bottom: 0;
   }
 
+  /* ── Featured Work ── */
+  .featured {
+    padding: 5rem 5vw;
+  }
+
+  .featured-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .featured-eyebrow {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    font-weight: 300;
+    letter-spacing: 0.45em;
+    text-transform: uppercase;
+    color: var(--forest-green, #2D4739);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .featured-title {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    color: #f0ebe3;
+    margin: 0 0 2rem 0;
+    line-height: 1;
+  }
+
+  .featured-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .featured-list li {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 13px;
+    color: #c8c0b8;
+  }
+
+  .featured-list a {
+    color: #c8c0b8;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(200, 192, 184, 0.2);
+    padding-bottom: 1px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .featured-list a:hover {
+    color: var(--forest-green, #2D4739);
+    border-color: var(--forest-green, #2D4739);
+  }
+
   /* ── Responsive ── */
   @media (max-width: 900px) {
     .bio-inner {
@@ -196,6 +277,10 @@
   }
 
   @media (max-width: 768px) {
+    .featured {
+      padding: 3rem 1.5rem;
+    }
+
     .hero {
       padding: 5rem 1.5rem 3rem;
       min-height: unset;

@@ -97,7 +97,7 @@
 
   .peek-desc {
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 300;
     letter-spacing: 0.15em;
     line-height: 2;
@@ -107,6 +107,7 @@
 
   @media (max-width: 768px) {
     .peek-desc {
+      font-size: 10px;
       white-space: normal;
     }
   }

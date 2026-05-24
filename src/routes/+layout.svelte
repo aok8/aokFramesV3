@@ -50,20 +50,20 @@
 
 <svelte:head>
   <title>AOKFrames</title>
-  <meta name="description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
+  <meta name="description" content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images." />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://aokframes.com/" />
   <meta property="og:title" content="AOKFrames — Film &amp; Digital Photography" />
-  <meta property="og:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
+  <meta property="og:description" content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images." />
   <meta property="og:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://aokframes.com/" />
   <meta name="twitter:title" content="AOKFrames — Film &amp; Digital Photography" />
-  <meta name="twitter:description" content="Seattle-based photographer Alain Okou — film and digital. Capturing moments and telling stories through images." />
+  <meta name="twitter:description" content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images." />
   <meta name="twitter:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 </svelte:head>
 

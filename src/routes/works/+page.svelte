@@ -13,6 +13,9 @@
   let overlayEl     = $state<HTMLDivElement | null>(null);
   let previewsReady = $state(false);
 
+  // NSFW gate
+  let nsfwGateWork  = $state<Work | null>(null);
+
   // Per-thumbnail loaded flags (index → boolean)
   let imgLoaded = $state<boolean[]>([]);
 
@@ -58,7 +61,7 @@
   });
 
   // ── Works list interactions ──────────────────────────────────
-  function handleRowClick(work: Work) {
+  function openWorkDetail(work: Work) {
     selectedWork = work;
     if (browser) document.body.style.overflow = 'hidden';
     if (browser && overlayEl) {
@@ -66,6 +69,27 @@
         gsap.fromTo(overlayEl, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' });
       });
     }
+  }
+
+  function handleRowClick(work: Work) {
+    if (work.nsfw) {
+      nsfwGateWork = work;
+      if (browser) document.body.style.overflow = 'hidden';
+    } else {
+      openWorkDetail(work);
+    }
+  }
+
+  function confirmNsfw() {
+    if (!nsfwGateWork) return;
+    const work = nsfwGateWork;
+    nsfwGateWork = null;
+    openWorkDetail(work);
+  }
+
+  function cancelNsfw() {
+    nsfwGateWork = null;
+    if (browser) document.body.style.overflow = '';
   }
 
   function closeOverlay() {
@@ -128,6 +152,8 @@
       else if (e.key === 'Escape')     { closeLightbox(); }
     } else if (selectedWork) {
       if (e.key === 'Escape') closeOverlay();
+    } else if (nsfwGateWork) {
+      if (e.key === 'Escape') cancelNsfw();
     }
   }
 
@@ -197,7 +223,10 @@
                 <span class="row-number">{padIndex(i + 1)}</span>
 
                 <div class="row-meta">
-                  <span class="row-title">{work.title}</span>
+                  <span class="row-title">
+                    {work.title}
+                    {#if work.nsfw}<span class="row-nsfw-badge">18+</span>{/if}
+                  </span>
                   {#if work.tags.length > 0}
                     <span class="row-tags">{work.tags.join(' / ')}</span>
                   {/if}
@@ -234,6 +263,41 @@
     </div>
   </div>
 </div>
+
+<!-- ── NSFW content gate ──────────────────────────────────── -->
+{#if nsfwGateWork}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="nsfw-backdrop"
+    onclick={cancelNsfw}
+    role="dialog"
+    tabindex="-1"
+    aria-modal="true"
+    aria-label="Content warning"
+  >
+    <div class="nsfw-card" onclick={(e) => e.stopPropagation()}>
+      <p class="nsfw-eyebrow">Content Warning</p>
+      <h2 class="nsfw-title">Sensitive Content</h2>
+      <p class="nsfw-body">
+        This work contains content that may not be suitable for all audiences.
+      </p>
+      {#if nsfwGateWork.nsfw_tags && nsfwGateWork.nsfw_tags.length > 0}
+        <div class="nsfw-tags">
+          <span class="nsfw-tags-label">May contain:</span>
+          <div class="nsfw-tag-list">
+            {#each nsfwGateWork.nsfw_tags as tag}
+              <span class="nsfw-tag">{tag}</span>
+            {/each}
+          </div>
+        </div>
+      {/if}
+      <div class="nsfw-actions">
+        <button class="nsfw-cancel" onclick={cancelNsfw}>Go back</button>
+        <button class="nsfw-confirm" onclick={confirmNsfw}>I understand, continue</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- ── Contact sheet overlay ──────────────────────────────── -->
 {#if selectedWork}
@@ -852,5 +916,186 @@
     .lb-next     { right: 0.1rem; }
     .lb-img,
     .lb-frame    { max-width: 96vw; max-height: 80vh; }
+  }
+
+  /* ── NSFW badge on row ────────────────────────────────────── */
+  .row-nsfw-badge {
+    display: inline-block;
+    margin-left: 0.65rem;
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 8px;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.4);
+    border: 1px solid rgba(200, 192, 184, 0.18);
+    padding: 0.15em 0.5em;
+    vertical-align: middle;
+    position: relative;
+    top: -0.1em;
+    transition: color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .works-row:hover .row-nsfw-badge {
+    color: rgba(200, 192, 184, 0.65);
+    border-color: rgba(200, 192, 184, 0.35);
+  }
+
+  /* ── NSFW gate modal ──────────────────────────────────────── */
+  .nsfw-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: nsfw-fade-in 0.2s ease;
+  }
+
+  @keyframes nsfw-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .nsfw-card {
+    background: #0e0e0e;
+    border: 1px solid rgba(200, 192, 184, 0.1);
+    padding: 3rem 3rem 2.5rem;
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    animation: nsfw-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes nsfw-slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .nsfw-eyebrow {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 9px;
+    font-weight: 300;
+    letter-spacing: 0.45em;
+    text-transform: uppercase;
+    color: #6a9e82;
+    margin: 0;
+  }
+
+  .nsfw-title {
+    font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    color: var(--warm-white, #f0ebe3);
+    margin: 0;
+    line-height: 1.1;
+  }
+
+  .nsfw-body {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    line-height: 1.8;
+    color: rgba(200, 192, 184, 0.7);
+    margin: 0;
+  }
+
+  .nsfw-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .nsfw-tags-label {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 8px;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.4);
+  }
+
+  .nsfw-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .nsfw-tag {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 8px;
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.55);
+    border: 1px solid rgba(200, 192, 184, 0.12);
+    padding: 0.25em 0.65em;
+  }
+
+  .nsfw-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nsfw-cancel {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 0.65rem;
+    font-weight: 300;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(200, 192, 184, 0.45);
+    background: none;
+    border: 1px solid rgba(200, 192, 184, 0.12);
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .nsfw-cancel:hover {
+    color: rgba(200, 192, 184, 0.8);
+    border-color: rgba(200, 192, 184, 0.3);
+  }
+
+  .nsfw-confirm {
+    font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+    font-size: 0.65rem;
+    font-weight: 400;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--forest-green, #2D4739);
+    background: none;
+    border: 1px solid var(--forest-green, #2D4739);
+    padding: 0.75rem 1.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .nsfw-confirm:hover {
+    background-color: var(--forest-green, #2D4739);
+    color: var(--warm-white, #f0ebe3);
+  }
+
+  @media (max-width: 480px) {
+    .nsfw-card {
+      padding: 2rem 1.5rem;
+    }
+    .nsfw-actions {
+      flex-direction: column;
+    }
+    .nsfw-cancel,
+    .nsfw-confirm {
+      width: 100%;
+      text-align: center;
+    }
   }
 </style>

@@ -2,6 +2,12 @@ name = "aokframes-peek-purge"
 main = "index.js"
 compatibility_date = "2024-04-04"
 
+# Default: deletion is OFF for local dev safety.
+# Override in production via: npx wrangler secret put ALLOW_AUTO_DELETION
+# Set the value to the string "true" to enable real deletion on cron.
+[vars]
+ALLOW_AUTO_DELETION = "false"
+
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "aokframes-website-assets"

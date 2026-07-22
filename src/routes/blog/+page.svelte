@@ -3,7 +3,6 @@
   import Footer from '$lib/components/ui/footer.svelte';
   import BlogPostComponent from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
-  import { assetUrl } from '$lib/utils/r2.js';
   import type { PageData } from './$types.js';
   import { onMount } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
@@ -19,43 +18,6 @@
     layoutStatus?: 'skipped-post-load' | 'loaded' | 'api-fallback' | 'error';
   };
 
-  // Frontmatter parser for browser
-  function parseFrontmatter(content: string) {
-    const lines = content.split('\n');
-    const frontmatter: Record<string, string> = {};
-    let inFrontmatter = false;
-    let markdownContent = '';
-    let frontmatterLines: string[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.trim() === '---') {
-        if (!inFrontmatter) {
-          inFrontmatter = true;
-          continue;
-        } else {
-          inFrontmatter = false;
-          markdownContent = lines.slice(i + 1).join('\n');
-          break;
-        }
-      }
-      if (inFrontmatter) {
-        frontmatterLines.push(line);
-      }
-    }
-
-    // Parse frontmatter lines
-    for (const line of frontmatterLines) {
-      const [key, ...valueParts] = line.split(':');
-      if (key && valueParts.length > 0) {
-        const value = valueParts.join(':').trim();
-        frontmatter[key.trim()] = value.replace(/^['"](.*)['"]$/, '$1');
-      }
-    }
-
-    return { data: frontmatter, content: markdownContent };
-  }
-
   let { data }: { data: PageData & ExpectedLayoutData } = $props();
   
   let isLoading = $state(false);
@@ -68,132 +30,49 @@
   
   onMount(async () => {
     const layoutSkipped = data.layoutStatus === 'skipped-post-load';
-    
+
     if (layoutSkipped || (!dev && data.posts.length === 0)) {
-      logger.log('Attempting client-side R2 fetch (layout skipped or prod fallback)');
+      // Fallback path when the server-side layout load didn't return posts.
+      // This used to fetch each post's markdown directly from the
+      // assets.aokframes.com CDN in the browser — a cross-origin request
+      // the CDN doesn't send Access-Control-Allow-Origin for, so it failed
+      // with a CORS error and left the page stuck with no posts. /api/blog-posts
+      // already does the same R2 read server-side and returns JSON from our
+      // own origin, so it's never subject to CORS regardless of when this runs.
+      logger.log('Attempting client-side fetch via /api/blog-posts (layout skipped or prod fallback)');
       isLoading = true;
       try {
-        const statusRes = await fetch('/api/blog-status', {
+        const response = await fetch('/api/blog-posts', {
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
           }
         });
-        
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          logger.log('Client R2 Load: Blog R2 status:', statusData);
 
-          // Extract unique slugs containing index.md from statusData
-          const slugs = new Set<string>();
-          statusData.blogPosts?.items?.forEach((item: { key: string }) => {
-              if (item.key.toLowerCase().endsWith('/index.md')) {
-                  const parts = item.key.split('/');
-                  if (parts.length >= 4) slugs.add(parts[parts.length - 2]);
-              }
-          });
-          const uniqueSlugs = Array.from(slugs);
-          logger.log('Client R2 Load: Found potential slugs:', uniqueSlugs);
+        if (response.ok) {
+          const loadedPosts: BlogPostType[] = await response.json();
+          logger.log(`Client fetch via /api/blog-posts returned ${loadedPosts.length} posts`);
 
-          if (uniqueSlugs.length > 0) {
-            logger.log('Client R2 Load: Attempting direct fetch...');
-            const loadedPosts: BlogPostType[] = [];
-            
-            for (const slug of uniqueSlugs) {
-              try {
-                const key = `blog/posts/${slug}/index.md`;
-                logger.log(`Client R2 Load: Fetching content for slug "${slug}" from ${key}`);
+          if (loadedPosts.length > 0) {
+            loadedPostsFromClient = loadedPosts;
+            posts.set(loadedPosts);
 
-                const response = await fetch(assetUrl(key));
-                if (response.ok) {
-                  const text = await response.text();
-                  logger.log(`Successfully loaded ${slug} directly`);
-                  
-                  const { data: frontmatter, content: markdownContent } = parseFrontmatter(text);
-                  logger.log('Parsed frontmatter:', frontmatter);
-                  
-                  const titleMatch = markdownContent.match(/^#\s+(.*)/m);
-                  const title = titleMatch ? titleMatch[1] : slug;
-                  
-                  // Summary extraction
-                  const lines = markdownContent.split('\n');
-                  let summary = '';
-                  let foundTitle = false;
-                  let titleIndex = -1;
-
-                  for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].trim().startsWith('# ')) {
-                       foundTitle = true;
-                       titleIndex = i;
-                       break;
-                    }
-                  }
-                  
-                  if (foundTitle) {
-                      for (let i = titleIndex + 1; i < lines.length; i++) {
-                          const line = lines[i].trim();
-                          if (line === '') continue;
-                          
-                          if (line.startsWith('#')) {
-                              logger.log(`Skipping summary for "${title}" because next content is a heading: ${line}`);
-                              break;
-                          } else {
-                              summary = line;
-                              logger.log(`Extracted summary for "${title}": ${summary.substring(0, 50)}...`);
-                              break;
-                          }
-                      }
-                  }
-                  
-                  const tags = frontmatter.tags || frontmatter.label || 'Photography';
-                  logger.log('Extracted tags:', tags);
-                  
-                  // Always include the header image URL — the <img> onerror handles missing ones
-                  const imageKey = `blog/posts/${slug}/header.webp`;
-
-                  loadedPosts.push({
-                    id: slug,
-                    title,
-                    summary,
-                    content: markdownContent,
-                    author: frontmatter.author || 'AOK',
-                    published: frontmatter.published || new Date().toISOString().split('T')[0],
-                    label: tags,
-                    image: assetUrl(imageKey)
-                  });
-                } else {
-                    logger.error(`Client R2 Load: Failed to fetch ${key}: ${response.status}`);
-                }
-              } catch (e) {
-                 logger.error(`Client R2 Load: Error loading post for slug "${slug}":`, e);
-              }
-            }
-            
-            if (loadedPosts.length > 0) {
-              logger.log('Directly loaded posts from R2:', loadedPosts);
-              loadedPostsFromClient = loadedPosts;
-              posts.set(loadedPosts);
-              
-              try {
-                sessionStorage.setItem('blogPosts', JSON.stringify(loadedPosts));
-                logger.log('Stored R2 loaded posts in sessionStorage');
-              } catch (storageError) {
-                logger.error('Error storing R2 posts in sessionStorage:', storageError);
-              }
-            } else {
-              loadError = true;
-              logger.error('Client-side R2 fetch completed but found 0 valid posts.');
+            try {
+              sessionStorage.setItem('blogPosts', JSON.stringify(loadedPosts));
+              logger.log('Stored posts in sessionStorage');
+            } catch (storageError) {
+              logger.error('Error storing posts in sessionStorage:', storageError);
             }
           } else {
-             loadError = true;
-             logger.error('Blog R2 status has no post items.');
+            loadError = true;
+            logger.error('Client fetch via /api/blog-posts returned 0 posts.');
           }
         } else {
-           loadError = true;
-           logger.error(`Client fetch for /api/blog-status failed: ${statusRes.status}`);
+          loadError = true;
+          logger.error(`Client fetch for /api/blog-posts failed: ${response.status}`);
         }
       } catch (error) {
-        logger.error('Error during client-side R2 fetch:', error);
+        logger.error('Error during client-side fetch via /api/blog-posts:', error);
         loadError = true;
       }
       isLoading = false;

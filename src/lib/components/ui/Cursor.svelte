@@ -19,10 +19,24 @@
 		// Class-based approach ensures cursor: none wins over pointer on a/button
 		document.documentElement.classList.add('custom-cursor');
 
+		let latestX = 0;
+		let latestY = 0;
+		let rafId: number | null = null;
+
+		function scheduleUpdate() {
+			if (rafId !== null) return;
+			rafId = requestAnimationFrame(() => {
+				x = latestX;
+				y = latestY;
+				if (!visible) visible = true;
+				rafId = null;
+			});
+		}
+
 		function onMouseMove(e: MouseEvent) {
-			x = e.clientX;
-			y = e.clientY;
-			if (!visible) visible = true;
+			latestX = e.clientX;
+			latestY = e.clientY;
+			scheduleUpdate();
 		}
 
 		function onMouseOver(e: MouseEvent) {
@@ -46,15 +60,19 @@
 			}
 		}
 
-		document.addEventListener('mousemove', onMouseMove);
-		document.addEventListener('mouseover', onMouseOver);
-		document.addEventListener('mouseout', onMouseOut);
+		document.addEventListener('mousemove', onMouseMove, { passive: true });
+		document.addEventListener('mouseover', onMouseOver, { passive: true });
+		document.addEventListener('mouseout', onMouseOut, { passive: true });
 
 		return () => {
 			document.documentElement.classList.remove('custom-cursor');
 			document.removeEventListener('mousemove', onMouseMove);
 			document.removeEventListener('mouseover', onMouseOver);
 			document.removeEventListener('mouseout', onMouseOut);
+			if (rafId !== null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
 		};
 	});
 </script>
@@ -81,15 +99,25 @@
 		background: var(--warm-white);
 		border: 1.5px solid transparent;
 		mix-blend-mode: difference;
+		/* isolate gives this fixed + blended element its own stacking context,
+		   mitigating a Safari-specific stacking-context bug for position:fixed
+		   elements using mix-blend-mode. */
+		isolation: isolate;
 		opacity: 0;
+		/* transform is intentionally NOT transitioned here: position updates are
+		   now rAF-throttled in script, and a CSS transition racing the same
+		   property causes visible stutter in Safari (two competing timing
+		   systems fighting over transform). */
 		transition:
 			width 0.25s ease,
 			height 0.25s ease,
 			background 0.25s ease,
 			border 0.25s ease,
-			transform 0.08s linear,
 			opacity 0.3s;
-		will-change: transform;
+		/* will-change: transform removed — combined with mix-blend-mode it forces
+		   a persistent compositing layer that Safari must continuously
+		   re-blend against the backdrop every frame, worsening jank rather
+		   than helping. */
 	}
 
 	.cursor.visible {

@@ -4,9 +4,14 @@
  * This worker runs on a cron schedule and automatically processes image dimensions.
  */
 
+/** @typedef {{ CF_PAGES_URL?: string, CF_DOMAIN?: string }} WorkerEnv */
+
 export default {
   /**
    * Main worker handler - will be triggered on the cron schedule
+   * @param {{ scheduledTime: number, cron: string }} event
+   * @param {WorkerEnv} env
+   * @param {unknown} ctx
    */
   async scheduled(event, env, ctx) {
     try {
@@ -49,15 +54,20 @@ export default {
       
       return result;
     } catch (error) {
-      console.error(`Error in scheduled task: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      console.error(`Error in scheduled task: ${message}`);
       // Return error info for logging
-      return { error: error.message, stack: error.stack };
+      return { error: message, stack };
     }
   },
   
   /**
    * HTTP handler for direct requests to the worker
    * Useful for manual triggering or checking status
+   * @param {Request} request
+   * @param {WorkerEnv} env
+   * @param {unknown} ctx
    */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -75,10 +85,12 @@ export default {
           headers: { 'Content-Type': 'application/json' }
         });
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const stack = error instanceof Error ? error.stack : undefined;
         return new Response(JSON.stringify({ 
           error: 'Failed to trigger scheduled task',
-          message: error.message,
-          stack: error.stack
+          message,
+          stack
         }, null, 2), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
@@ -113,6 +125,7 @@ export default {
 /**
  * Dynamically determine the target API URL based on the request URL
  * This avoids hardcoding URLs and makes the worker portable across environments
+ * @param {WorkerEnv} env
  */
 function getTargetUrl(env) {
   // Try to get the current domain from CF variable or fallback to API URL
@@ -123,4 +136,4 @@ function getTargetUrl(env) {
   
   // Construct the full URL to the scheduled endpoint
   return `${baseUrl}/api/scheduled`;
-} 
+}

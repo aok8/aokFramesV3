@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   interface LightboxImage {
     src: string;
@@ -25,6 +25,30 @@
   const current = $derived(images[index] ?? { src: '', alt: '' });
   const hasPrev  = $derived(index > 0);
   const hasNext  = $derived(index < images.length - 1);
+
+  let dialogEl = $state<HTMLDivElement | null>(null);
+  let focusedBeforeOpen: HTMLElement | null = null;
+  const focusableSelector = 'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+
+  function trapFocus(e: KeyboardEvent) {
+    if (e.key !== 'Tab' || !dialogEl) return;
+    const focusable = Array.from(dialogEl.querySelectorAll<HTMLElement>(focusableSelector));
+    if (focusable.length === 0) {
+      e.preventDefault();
+      dialogEl.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 
   function handleKeydown(e: KeyboardEvent) {
     if (!open) return;
@@ -58,9 +82,14 @@
 
   $effect(() => {
     if (open) {
+      focusedBeforeOpen = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       document.body.style.overflow = 'hidden';
+      tick().then(() => dialogEl?.querySelector<HTMLElement>('.lb-close')?.focus());
     } else {
       document.body.style.overflow = '';
+      const restoreTarget = focusedBeforeOpen;
+      focusedBeforeOpen = null;
+      tick().then(() => restoreTarget?.focus());
     }
     return () => { document.body.style.overflow = ''; };
   });
@@ -69,15 +98,18 @@
 {#if open}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
+    bind:this={dialogEl}
     class="lb-backdrop"
     onclick={handleBackdropClick}
+    onkeydown={trapFocus}
     ontouchstart={handleTouchStart}
     ontouchend={handleTouchEnd}
     role="dialog"
     aria-modal="true"
     aria-label="Image lightbox"
+    tabindex="-1"
   >
-    <button class="lb-close" onclick={onclose} aria-label="Close lightbox">
+    <button type="button" class="lb-close" onclick={onclose} aria-label="Close lightbox">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <line x1="1" y1="1" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         <line x1="17" y1="1" x2="1" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -85,9 +117,10 @@
     </button>
 
     {#if hasPrev}
-      <button class="lb-nav lb-prev" onclick={(e) => { e.stopPropagation(); onprev?.(); }} aria-label="Previous image">‹</button>
+      <button type="button" class="lb-nav lb-prev" onclick={(e) => { e.stopPropagation(); onprev?.(); }} aria-label="Previous image">‹</button>
     {/if}
 
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="lb-frame" onclick={(e) => e.stopPropagation()}>
       <img class="lb-img" src={current.src} alt={current.alt} />
       {#if current.alt}
@@ -96,7 +129,7 @@
     </div>
 
     {#if hasNext}
-      <button class="lb-nav lb-next" onclick={(e) => { e.stopPropagation(); onnext?.(); }} aria-label="Next image">›</button>
+      <button type="button" class="lb-nav lb-next" onclick={(e) => { e.stopPropagation(); onnext?.(); }} aria-label="Next image">›</button>
     {/if}
   </div>
 {/if}
@@ -232,5 +265,12 @@
 
     .lb-prev { left: 0.1rem; }
     .lb-next { right: 0.1rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lb-backdrop,
+    .lb-frame {
+      animation: none;
+    }
   }
 </style>

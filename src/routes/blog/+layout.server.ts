@@ -1,7 +1,7 @@
 import type { LayoutServerLoad } from './$types.js';
 import { loadBlogPosts } from '$lib/server/blog.js';
 import type { BlogPost } from '$lib/types/blog.js';
-import { createServerLogger } from '$lib/utils/logger';
+import { createServerLogger } from '$lib/utils/logger.js';
 
 // Define the type for the layout data
 export type BlogLayoutData = {
@@ -77,4 +77,4 @@ export const load: LayoutServerLoad = async ({ platform, url, fetch }): Promise<
 export const load: LayoutServerLoad = async ({ platform, url }) => {
     // ... simplified logic ...
 };
-*/ 
+*/

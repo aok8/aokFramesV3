@@ -1,8 +1,7 @@
-import type { LayoutServerLoad } from '@sveltejs/kit';
+import type { ServerLoad } from '@sveltejs/kit';
 import { loadWorks } from '$lib/server/works.js';
 import type { Work } from '$lib/types/works.js';
-import type { LayoutData } from './$types.js';
-import { createServerLogger } from '$lib/utils/logger';
+import { createServerLogger } from '$lib/utils/logger.js';
 
 // Define the type for the layout data
 export type WorksLayoutData = {
@@ -12,7 +11,7 @@ export type WorksLayoutData = {
   layoutStatus?: 'skipped-work-load' | 'loaded' | 'api-fallback' | 'error';
 };
 
-export const load: LayoutServerLoad<LayoutData> = async ({ platform, url }): Promise<LayoutData> => {
+export const load: ServerLoad = async ({ platform, url }) => {
   const serverLogger = createServerLogger(platform?.env);
   
   serverLogger.log('-------- Works Layout Server Load Start --------');
@@ -52,4 +51,4 @@ export const load: LayoutServerLoad<LayoutData> = async ({ platform, url }): Pro
       layoutStatus: 'error'
     };
   }
-}; 
+};

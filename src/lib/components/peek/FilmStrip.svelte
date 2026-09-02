@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PeekImage } from '$lib/types/peek';
+	import type { PeekImage } from '$lib/types/peek.js';
 
   let {
     images = [],
@@ -35,6 +35,10 @@
       imgLoaded[idx] = true;
     }
   }
+
+	function imageAlt(image: PeekImage, index: number) {
+		return image.alt?.trim() || `Recently processed photograph ${index + 1}`;
+	}
 </script>
 
 <section class="strip-section">
@@ -43,7 +47,9 @@
     <div class="strip-fade-right"></div>
     <div
       class="strip-inner"
-      style="animation-duration: {speed}s; animation-direction: {direction === 'reverse' ? 'reverse' : 'normal'};"
+			style="animation-duration: {speed}s; animation-direction: {direction === 'reverse'
+				? 'reverse'
+				: 'normal'};"
     >
       <!-- Top perf row -->
       <div class="perf-row">
@@ -56,23 +62,32 @@
       <div class="frames-row">
         {#if ghost}
           {#each Array(GHOST_FRAMES * 2) as _, i}
-            <div class="film-frame ghost-frame" style="height: {height}px;">
+            <div class="film-frame ghost-frame" style="height: {height}px;" aria-hidden="true">
               <div class="ghost-panel"></div>
               <span class="frame-num">{String((i % GHOST_FRAMES) + 1).padStart(2, '0')}</span>
             </div>
           {/each}
         {:else}
           {#each doubled as image, i}
-            <div class="film-frame" style="height: {height}px;">
+						<div
+							class="film-frame"
+							class:duplicate-frame={i >= images.length}
+							style="height: {height}px;"
+							aria-hidden={i >= images.length}
+						>
               <div class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></div>
               <img
                 src={image.url}
-                alt=""
-                loading={i < 4 ? 'eager' : 'lazy'}
+								alt={i < images.length ? imageAlt(image, i) : ''}
+								loading={i < Math.min(4, images.length) ? 'eager' : 'lazy'}
                 class:img-loaded={imgLoaded[i]}
                 use:checkLoaded={i}
-                onload={() => { imgLoaded[i] = true; }}
-                onerror={() => { imgLoaded[i] = true; }}
+								onload={() => {
+									imgLoaded[i] = true;
+								}}
+								onerror={() => {
+									imgLoaded[i] = true;
+								}}
               />
               <span class="frame-num">{String((i % images.length) + 1).padStart(2, '0')}</span>
             </div>
@@ -148,11 +163,16 @@
 
   .frame-shimmer.shimmer-done {
     opacity: 0;
+		animation: none;
   }
 
   @keyframes shimmer-sweep {
-    0%   { background-position: 150% 0; }
-    100% { background-position: -150% 0; }
+		0% {
+			background-position: 150% 0;
+		}
+		100% {
+			background-position: -150% 0;
+		}
   }
 
   .film-frame img {
@@ -164,7 +184,9 @@
     display: block;
     filter: sepia(6%) contrast(1.05);
     opacity: 0;
-    transition: opacity 0.5s ease, filter 0.4s ease;
+		transition:
+			opacity 0.5s ease,
+			filter 0.4s ease;
     pointer-events: none;
   }
 
@@ -257,7 +279,28 @@
   }
 
   @keyframes scroll-strip {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
+		0% {
+			transform: translateX(0);
+		}
+		100% {
+			transform: translateX(-50%);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.strip-track {
+			overflow-x: auto;
+			overscroll-behavior-inline: contain;
+		}
+
+		.strip-inner {
+			animation: none !important;
+			transform: none !important;
+			will-change: auto;
+		}
+
+		.duplicate-frame {
+			display: none;
+		}
   }
 </style>

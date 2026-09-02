@@ -1,5 +1,5 @@
 import { dev, browser } from '$app/environment';
-import { envStore } from '$lib/stores/envStore';
+import { envStore } from '$lib/stores/envStore.js';
 import { get } from 'svelte/store';
 
 function isLoggingEnabled(isServerErrorLog: boolean = false, platformEnv?: App.Platform['env']): boolean {
@@ -61,4 +61,4 @@ export const createServerLogger = (platformEnv?: App.Platform['env']) => ({
       console.error('[SERVER]', ...args);
     }
   }
-}); 
+});

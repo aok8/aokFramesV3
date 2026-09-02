@@ -3,7 +3,7 @@ import { dev } from '$app/environment';
 import { assetUrl } from '$lib/utils/r2.js';
 import path from 'node:path';
 import { imageSize } from 'image-size';
-import type { PageServerLoad, RequestEvent } from './$types';
+import type { RequestHandler } from './$types.js';
 // Import the generated constant from the .ts file as fallback
 // @ts-ignore - Generated file may not exist for TypeScript
 import { dimensionsMap as localDimensionsMap } from '$lib/data/portfolio-dimensions';
@@ -98,7 +98,7 @@ async function fetchAltMap(platform: any): Promise<Record<string, string>> {
 }
 
 // GET API route
-export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestEvent): Promise<Response> => {
+export const GET: RequestHandler = async ({ platform, request }): Promise<Response> => {
   console.log('[portfolio-images] Endpoint called');
   
   // Create a debug log collection 
@@ -330,4 +330,4 @@ export const GET: PageServerLoad = async ({ platform, fetch, request }: RequestE
         headers: { 'Content-Type': 'application/json' }
     });
   }
-} 
+}

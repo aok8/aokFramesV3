@@ -2,7 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import fs from 'node:fs/promises'; // Import fs for local dev file reading
 import path from 'node:path'; // Import path for local dev file reading
-import { createServerLogger } from '$lib/utils/logger';
+import { createServerLogger } from '$lib/utils/logger.js';
 
 // Use a type for diagnostics
 interface DiagnosticResult {
@@ -330,4 +330,4 @@ async function handleDiagnostics({ event }: { event: any }): Promise<Response> {
         headers: { 'Content-Type': 'application/json' },
         status: 200
     });
-} 
+}

@@ -11,7 +11,7 @@
   import '@fontsource/josefin-sans/400.css';
   import '@fontsource/josefin-sans/600.css';
 
-  import { navigating } from '$app/stores';
+	import { navigating, page } from '$app/stores';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import Cursor from '$lib/components/ui/Cursor.svelte';
@@ -31,7 +31,9 @@
           opacity: 1,
           duration: 0.18,
           ease: 'power1.in',
-          onStart: () => { overlay!.style.pointerEvents = 'all'; },
+					onStart: () => {
+						overlay!.style.pointerEvents = 'all';
+					}
         });
       });
     } else if (!$navigating && isTransitioning) {
@@ -41,7 +43,9 @@
           opacity: 0,
           duration: 0.28,
           ease: 'power1.out',
-          onComplete: () => { overlay!.style.pointerEvents = 'none'; },
+					onComplete: () => {
+						overlay!.style.pointerEvents = 'none';
+					}
         });
       });
     }
@@ -50,20 +54,30 @@
 
 <svelte:head>
   <title>AOKFrames</title>
-  <meta name="description" content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images." />
+	<meta
+		name="description"
+		content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images."
+	/>
+	<link rel="canonical" href={`https://aokframes.com${$page.url.pathname}`} />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://aokframes.com/" />
   <meta property="og:title" content="AOKFrames — Film &amp; Digital Photography" />
-  <meta property="og:description" content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images." />
+	<meta
+		property="og:description"
+		content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images."
+	/>
   <meta property="og:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://aokframes.com/" />
   <meta name="twitter:title" content="AOKFrames — Film &amp; Digital Photography" />
-  <meta name="twitter:description" content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images." />
+	<meta
+		name="twitter:description"
+		content="Seattle-based photographer Alain Kouassi — film and digital. Capturing moments and telling stories through images."
+	/>
   <meta name="twitter:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 </svelte:head>
 

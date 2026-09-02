@@ -43,11 +43,19 @@ function parseFrontmatter(content: string) {
   return { data: frontmatter, content: markdownContent };
 }
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, data }) => {
   const { slug } = params;
   const decodedSlug = decodeURIComponent(slug);
 
   logger.log(`[+page.ts Load] Loading blog post: "${decodedSlug}" (dev: ${dev})`);
+
+	// The server loader is the source of truth for direct visits, refreshes, and
+	// crawlers. Keep the client fallbacks below for older cached deployments.
+	if (data.post) {
+		updateSessionStorageWithPost(data.post);
+		updateStoreWithPost(data.post);
+		return { post: data.post };
+	}
 
   // --- Development Mode: read straight from local static files ---
   if (dev) {
@@ -56,7 +64,9 @@ export const load: PageLoad = async ({ params, fetch }) => {
       const response = await fetch(postPath);
 
       if (!response.ok) {
-        logger.error(`Failed to fetch post in dev mode: ${response.status} ${response.statusText} for ${postPath}`);
+				logger.error(
+					`Failed to fetch post in dev mode: ${response.status} ${response.statusText} for ${postPath}`
+				);
         throw error(404, `Blog post file not found at ${postPath}`);
       }
 
@@ -129,7 +139,9 @@ export const load: PageLoad = async ({ params, fetch }) => {
       const cachedPostsJson = sessionStorage.getItem('blogPosts');
       if (cachedPostsJson) {
         const cachedPosts: BlogPost[] = JSON.parse(cachedPostsJson);
-        const postFromSession = cachedPosts.find((p) => p.id.toLowerCase() === decodedSlug.toLowerCase());
+				const postFromSession = cachedPosts.find(
+					(p) => p.id.toLowerCase() === decodedSlug.toLowerCase()
+				);
         if (postFromSession) {
           logger.log('[+page.ts Load] Post found in sessionStorage:', postFromSession.title);
           return { post: postFromSession };

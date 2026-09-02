@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useImageDimensions, getDimensions } from '$lib/hooks/useImageDimensions';
+  import { useImageDimensions, getDimensions } from '$lib/hooks/useImageDimensions.js';
 
   let {
     src,
@@ -120,4 +120,4 @@
   .error .placeholder {
     background-color: rgba(255, 0, 0, 0.1);
   }
-</style> 
+</style>

@@ -1,27 +1,8 @@
 import type { RequestHandler } from './$types.js';
-import { createServerLogger } from '$lib/utils/logger';
-
-// Define platform type
-interface Platform {
-  env?: {
-    ASSETSBUCKET?: {
-      head: (path: string) => Promise<unknown | null>;
-      get: (path: string) => Promise<{ body: ReadableStream } | null>;
-    };
-    VERBOSE_LOGGING?: string;
-  };
-}
-
-interface Params {
-  path: string;
-}
+import { createServerLogger } from '$lib/utils/logger.js';
 
 // This route proxies requests to the R2 bucket directly from the client
-export const GET: RequestHandler = async ({ platform, params, request }: {
-  platform?: Platform;
-  params: Params;
-  request: Request;
-}) => {
+export const GET: RequestHandler = async ({ platform, params, request }) => {
   const serverLogger = createServerLogger(platform?.env);
   serverLogger.log('DirectR2 request for path:', params.path);
 
@@ -168,4 +149,4 @@ function getContentType(path: string): string {
   };
   
   return contentTypes[ext] || 'application/octet-stream';
-} 
+}

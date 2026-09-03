@@ -1,5 +1,5 @@
 import { dev } from '$app/environment';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types.js';
 import { imageSize } from 'image-size';
 import path from 'node:path'; // Import path statically
 
@@ -56,4 +56,4 @@ export const load: PageServerLoad = async ({ platform }) => {
       width,
       height
   };
-}; 
+};

@@ -37,7 +37,8 @@ export async function initScrollReveal(
     onEnter: (batch) => {
       const readyNow: HTMLElement[] = [];
 
-      batch.forEach((el: HTMLElement) => {
+      batch.forEach((element) => {
+        const el = element as HTMLElement;
         const img = el.querySelector<HTMLImageElement>('img');
 
         const reveal = () =>

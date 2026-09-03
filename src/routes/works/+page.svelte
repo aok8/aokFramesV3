@@ -11,7 +11,12 @@
   let selectedWork  = $state<Work | null>(null);
   let hoveredId     = $state<string | null>(null);
   let overlayEl     = $state<HTMLDivElement | null>(null);
+	let nsfwDialogEl = $state<HTMLDivElement | null>(null);
+	let lightboxEl = $state<HTMLDivElement | null>(null);
   let previewsReady = $state(false);
+
+	let focusedBeforeOverlay: HTMLElement | null = null;
+	let focusedBeforeLightbox: HTMLElement | null = null;
 
   // NSFW gate
   let nsfwGateWork  = $state<Work | null>(null);
@@ -24,6 +29,50 @@
   let lbLoaded      = $state(false);
 
   const works = $derived(data.works ?? []);
+	const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+	function rememberFocusedElement() {
+		return document.activeElement instanceof HTMLElement ? document.activeElement : null;
+	}
+
+	function focusFirst(container: HTMLElement | null, selector?: string) {
+		tick().then(() => {
+			const preferred = selector ? container?.querySelector<HTMLElement>(selector) : null;
+			const first =
+				preferred ?? container?.querySelector<HTMLElement>(focusableSelector) ?? container;
+			first?.focus();
+		});
+	}
+
+	function trapDialogFocus(e: KeyboardEvent, container: HTMLElement | null) {
+		if (e.key !== 'Tab' || !container) return;
+		const focusable = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+			(element) => !element.hasAttribute('disabled') && element.getClientRects().length > 0
+		);
+
+		if (focusable.length === 0) {
+			e.preventDefault();
+			container.focus();
+			return;
+		}
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		if (e.shiftKey && document.activeElement === first) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && document.activeElement === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
+
+	function imageAlt(work: Work, image: Work['images'][number], index: number) {
+		const supplied = image.alt?.trim();
+		return supplied && !/^\d+$/.test(supplied)
+			? supplied
+			: `${work.title} — photograph ${index + 1}`;
+	}
 
   // ── Reset + cache-check when contact sheet opens / changes ──
   $effect(() => {
@@ -37,13 +86,13 @@
     let active = true;
     tick().then(() => {
       if (!active) return;
-      document
-        .querySelectorAll<HTMLImageElement>('.contact-thumb img')
-        .forEach((img, idx) => {
+			document.querySelectorAll<HTMLImageElement>('.contact-thumb img').forEach((img, idx) => {
           if (img.complete && img.naturalHeight > 0) imgLoaded[idx] = true;
         });
     });
-    return () => { active = false; };
+		return () => {
+			active = false;
+		};
   });
 
   // ── Reset + cache-check when lightbox image changes ─────────
@@ -57,24 +106,38 @@
       const lbImg = document.querySelector<HTMLImageElement>('.lb-img');
       if (lbImg?.complete && lbImg.naturalHeight > 0) lbLoaded = true;
     });
-    return () => { active = false; };
+		return () => {
+			active = false;
+		};
   });
 
   // ── Works list interactions ──────────────────────────────────
   function openWorkDetail(work: Work) {
     selectedWork = work;
-    if (browser) document.body.style.overflow = 'hidden';
-    if (browser && overlayEl) {
+		if (browser) {
+			document.body.style.overflow = 'hidden';
+			tick().then(() => {
+				if (!overlayEl) return;
+				focusFirst(overlayEl, '.overlay-close');
       import('gsap').then(({ gsap }) => {
-        gsap.fromTo(overlayEl, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' });
+					gsap.fromTo(
+						overlayEl,
+						{ opacity: 0 },
+						{ opacity: 1, duration: 0.25, ease: 'power2.out' }
+					);
+				});
       });
     }
   }
 
   function handleRowClick(work: Work) {
+		if (browser) focusedBeforeOverlay = rememberFocusedElement();
     if (work.nsfw) {
       nsfwGateWork = work;
-      if (browser) document.body.style.overflow = 'hidden';
+			if (browser) {
+				document.body.style.overflow = 'hidden';
+				tick().then(() => focusFirst(nsfwDialogEl, '.nsfw-cancel'));
+			}
     } else {
       openWorkDetail(work);
     }
@@ -89,11 +152,18 @@
 
   function cancelNsfw() {
     nsfwGateWork = null;
-    if (browser) document.body.style.overflow = '';
+		if (browser) {
+			const restoreTarget = focusedBeforeOverlay;
+			focusedBeforeOverlay = null;
+			document.body.style.overflow = '';
+			tick().then(() => restoreTarget?.focus());
+		}
   }
 
   function closeOverlay() {
     lightboxIndex = null;
+    const restoreTarget = focusedBeforeOverlay;
+    focusedBeforeOverlay = null;
     if (browser && overlayEl) {
       import('gsap').then(({ gsap }) => {
         gsap.to(overlayEl, {
@@ -103,12 +173,16 @@
           onComplete: () => {
             selectedWork = null;
             document.body.style.overflow = '';
-          },
+						tick().then(() => restoreTarget?.focus());
+					}
         });
       });
     } else {
       selectedWork = null;
-      if (browser) document.body.style.overflow = '';
+			if (browser) {
+				document.body.style.overflow = '';
+				tick().then(() => restoreTarget?.focus());
+			}
     }
   }
 
@@ -117,8 +191,20 @@
   }
 
   // ── Lightbox ─────────────────────────────────────────────────
-  function openLightbox(i: number) { lightboxIndex = i; }
-  function closeLightbox()         { lightboxIndex = null; }
+	function openLightbox(i: number) {
+		if (browser) focusedBeforeLightbox = rememberFocusedElement();
+		lightboxIndex = i;
+		if (browser) tick().then(() => focusFirst(lightboxEl, '.lb-close'));
+	}
+
+	function closeLightbox() {
+		lightboxIndex = null;
+		if (browser) {
+			const restoreTarget = focusedBeforeLightbox;
+			focusedBeforeLightbox = null;
+			tick().then(() => restoreTarget?.focus());
+		}
+	}
 
   function prevImage() {
     if (lightboxIndex === null || !selectedWork) return;
@@ -147,9 +233,15 @@
   // ── Keyboard ─────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
     if (lightboxIndex !== null) {
-      if      (e.key === 'ArrowLeft')  { e.preventDefault(); prevImage(); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
-      else if (e.key === 'Escape')     { closeLightbox(); }
+			if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				prevImage();
+			} else if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				nextImage();
+			} else if (e.key === 'Escape') {
+				closeLightbox();
+			}
     } else if (selectedWork) {
       if (e.key === 'Escape') closeOverlay();
     } else if (nsfwGateWork) {
@@ -166,12 +258,12 @@
     initFadeUpReveal('.works-row', { stagger: 0.04, duration: 0.6, y: 12 });
 
     // Preload all cover images so hover reveals are instant
-    const coverUrls = works.map(w => w.coverImage).filter(Boolean);
+		const coverUrls = works.map((w) => w.coverImage).filter(Boolean);
     if (coverUrls.length === 0) {
       previewsReady = true;
     } else {
       let loaded = 0;
-      coverUrls.forEach(src => {
+			coverUrls.forEach((src) => {
         const img = new Image();
         img.onload = img.onerror = () => {
           if (++loaded === coverUrls.length) previewsReady = true;
@@ -186,13 +278,19 @@
 
 <svelte:head>
   <title>Works — AOKFrames</title>
-  <meta name="description" content="Selected photography series by Alain Kouassi — film and digital works from 2022 to present." />
+	<meta
+		name="description"
+		content="Selected photography series by Alain Kouassi — film and digital works from 2022 to present."
+	/>
   <meta property="og:title" content="Works — AOKFrames" />
-  <meta property="og:description" content="Selected photography series by Alain Kouassi — film and digital works from 2022 to present." />
+	<meta
+		property="og:description"
+		content="Selected photography series by Alain Kouassi — film and digital works from 2022 to present."
+	/>
   <meta property="og:url" content="https://aokframes.com/works" />
 </svelte:head>
 
-<div class="works-page">
+<div class="works-page" inert={nsfwGateWork !== null || selectedWork !== null}>
   <Navbar />
 
   <div class="works-container">
@@ -212,10 +310,13 @@
             <li
               class="works-row"
               class:hovered={hoveredId === work.id}
-              onmouseenter={() => { if (previewsReady) hoveredId = work.id; }}
+							onmouseenter={() => {
+								if (previewsReady) hoveredId = work.id;
+							}}
               onmouseleave={() => (hoveredId = null)}
             >
               <button
+								type="button"
                 class="works-row-btn"
                 onclick={() => handleRowClick(work)}
                 aria-label={`Open ${work.title}`}
@@ -249,7 +350,9 @@
       {#each works as work}
         <div
           class="works-preview-image"
-          style="opacity: {hoveredId === work.id && !selectedWork ? 1 : 0}; transform: translateX({hoveredId === work.id && !selectedWork ? 0 : 30}px);"
+					style="opacity: {hoveredId === work.id && !selectedWork
+						? 1
+						: 0}; transform: translateX({hoveredId === work.id && !selectedWork ? 0 : 30}px);"
         >
           <img src={work.coverImage} alt="" />
         </div>
@@ -268,13 +371,16 @@
 {#if nsfwGateWork}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
+		bind:this={nsfwDialogEl}
     class="nsfw-backdrop"
     onclick={cancelNsfw}
+		onkeydown={(e) => trapDialogFocus(e, nsfwDialogEl)}
     role="dialog"
     tabindex="-1"
     aria-modal="true"
     aria-label="Content warning"
   >
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="nsfw-card" onclick={(e) => e.stopPropagation()}>
       <p class="nsfw-eyebrow">Content Warning</p>
       <h2 class="nsfw-title">Sensitive Content</h2>
@@ -292,8 +398,10 @@
         </div>
       {/if}
       <div class="nsfw-actions">
-        <button class="nsfw-cancel" onclick={cancelNsfw}>Go back</button>
-        <button class="nsfw-confirm" onclick={confirmNsfw}>I understand, continue</button>
+				<button type="button" class="nsfw-cancel" onclick={cancelNsfw}>Go back</button>
+				<button type="button" class="nsfw-confirm" onclick={confirmNsfw}
+					>I understand, continue</button
+				>
       </div>
     </div>
   </div>
@@ -305,7 +413,9 @@
   <div
     bind:this={overlayEl}
     class="overlay"
+		inert={lightboxIndex !== null}
     onclick={handleOverlayBackdropClick}
+		onkeydown={(e) => trapDialogFocus(e, overlayEl)}
     role="dialog"
     tabindex="-1"
     aria-modal="true"
@@ -314,7 +424,12 @@
     <div class="overlay-inner">
       <div class="overlay-header">
         <h2 class="overlay-title">{selectedWork.title}</h2>
-        <button class="overlay-close" onclick={closeOverlay} aria-label="Close">×</button>
+				<button
+					type="button"
+					class="overlay-close"
+					onclick={closeOverlay}
+					aria-label={`Close ${selectedWork.title} gallery`}>×</button
+				>
       </div>
 
       {#if selectedWork.description}
@@ -323,26 +438,23 @@
 
       <div class="contact-grid">
         {#each selectedWork.images as image, i}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <div
+					<button
+						type="button"
             class="contact-thumb"
-            role="button"
-            tabindex="0"
-            aria-label={`View ${image.alt ?? `image ${i + 1}`} full size`}
+						aria-label={`View ${imageAlt(selectedWork, image, i)} full size`}
             onclick={() => openLightbox(i)}
-            onkeydown={(e) => e.key === 'Enter' && openLightbox(i)}
           >
             <img
               src={image.src}
-              alt={image.alt ?? `${selectedWork.title} — ${i + 1}`}
-              loading="eager"
+							alt={imageAlt(selectedWork, image, i)}
+							loading={i < 4 ? 'eager' : 'lazy'}
               class:loaded={imgLoaded[i]}
-              onload={() => { imgLoaded[i] = true; }}
+							onload={() => {
+								imgLoaded[i] = true;
+							}}
             />
-            {#if image.alt}
-              <span class="contact-label">{image.alt}</span>
-            {/if}
-          </div>
+						<span class="contact-label">{imageAlt(selectedWork, image, i)}</span>
+					</button>
         {/each}
       </div>
     </div>
@@ -353,47 +465,63 @@
 {#if lightboxIndex !== null && selectedWork}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
+		bind:this={lightboxEl}
     class="lightbox"
     role="dialog"
     aria-modal="true"
     aria-label={`Image ${lightboxIndex + 1} of ${selectedWork.images.length}`}
+		tabindex="-1"
     onclick={closeLightbox}
+		onkeydown={(e) => trapDialogFocus(e, lightboxEl)}
     ontouchstart={handleTouchStart}
     ontouchend={handleTouchEnd}
   >
     <!-- Prev -->
     <button
+			type="button"
       class="lb-nav lb-prev"
-      onclick={(e) => { e.stopPropagation(); prevImage(); }}
-      aria-label="Previous image"
-    >‹</button>
+			onclick={(e) => {
+				e.stopPropagation();
+				prevImage();
+			}}
+			aria-label="Previous image">‹</button
+		>
 
     <!-- Image frame — keyed so img remounts on index change -->
     {#key lightboxIndex}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="lb-frame" onclick={(e) => e.stopPropagation()}>
         <img
           class="lb-img"
           class:loaded={lbLoaded}
           src={selectedWork.images[lightboxIndex].src}
-          alt={selectedWork.images[lightboxIndex].alt ?? `${selectedWork.title} — ${lightboxIndex + 1}`}
+					alt={imageAlt(selectedWork, selectedWork.images[lightboxIndex], lightboxIndex)}
           loading="eager"
-          onload={() => { lbLoaded = true; }}
+					onload={() => {
+						lbLoaded = true;
+					}}
         />
       </div>
     {/key}
 
     <!-- Next -->
     <button
+			type="button"
       class="lb-nav lb-next"
-      onclick={(e) => { e.stopPropagation(); nextImage(); }}
-      aria-label="Next image"
-    >›</button>
+			onclick={(e) => {
+				e.stopPropagation();
+				nextImage();
+			}}
+			aria-label="Next image">›</button
+		>
 
     <!-- Counter -->
     <div class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</div>
 
     <!-- Close (back to contact sheet) -->
-    <button class="lb-close" onclick={closeLightbox} aria-label="Back to gallery">×</button>
+		<button type="button" class="lb-close" onclick={closeLightbox} aria-label="Back to gallery"
+			>×</button
+		>
   </div>
 {/if}
 
@@ -422,6 +550,7 @@
     z-index: 2;
     display: flex;
     flex-direction: column;
+		min-width: 0;
   }
 
   /* ── Page title ───────────────────────────────────────────── */
@@ -481,11 +610,13 @@
     opacity: 0.5;
     min-width: 2.2rem;
     flex-shrink: 0;
-    transition: color 0.3s ease, opacity 0.3s ease;
+		transition:
+			color 0.3s ease,
+			opacity 0.3s ease;
   }
 
   .works-row:hover .row-number {
-    color: var(--forest-green, #2D4739);
+		color: var(--forest-green, #2d4739);
     opacity: 1;
   }
 
@@ -495,6 +626,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+		min-width: 0;
   }
 
   .row-title {
@@ -504,6 +636,7 @@
     line-height: 1.1;
     color: var(--silver, #c8c0b8);
     transition: color 0.3s ease;
+		overflow-wrap: anywhere;
   }
 
   .works-row:hover .row-title {
@@ -519,7 +652,10 @@
     color: var(--silver, #c8c0b8);
     opacity: 0;
     transform: translateX(-8px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+		transition:
+			opacity 0.3s ease,
+			transform 0.3s ease;
+		overflow-wrap: anywhere;
   }
 
   .works-row:hover .row-tags {
@@ -533,7 +669,9 @@
     font-size: 1rem;
     color: var(--silver, #c8c0b8);
     opacity: 0;
-    transition: opacity 0.18s ease, transform 0.18s ease;
+		transition:
+			opacity 0.18s ease,
+			transform 0.18s ease;
     flex-shrink: 0;
   }
 
@@ -606,8 +744,15 @@
   }
 
   @keyframes preview-pulse {
-    0%, 100% { width: 20px; opacity: 0.2; }
-    50%       { width: 44px; opacity: 0.55; }
+		0%,
+		100% {
+			width: 20px;
+			opacity: 0.2;
+		}
+		50% {
+			width: 44px;
+			opacity: 0.55;
+		}
   }
 
   /* ── Responsive ───────────────────────────────────────────── */
@@ -673,7 +818,9 @@
     padding: 0 0.25rem;
     opacity: 0.7;
     cursor: pointer;
-    transition: opacity 0.15s ease, color 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			color 0.15s ease;
     flex-shrink: 0;
   }
 
@@ -734,7 +881,9 @@
   }
 
   @keyframes thumb-shimmer {
-    to { transform: translateX(300%); }
+		to {
+			transform: translateX(300%);
+		}
   }
 
   /* Image: hidden + slightly zoomed, reveal with fade + zoom-out */
@@ -745,7 +894,9 @@
     display: block;
     opacity: 0;
     transform: scale(1.05);
-    transition: opacity 0.5s ease, transform 0.55s ease;
+		transition:
+			opacity 0.5s ease,
+			transform 0.55s ease;
     position: relative;
     z-index: 2;
   }
@@ -779,14 +930,22 @@
   }
 
   @media (max-width: 1024px) {
-    .contact-grid { grid-template-columns: repeat(4, 1fr); }
+		.contact-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
   }
   @media (max-width: 768px) {
-    .overlay-inner { padding: 1.25rem; }
-    .contact-grid  { grid-template-columns: repeat(3, 1fr); }
+		.overlay-inner {
+			padding: 1.25rem;
+		}
+		.contact-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
   }
   @media (max-width: 480px) {
-    .contact-grid { grid-template-columns: repeat(2, 1fr); }
+		.contact-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
   }
 
   /* ── Lightbox ─────────────────────────────────────────────── */
@@ -865,8 +1024,12 @@
     line-height: 1;
   }
 
-  .lb-prev { left: 0.75rem; }
-  .lb-next { right: 0.75rem; }
+	.lb-prev {
+		left: 0.75rem;
+	}
+	.lb-next {
+		right: 0.75rem;
+	}
 
   .lb-nav:hover {
     color: var(--warm-white, #f0ebe3);
@@ -911,11 +1074,21 @@
 
   /* Mobile lightbox */
   @media (max-width: 640px) {
-    .lb-nav      { font-size: 2.5rem; width: 3rem; }
-    .lb-prev     { left: 0.1rem; }
-    .lb-next     { right: 0.1rem; }
+		.lb-nav {
+			font-size: 2.5rem;
+			width: 3rem;
+		}
+		.lb-prev {
+			left: 0.1rem;
+		}
+		.lb-next {
+			right: 0.1rem;
+		}
     .lb-img,
-    .lb-frame    { max-width: 96vw; max-height: 80vh; }
+		.lb-frame {
+			max-width: 96vw;
+			max-height: 80vh;
+		}
   }
 
   /* ── NSFW badge on row ────────────────────────────────────── */
@@ -933,7 +1106,9 @@
     vertical-align: middle;
     position: relative;
     top: -0.1em;
-    transition: color 0.3s ease, border-color 0.3s ease;
+		transition:
+			color 0.3s ease,
+			border-color 0.3s ease;
   }
 
   .works-row:hover .row-nsfw-badge {
@@ -957,8 +1132,12 @@
   }
 
   @keyframes nsfw-fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
   }
 
   .nsfw-card {
@@ -974,8 +1153,14 @@
   }
 
   @keyframes nsfw-slide-up {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
+		from {
+			opacity: 0;
+			transform: translateY(16px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
   }
 
   .nsfw-eyebrow {
@@ -1058,7 +1243,9 @@
     border: 1px solid rgba(200, 192, 184, 0.12);
     padding: 0.75rem 1.5rem;
     cursor: pointer;
-    transition: color 0.2s ease, border-color 0.2s ease;
+		transition:
+			color 0.2s ease,
+			border-color 0.2s ease;
   }
 
   .nsfw-cancel:hover {
@@ -1072,16 +1259,18 @@
     font-weight: 400;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: var(--forest-green, #2D4739);
+		color: var(--forest-green, #2d4739);
     background: none;
-    border: 1px solid var(--forest-green, #2D4739);
+		border: 1px solid var(--forest-green, #2d4739);
     padding: 0.75rem 1.75rem;
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease;
+		transition:
+			background-color 0.2s ease,
+			color 0.2s ease;
   }
 
   .nsfw-confirm:hover {
-    background-color: var(--forest-green, #2D4739);
+		background-color: var(--forest-green, #2d4739);
     color: var(--warm-white, #f0ebe3);
   }
 

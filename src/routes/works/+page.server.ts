@@ -1,9 +1,8 @@
-import type { PageServerLoad } from '@sveltejs/kit';
-import type { PageData, LayoutData } from './$types.js';
+import type { ServerLoad } from '@sveltejs/kit';
 import { loadWorks } from '$lib/server/works.js';
-import { createServerLogger } from '$lib/utils/logger';
+import { createServerLogger } from '$lib/utils/logger.js';
 
-export const load: PageServerLoad<PageData, LayoutData> = async ({ parent, platform }) => {
+export const load: ServerLoad = async ({ parent, platform }) => {
   const serverLogger = createServerLogger(platform?.env);
   
   // Get the works that were already loaded in the layout
@@ -56,4 +55,4 @@ export const load: PageServerLoad<PageData, LayoutData> = async ({ parent, platf
     works: [],
     loadFailed: true
   };
-}; 
+};

@@ -11,7 +11,11 @@
   // Render markdown content to HTML, rewriting relative img srcs to CDN URLs
   $: htmlContent = (() => {
     if (!data.post?.content) return '';
-    const raw = marked.parse(data.post.content, { gfm: true, breaks: true, async: false }) as string;
+		const raw = marked.parse(data.post.content, {
+			gfm: true,
+			breaks: true,
+			async: false
+		}) as string;
     // Any src that isn't absolute (http/https// /data:) belongs to this post's R2 folder
     const withCdn = raw.replace(
       /(<img[^>]+src=")(?!https?:\/\/|\/\/|\/|data:)([^"]+)(")/gi,
@@ -24,20 +28,36 @@
 
 <svelte:head>
   <title>{data.post.title} — AOKFrames</title>
-  <meta name="description" content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`} />
+	<meta
+		name="description"
+		content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`}
+	/>
+	<meta property="og:type" content="article" />
   <meta property="og:title" content="{data.post.title} — AOKFrames" />
-  <meta property="og:description" content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`} />
+	<meta
+		property="og:description"
+		content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`}
+	/>
   <meta property="og:url" content="https://aokframes.com/blog/{data.post.id}" />
-  <meta property="og:image" content="https://assets.aokframes.com/blog/posts/{data.post.id}/header.webp" />
+	<meta
+		property="og:image"
+		content="https://assets.aokframes.com/blog/posts/{data.post.id}/header.webp"
+	/>
   <meta name="twitter:title" content="{data.post.title} — AOKFrames" />
-  <meta name="twitter:image" content="https://assets.aokframes.com/blog/posts/{data.post.id}/header.webp" />
+	<meta
+		name="twitter:description"
+		content={data.post.summary ?? `${data.post.title} — AOKFrames Journal`}
+	/>
+	<meta
+		name="twitter:image"
+		content="https://assets.aokframes.com/blog/posts/{data.post.id}/header.webp"
+	/>
 </svelte:head>
 
 <div class="post-page">
   <Navbar />
 
   <main class="post-main">
-
     <!-- Back nav -->
     <div class="post-nav-bar">
       <div class="post-nav-inner">
@@ -59,7 +79,6 @@
     <!-- Article -->
     <div class="post-article-wrap">
       <article class="post-article">
-
         <!-- Meta above title -->
         <div class="post-meta">
           <span class="post-label">{data.post.label}</span>
@@ -67,7 +86,11 @@
           <span class="post-author">{data.post.author}</span>
           <span class="meta-sep">·</span>
           <time class="post-date" datetime={data.post.published}>
-            {new Date(data.post.published).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+						{new Date(data.post.published).toLocaleDateString('en-US', {
+							year: 'numeric',
+							month: 'long',
+							day: 'numeric'
+						})}
           </time>
         </div>
 
@@ -77,10 +100,8 @@
         <div class="post-prose">
           {@html htmlContent}
         </div>
-
       </article>
     </div>
-
   </main>
 
   <Footer />
@@ -145,11 +166,7 @@
   .post-hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      to bottom,
-      transparent 40%,
-      rgba(14, 14, 14, 0.7) 100%
-    );
+		background: linear-gradient(to bottom, transparent 40%, rgba(14, 14, 14, 0.7) 100%);
   }
 
   /* Article wrap */
@@ -227,10 +244,19 @@
     line-height: 1.2;
   }
 
-  .post-prose :global(h1) { font-size: 2rem; }
-  .post-prose :global(h2) { font-size: 1.65rem; }
-  .post-prose :global(h3) { font-size: 1.35rem; }
-  .post-prose :global(h4) { font-size: 1.1rem; font-style: italic; }
+	.post-prose :global(h1) {
+		font-size: 2rem;
+	}
+	.post-prose :global(h2) {
+		font-size: 1.65rem;
+	}
+	.post-prose :global(h3) {
+		font-size: 1.35rem;
+	}
+	.post-prose :global(h4) {
+		font-size: 1.1rem;
+		font-style: italic;
+	}
 
   .post-prose :global(p) {
     margin: 0 0 1.5rem;

@@ -81,12 +81,6 @@
     line-height: 1.8;
   }
 
-  .error-message a {
-    color: var(--forest-green, #2D4739);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
   .btn-bordered {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 400;

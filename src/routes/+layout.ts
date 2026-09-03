@@ -1,7 +1,7 @@
 import { dev } from '$app/environment';
 import type { LayoutLoad } from './$types.js';
-import { envStore } from '$lib/stores/envStore';
-import { logger } from '$lib/utils/logger';
+import { envStore } from '$lib/stores/envStore.js';
+import { logger } from '$lib/utils/logger.js';
 
 export const load: LayoutLoad = async ({ data, fetch }) => {
   // Update the envStore with the server-provided value
@@ -55,4 +55,4 @@ export const load: LayoutLoad = async ({ data, fetch }) => {
 };
 
 export const ssr = true;
-export const csr = true; 
+export const csr = true;

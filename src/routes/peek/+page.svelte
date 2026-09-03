@@ -2,7 +2,7 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import FilmStrip from '$lib/components/peek/FilmStrip.svelte';
-  import type { PageData } from './$types';
+	import type { PageData } from './$types.js';
 
   let { data }: { data: PageData } = $props();
 
@@ -12,9 +12,15 @@
 
 <svelte:head>
   <title>Quick-Peek — AOKFrames</title>
-  <meta name="description" content="A rolling preview of recently processed film — images I'm working through before they become a series or get archived." />
+	<meta
+		name="description"
+		content="A rolling preview of recently processed film — images I'm working through before they become a series or get archived."
+	/>
   <meta property="og:title" content="Quick-Peek — AOKFrames" />
-  <meta property="og:description" content="A rolling preview of recently processed film — images I'm working through before they become a series or get archived." />
+	<meta
+		property="og:description"
+		content="A rolling preview of recently processed film — images I'm working through before they become a series or get archived."
+	/>
   <meta property="og:url" content="https://aokframes.com/peek" />
 </svelte:head>
 
@@ -32,7 +38,14 @@
       </p>
     </header>
 
-    {#if data.isEmpty}
+		{#if data.loadError}
+			<div class="peek-status" role="status">
+				<p>The latest frames couldn't be loaded.</p>
+				<a href="/peek">Try again</a>
+			</div>
+			<FilmStrip images={[]} ghost={true} direction="forward" speed={40} height={260} />
+			<FilmStrip images={[]} ghost={true} direction="reverse" speed={55} height={200} />
+		{:else if data.isEmpty}
       <p class="holding-msg">
         I got nothing right now, but I promise I'm working on the next batch. Maybe. Kinda.
       </p>
@@ -45,8 +58,10 @@
 
     <div class="bottom-meta">
       <div>
-        <p class="bottom-meta-label">Hover to pause</p>
-        <p class="hover-hint">← Auto-scrolling filmstrip →</p>
+				<p class="bottom-meta-label motion-label-default">Hover to pause</p>
+				<p class="bottom-meta-label motion-label-reduced">Scroll to explore</p>
+				<p class="hover-hint motion-label-default">← Auto-scrolling filmstrip →</p>
+				<p class="hover-hint motion-label-reduced">← Static filmstrip →</p>
       </div>
       <div class="bottom-meta-count">{data.images.length}</div>
     </div>
@@ -122,6 +137,36 @@
     padding: 2.5rem 0 3rem;
     letter-spacing: 0.02em;
   }
+
+	.peek-status {
+		padding: 2.5rem 5vw 3rem;
+		text-align: center;
+		color: var(--silver);
+		font-family: var(--font-ui);
+		font-size: 0.875rem;
+		letter-spacing: 0.08em;
+	}
+
+	.peek-status a {
+		display: inline-block;
+		margin-top: 0.75rem;
+		color: var(--warm-white);
+		text-decoration: underline;
+		text-underline-offset: 0.3em;
+	}
+
+	.motion-label-reduced {
+		display: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.motion-label-default {
+			display: none;
+		}
+		.motion-label-reduced {
+			display: block;
+		}
+	}
 
   .bottom-meta {
     padding: 2rem 5vw 4rem;

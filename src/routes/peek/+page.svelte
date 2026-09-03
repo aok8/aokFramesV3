@@ -43,26 +43,14 @@
 				<p>The latest frames couldn't be loaded.</p>
 				<a href="/peek">Try again</a>
 			</div>
-			<FilmStrip images={[]} ghost={true} speed={40} height={260} />
 		{:else if data.isEmpty}
 			<p class="holding-msg">
 				I got nothing right now, but I promise I'm working on the next batch. Maybe. Kinda.
 			</p>
-			<FilmStrip images={[]} ghost={true} speed={40} height={260} />
 		{:else}
 			<FilmStrip images={featuredImages} speed={40} height={260} />
 			<ContactSheet images={data.images} />
 		{/if}
-
-		<div class="bottom-meta">
-			<div>
-				<p class="bottom-meta-label motion-label-default">Hover to pause</p>
-				<p class="bottom-meta-label motion-label-reduced">Scroll to explore</p>
-				<p class="hover-hint motion-label-default">← Auto-scrolling current roll →</p>
-				<p class="hover-hint motion-label-reduced">← Static filmstrip →</p>
-			</div>
-			<div class="bottom-meta-count">{data.images.length}</div>
-		</div>
 	</main>
 
 	<Footer />
@@ -126,18 +114,24 @@
 	}
 
 	.holding-msg {
+		display: grid;
+		min-height: clamp(16rem, 42vh, 32rem);
+		place-items: center;
 		font-family: var(--font-display);
 		font-style: italic;
 		font-weight: 300;
 		font-size: clamp(1rem, 1.8vw, 1.4rem);
-		color: rgba(200, 192, 184, 0.4);
+		color: rgba(200, 192, 184, 0.68);
 		text-align: center;
-		padding: 2.5rem 0 3rem;
+		padding: 4rem 5vw;
 		letter-spacing: 0.02em;
 	}
 
 	.peek-status {
-		padding: 2.5rem 5vw 3rem;
+		display: grid;
+		min-height: clamp(16rem, 42vh, 32rem);
+		place-content: center;
+		padding: 4rem 5vw;
 		text-align: center;
 		color: var(--silver);
 		font-family: var(--font-ui);
@@ -151,51 +145,5 @@
 		color: var(--warm-white);
 		text-decoration: underline;
 		text-underline-offset: 0.3em;
-	}
-
-	.motion-label-reduced {
-		display: none;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.motion-label-default {
-			display: none;
-		}
-		.motion-label-reduced {
-			display: block;
-		}
-	}
-
-	.bottom-meta {
-		padding: 2rem 5vw 4rem;
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-end;
-		border-top: 1px solid rgba(200, 192, 184, 0.06);
-	}
-
-	.bottom-meta-label {
-		font-size: 9px;
-		letter-spacing: 0.3em;
-		text-transform: uppercase;
-		color: rgba(200, 192, 184, 0.35);
-	}
-
-	.hover-hint {
-		font-size: 9px;
-		letter-spacing: 0.25em;
-		text-transform: uppercase;
-		color: var(--forest-green);
-		opacity: 0.6;
-		margin-top: 0.5rem;
-	}
-
-	.bottom-meta-count {
-		font-family: var(--font-display);
-		font-size: 4rem;
-		font-weight: 300;
-		font-style: italic;
-		color: rgba(200, 192, 184, 0.08);
-		line-height: 1;
 	}
 </style>

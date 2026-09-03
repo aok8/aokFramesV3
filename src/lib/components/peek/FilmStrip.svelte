@@ -3,14 +3,11 @@
 
 	let {
 		images = [],
-		ghost = false,
 		speed = 40,
 		height = 260
-	}: { images: PeekImage[]; ghost?: boolean; speed?: number; height?: number } = $props();
+	}: { images: PeekImage[]; speed?: number; height?: number } = $props();
 
-	const GHOST_FRAMES = 6;
-	const frames = $derived(ghost ? [] : [...images, ...images]);
-	const ghostFrames = Array(GHOST_FRAMES * 2);
+	const frames = $derived([...images, ...images]);
 	let imgLoaded = $state<boolean[]>([]);
 
 	$effect(() => {
@@ -26,42 +23,33 @@
 	}
 </script>
 
-<section class="strip-section" aria-label={ghost ? 'Film strip placeholder' : 'Current film roll'}>
+<section class="strip-section" aria-label="Current film roll">
 	<div class="strip-track">
 		<div class="strip-fade strip-fade-left"></div>
 		<div class="strip-fade strip-fade-right"></div>
 		<div class="strip-inner" style:--strip-speed={`${speed}s`} style:--frame-height={`${height}px`}>
 			<div class="frames-row">
-				{#if ghost}
-					{#each ghostFrames as _, i}
-						<div class="film-frame ghost-frame" aria-hidden="true">
-							<div class="ghost-panel"></div>
-							<span class="frame-num">{String((i % GHOST_FRAMES) + 1).padStart(2, '0')}</span>
-						</div>
-					{/each}
-				{:else}
-					{#each frames as image, i}
-						<div
-							class="film-frame"
-							class:duplicate-frame={i >= images.length}
-							aria-hidden={i >= images.length}
-						>
-							<div class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></div>
-							<img
-								src={image.url}
-								alt={i < images.length ? imageAlt(image, i) : ''}
-								loading="eager"
-								decoding="async"
-								fetchpriority={i === 0 ? 'high' : 'auto'}
-								class:img-loaded={imgLoaded[i]}
-								use:checkLoaded={i}
-								onload={() => (imgLoaded[i] = true)}
-								onerror={() => (imgLoaded[i] = true)}
-							/>
-							<span class="frame-num">{String((i % images.length) + 1).padStart(2, '0')}</span>
-						</div>
-					{/each}
-				{/if}
+				{#each frames as image, i}
+					<div
+						class="film-frame"
+						class:duplicate-frame={i >= images.length}
+						aria-hidden={i >= images.length}
+					>
+						<div class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></div>
+						<img
+							src={image.url}
+							alt={i < images.length ? imageAlt(image, i) : ''}
+							loading="eager"
+							decoding="async"
+							fetchpriority={i === 0 ? 'high' : 'auto'}
+							class:img-loaded={imgLoaded[i]}
+							use:checkLoaded={i}
+							onload={() => (imgLoaded[i] = true)}
+							onerror={() => (imgLoaded[i] = true)}
+						/>
+						<span class="frame-num">{String((i % images.length) + 1).padStart(2, '0')}</span>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>
@@ -173,11 +161,6 @@
 	}
 	.strip-inner:hover .film-frame:hover img {
 		filter: sepia(0%) contrast(1.1);
-	}
-	.ghost-panel {
-		width: 100%;
-		height: 100%;
-		border: 1px solid rgba(200, 192, 184, 0.07);
 	}
 	.frame-num {
 		position: absolute;

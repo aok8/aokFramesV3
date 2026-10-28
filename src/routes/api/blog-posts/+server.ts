@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { loadBlogPosts } from '$lib/server/blog.js';
 import type { RequestHandler } from './$types.js';
-import matter from 'gray-matter';
+import { parseFrontmatter } from '$lib/server/frontmatter.js';
 import type { BlogPost } from '$lib/types/blog.js';
 import { assetUrl } from '$lib/utils/r2.js';
 import { dev } from '$app/environment';
@@ -92,8 +92,12 @@ export const GET: RequestHandler = async (event) => {
             console.log('Processing post with key:', obj.key);
             
             // Get the slug from the filename (without extension)
-            const filename = obj.key.split('/').pop() || '';
-            const slug = filename.replace(/\.md$/i, '');
+            // Posts live at blog/posts/<slug>/index.md, so the slug is the folder name.
+            const keyParts = obj.key.split('/');
+            const filename = keyParts.pop() || '';
+            const slug = /^index\.md$/i.test(filename) && keyParts.length
+              ? keyParts[keyParts.length - 1]
+              : filename.replace(/\.md$/i, '');
             
             // Get the actual markdown content from R2
             const fileObject = await assetsBucket.get(obj.key);
@@ -104,7 +108,7 @@ export const GET: RequestHandler = async (event) => {
             const content = await fileObject.text();
             
             // Parse frontmatter and content
-            const { data, content: markdownContent } = matter(content);
+            const { data, content: markdownContent } = parseFrontmatter(content);
             
             // Extract title from first h1
             const titleMatch = markdownContent.match(/^#\s+(.*)/m);

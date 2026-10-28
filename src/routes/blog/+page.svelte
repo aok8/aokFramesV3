@@ -4,7 +4,7 @@
   import BlogPostComponent from '$lib/components/blog/BlogPost.svelte';
   import { posts } from '../../lib/stores/blog.js';
   import type { PageData } from './$types.js';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { dev } from '$app/environment';
 	import { logger } from '$lib/utils/logger.js';
@@ -109,8 +109,12 @@
     }
 
     // Reveal post cards after all data loading settles
-    await Promise.resolve();
-    initFadeUpReveal('.post-card', { stagger: 0.07, duration: 0.65, y: 18 });
+    // Wait for the cards to actually be in the DOM; if there are none (empty/error state)
+    // there is nothing to reveal, so don't ask GSAP to animate a missing target.
+    await tick();
+    if (document.querySelector('.post-card')) {
+      initFadeUpReveal('.post-card', { stagger: 0.07, duration: 0.65, y: 18 });
+    }
   });
 </script>
 

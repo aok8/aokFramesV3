@@ -53,6 +53,7 @@
 	let setWidth = 0;
 	let trackW = 0;
 	let seekTarget: number | null = null;
+	let kidsCache: HTMLElement[] = [];
 
 	let rafId = 0;
 	let last = 0;
@@ -75,7 +76,10 @@
 		innerEl.style.transform = `translate3d(${-offset}px,0,0)`;
 		// Frames near the middle of the viewport are "exposed"; the edges sink into the dark.
 		const half = trackW / 2 || 1;
-		const kids = innerEl.querySelectorAll<HTMLElement>('.film-frame');
+		if (!kidsCache.length || kidsCache.length !== total) {
+			kidsCache = Array.from(innerEl.querySelectorAll<HTMLElement>('.film-frame'));
+		}
+		const kids = kidsCache;
 		for (let i = 0; i < kids.length; i++) {
 			const cx = i * frameW + frameW / 2 - offset;
 			if (cx < -frameW || cx > trackW + frameW) continue;
@@ -265,7 +269,7 @@
 						<img
 							src={image.url}
 							alt=""
-							loading="eager"
+							loading={i < 6 ? 'eager' : 'lazy'}
 							decoding="async"
 							draggable="false"
 							fetchpriority={i === 0 ? 'high' : 'auto'}

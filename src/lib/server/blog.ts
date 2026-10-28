@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 import type { BlogPost } from '../types/blog.js';
 import { dev } from '$app/environment';
-import matter from 'gray-matter';
+import { parseFrontmatter } from './frontmatter.js';
 import { assetUrl } from '../utils/r2.js';
 
 // Development-only imports
@@ -271,7 +271,7 @@ export async function loadBlogPost(slug: string, platform?: Platform): Promise<B
     
     // Parse frontmatter and content
     console.log('Parsing frontmatter and content');
-    const { data, content: markdownContent } = matter(fileContent);
+    const { data, content: markdownContent } = parseFrontmatter(fileContent);
     console.log('Parsed frontmatter:', data);
     
     // Extract title from first h1

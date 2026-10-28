@@ -8,7 +8,11 @@
 
 	let { data }: { data: PageData } = $props();
 
-	const featuredImages = $derived(data.images.slice(0, 6));
+	// The strip shows the 35 newest frames; the contact sheet below carries the whole batch.
+	const STRIP_MAX = 35;
+	const featuredImages = $derived(data.images.slice(0, STRIP_MAX));
+	// Keep the cruising pace (~51px/s) the same however many frames are on the roll.
+	const stripSeconds = $derived(Math.max(40, featuredImages.length * 6.7));
 
 	let stripOpen = $state(false);
 	let stripIndex = $state(0);
@@ -60,7 +64,7 @@
 		{:else}
 			<FilmStrip
 				images={featuredImages}
-				speed={40}
+				speed={stripSeconds}
 				height={260}
 				onopen={(i) => ((stripIndex = i), (stripOpen = true))}
 			/>

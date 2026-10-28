@@ -18,10 +18,10 @@
 <div class="error-page">
   <Navbar />
 
-  <main class="error-main">
+  <main id="main" class="error-main">
     <p class="error-eyebrow">Error</p>
-    <h1 class="error-code">{status}</h1>
-    <div class="error-message">
+    <h1 class="error-code enter" style="--enter-delay: 80ms">{status}</h1>
+    <div class="error-message enter" style="--enter-delay: 220ms">
       {#if status === 404}
         <p>Sorry, this page doesn't exist. It's probably hidden somewhere with Kodak Aerochrome.</p>
         <p>There may be a typo in the URL or the page may have been moved.</p>
@@ -29,7 +29,7 @@
         <p>{message}</p>
       {/if}
     </div>
-    <a href="/" class="btn-bordered">Back to Home</a>
+    <a href="/" class="btn-bordered enter" style="--enter-delay: 360ms">Back to Home</a>
   </main>
 
   <Footer />
@@ -57,11 +57,11 @@
 
   .error-eyebrow {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 300;
     letter-spacing: 0.45em;
     text-transform: uppercase;
-    color: var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
     margin: 0;
   }
 
@@ -99,8 +99,8 @@
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.25em;
-    color: var(--forest-green, #2D4739);
-    border: 1px solid var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
+    border: 1px solid var(--green-lit, #86ad93);
     padding: 0.75rem 2rem;
     text-decoration: none;
     display: inline-block;

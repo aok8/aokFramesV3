@@ -10,7 +10,7 @@
 <div class="error-page">
   <Navbar />
 
-  <main class="error-main">
+  <main id="main" class="error-main">
     <p class="error-eyebrow">Error</p>
     <h1 class="error-code">404</h1>
     <div class="error-message">

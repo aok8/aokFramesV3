@@ -12,6 +12,7 @@
   import '@fontsource/josefin-sans/600.css';
 
 	import { navigating, page } from '$app/stores';
+	import { onNavigate } from '$app/navigation';
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import Cursor from '$lib/components/ui/Cursor.svelte';
@@ -19,11 +20,30 @@
 
   let { children } = $props();
 
+  // Cross-fade between pages with the View Transitions API where it exists;
+  // the GSAP overlay below remains as the fallback for other browsers.
+  const hasViewTransitions = browser && 'startViewTransition' in document;
+  const reducedMotion = browser && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  onNavigate((navigation) => {
+    if (!hasViewTransitions || reducedMotion) return;
+    return new Promise((resolve) => {
+      const transition = (document as any).startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+      // A skipped transition (hidden tab, rapid navigation) rejects these; navigation itself is unaffected.
+      transition.ready?.catch(() => {});
+      transition.updateCallbackDone?.catch(() => {});
+      transition.finished?.catch(() => {});
+    });
+  });
+
   let overlay = $state<HTMLDivElement | null>(null);
   let isTransitioning = $state(false);
 
   $effect(() => {
-    if (!browser || !overlay) return;
+    if (!browser || !overlay || hasViewTransitions) return;
     if ($navigating && !isTransitioning) {
       isTransitioning = true;
       import('gsap').then(({ gsap }) => {
@@ -102,5 +122,7 @@
     pointer-events: none;
   "
 ></div>
+
+<a href="#main" class="skip-link">Skip to content</a>
 
 {@render children()}

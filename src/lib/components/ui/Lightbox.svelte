@@ -122,11 +122,17 @@
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="lb-frame" onclick={(e) => e.stopPropagation()}>
-      <img class="lb-img" src={current.src} alt={current.alt} />
+      {#key current.src}
+        <img class="lb-img" src={current.src} alt={current.alt} />
+      {/key}
       {#if current.alt}
         <span class="lb-label">{current.alt}</span>
       {/if}
     </div>
+
+    {#if images.length > 1}
+      <span class="lb-count" aria-live="polite">{index + 1} / {images.length}</span>
+    {/if}
 
     {#if hasNext}
       <button type="button" class="lb-nav lb-next" onclick={(e) => { e.stopPropagation(); onnext?.(); }} aria-label="Next image">›</button>
@@ -218,7 +224,27 @@
     to   { transform: scale(1);    opacity: 1; }
   }
 
+  .lb-count {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: rgba(200, 192, 184, 0.75);
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes lb-img-in {
+    from { opacity: 0; transform: scale(0.985); }
+    to   { opacity: 1; transform: none; }
+  }
+
   .lb-img {
+    animation: lb-img-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     display: block;
     max-width: 100%;
     max-height: calc(90vh - 2rem);
@@ -231,10 +257,10 @@
   .lb-label {
     margin-top: 0.6rem;
     font-family: var(--font-ui);
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: rgba(240, 235, 227, 0.45);
+    color: rgba(240, 235, 227, 0.75);
     pointer-events: none;
     user-select: none;
   }
@@ -269,7 +295,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .lb-backdrop,
-    .lb-frame {
+    .lb-frame,
+    .lb-img {
       animation: none;
     }
   }

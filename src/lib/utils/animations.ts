@@ -27,7 +27,7 @@ export async function initScrollReveal(
   const { ScrollTrigger } = await import('gsap/ScrollTrigger');
   gsap.registerPlugin(ScrollTrigger);
 
-  const { stagger = 0.08, duration = 1.1, start = 'top 88%' } = options;
+  const { stagger = 0.08, duration = 1.1, start = 'top 95%' } = options;
 
   // Set initial hidden state immediately so there's no flash of visible content
   gsap.set(selector, { clipPath: 'inset(100% 0% 0% 0%)' });
@@ -51,6 +51,8 @@ export async function initScrollReveal(
           // Image still loading — hold the clip until it finishes, then reveal solo
           img.addEventListener('load',  reveal, { once: true });
           img.addEventListener('error', reveal, { once: true });
+          // A slow image must not leave a black hole in the grid.
+          setTimeout(reveal, 1500);
         }
       });
 

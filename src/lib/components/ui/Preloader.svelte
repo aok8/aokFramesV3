@@ -29,7 +29,10 @@
       let   loaded   = 0;
 
       // Preload first 15 in parallel, track progress
-      await Promise.all(
+      const MAX_WAIT_MS = 3000;
+      await Promise.race([
+        new Promise<void>((resolve) => setTimeout(resolve, MAX_WAIT_MS)),
+        Promise.all(
         priority.map(({ url }) =>
           new Promise<void>((resolve) => {
             const img = new Image();
@@ -40,7 +43,8 @@
             img.src = url;
           })
         )
-      );
+        )
+      ]);
 
       // Fire the rest of the gallery images in background
       rest.forEach(({ url }) => { new Image().src = url; });
@@ -155,7 +159,7 @@
   .preloader-label {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 100;
-    font-size: 8px;
+    font-size: 12px;
     letter-spacing: 0.55em;
     text-transform: uppercase;
     color: var(--silver, #c8c0b8);

@@ -17,7 +17,8 @@
     --warm-white:    #f0ebe3;
     --silver:        #c8c0b8;
     --gold:          #b8936a;
-    --text-dim:      rgba(200, 192, 184, 0.45);
+    --green-lit:     #86ad93; /* forest green lifted for text/focus on dark: 7.8:1 on near-black */
+    --text-dim:      rgba(200, 192, 184, 0.7);
 
     /* Typography */
     --font-display:  'Cormorant Garamond', Georgia, serif;
@@ -72,9 +73,9 @@
     color: inherit;
   }
 
-  /* Keyboard focus ring — forest-green outline, only shown for keyboard nav */
+  /* Keyboard focus ring — gold outline (forest green was 1.9:1 on near-black), only shown for keyboard nav */
   :focus-visible {
-    outline: 2px solid var(--forest-green, #2D4739);
+    outline: 2px solid var(--gold, #b8936a);
     outline-offset: 3px;
   }
 }
@@ -112,3 +113,47 @@ body::after {
   }
 }
 
+
+/* Skip link — first tab stop, visible only on focus */
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10000;
+  padding: 10px 16px;
+  background: var(--near-black);
+  color: var(--warm-white);
+  border: 1px solid var(--gold);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+
+::selection {
+  background: var(--forest-green);
+  color: var(--warm-white);
+}
+
+/* Page-load entrance for above-the-fold headings. Stagger with style="--enter-delay: 120ms". */
+@keyframes enter-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.enter {
+  animation: enter-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+/* Cross-page fade via the View Transitions API (see +layout.svelte). */
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in  { from { opacity: 0; } }
+::view-transition-old(root) { animation: 0.16s ease-out both vt-out; }
+::view-transition-new(root) { animation: 0.32s cubic-bezier(0.16, 1, 0.3, 1) both vt-in; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

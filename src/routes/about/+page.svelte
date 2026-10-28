@@ -2,6 +2,7 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import { assetUrl } from '$lib/utils/r2.js';
+  import { reveal } from '$lib/utils/reveal.js';
 
   const profileImage = assetUrl('constants/Profile_Pic.webp');
   const fallbackProfileImage = '/images/constants/Profile_Pic.webp';
@@ -10,9 +11,9 @@
 
 <svelte:head>
   <title>About — AOKFrames</title>
-  <meta name="description" content="Alain Kouassi is a Seattle-based photographer working in film and digital — capturing the moments just before and after things happen." />
+  <meta name="description" content="Alain Kouassi is a Austin-based photographer working in film and digital — capturing the moments just before and after things happen." />
   <meta property="og:title" content="About — AOKFrames" />
-  <meta property="og:description" content="Alain Kouassi is a Seattle-based photographer working in film and digital — capturing the moments just before and after things happen." />
+  <meta property="og:description" content="Alain Kouassi is a Austin-based photographer working in film and digital — capturing the moments just before and after things happen." />
   <meta property="og:url" content="https://aokframes.com/about" />
 </svelte:head>
 
@@ -20,9 +21,9 @@
   <Navbar />
 
   <!-- Hero -->
-  <section class="hero">
+  <section class="hero" id="main" tabindex="-1">
     <div class="hero-inner">
-      <div class="hero-image-wrap">
+      <div class="hero-image-wrap enter">
         {#if !profileImageError}
           <img
             src={profileImage}
@@ -41,8 +42,8 @@
       </div>
 
       <div class="hero-text">
-        <h1 class="hero-name">Alain Kouassi</h1>
-        <p class="hero-subtitle">Seattle Photographer · Film &amp; Digital</p>
+        <h1 class="hero-name enter" style="--enter-delay: 150ms">Alain Kouassi</h1>
+        <p class="hero-subtitle enter" style="--enter-delay: 320ms">Austin Photographer · Film &amp; Digital</p>
       </div>
     </div>
   </section>
@@ -53,7 +54,7 @@
   <section class="bio">
     <div class="bio-inner">
       <div class="bio-pull">
-        <blockquote class="pull-quote">
+        <blockquote class="pull-quote" use:reveal>
           "I try best to capture feelings and essence through the images I take, to invoke some sort of emotion in the viewer.
           It's because of this, that I have a hard time categorizing my work, it's more a collection of such.
           I find joy in being able to see the changes in what caught my eye, and also bring back memories of what exactly it was that excited me.
@@ -61,10 +62,10 @@
         </blockquote>
       </div>
 
-      <div class="bio-body">
+      <div class="bio-body" use:reveal={{ delay: 120 }}>
         <p>
           Alain is a photographer with a love for visual storytelling.
-          Originally from New Jersey and now based in Seattle, he brings four years of photographic experience to his work,
+          Originally from New Jersey and now based in Austin, he brings four years of photographic experience to his work,
           including three years immersed in the art of film.
           Whether in vivid color or classic black and white, he seeks to capture a collection of awe inspiring images.
         </p>
@@ -76,7 +77,7 @@
 
   <!-- Featured Work -->
   <section class="featured">
-    <div class="featured-inner">
+    <div class="featured-inner" use:reveal>
       <p class="featured-eyebrow">Featured</p>
       <h2 class="featured-title">Work</h2>
       <ul class="featured-list">

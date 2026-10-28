@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Footer, Navbar } from "$lib/components/ui/index.js";
   import { assetUrl } from '$lib/utils/r2.js';
+  import { reveal } from '$lib/utils/reveal.js';
   import { onMount, afterUpdate } from 'svelte'; // Import lifecycle hooks
 
   // Receive data from load function
@@ -42,9 +43,9 @@
   <Navbar />
 
   <!-- Page header -->
-  <header class="page-header">
-    <h1 class="page-title">Prints &amp; Collabs</h1>
-    <p class="page-subtitle">Original photography · Limited editions</p>
+  <header class="page-header" id="main" tabindex="-1">
+    <h1 class="page-title enter">Prints &amp; Collabs</h1>
+    <p class="page-subtitle enter" style="--enter-delay: 140ms">Original photography · Limited editions</p>
   </header>
 
   <hr class="divider" />
@@ -96,7 +97,7 @@
 
   <!-- Description / CTA -->
   <section class="cta-section">
-    <div class="cta-inner">
+    <div class="cta-inner" use:reveal>
       <p class="cta-text">
         A selection of prints is available through my online store. Each print is produced to order,
         ensuring the highest quality on archival paper.
@@ -251,8 +252,8 @@
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.25em;
-    color: var(--forest-green, #2D4739);
-    border: 1px solid var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
+    border: 1px solid var(--green-lit, #86ad93);
     padding: 0.75rem 2rem;
     text-decoration: none;
     display: inline-block;

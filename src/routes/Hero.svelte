@@ -1,27 +1,36 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import { assetUrl } from '$lib/utils/r2.js';
 
-	let scrollY = $state(0);
-	let mounted = $state(false);
+	let bgEl: HTMLDivElement | undefined = $state();
 
+	// Parallax runs outside Svelte reactivity: one rAF-throttled transform write per scroll frame,
+	// and nothing at all once the hero has left the screen.
 	onMount(() => {
-		mounted = true;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		let ticking = false;
+		const update = () => {
+			ticking = false;
+			const y = window.scrollY;
+			if (bgEl && y < window.innerHeight * 1.2) bgEl.style.transform = `translate3d(0, ${y * 0.35}px, 0)`;
+		};
+		const onScroll = () => {
+			if (!ticking) {
+				ticking = true;
+				requestAnimationFrame(update);
+			}
+		};
+		window.addEventListener('scroll', onScroll, { passive: true });
+		return () => window.removeEventListener('scroll', onScroll);
 	});
-
-	let parallaxOffset = $derived(scrollY * 0.35);
 </script>
 
-<svelte:window bind:scrollY />
-
 <section class="hero" aria-label="Hero">
-	<div
-		class="hero-bg"
-		style="transform: translateY({parallaxOffset}px)"
-	>
+	<div class="hero-bg" bind:this={bgEl}>
 		<img
 			src={assetUrl('constants/w1920/bg.webp')}
+			srcset="{assetUrl('constants/w1024/bg.webp')} 1024w, {assetUrl('constants/w1920/bg.webp')} 1920w, {assetUrl('constants/w3000/bg.webp')} 3000w"
+			sizes="100vw"
 			alt=""
 			aria-hidden="true"
 			fetchpriority="high"
@@ -30,15 +39,14 @@
 		<div class="hero-overlay"></div>
 	</div>
 
-	<div class="hero-content" class:visible={mounted}>
-		<p class="hero-eyebrow">Film &amp; Digital · Seattle</p>
-		<h1 class="hero-headline">Moments<br /><em>in Light</em></h1>
-		<p class="hero-sub">Photography by Alain Kouassi</p>
+	<div class="hero-content">
+		<h1 class="hero-headline enter" style="--enter-delay: 250ms">Moments{' '}<br aria-hidden="true" /><em>in Light</em></h1>
+		<p class="hero-sub enter" style="--enter-delay: 600ms">Film &amp; digital photography by Alain Kouassi</p>
+		<a class="hero-cta enter" style="--enter-delay: 800ms" href="/works">View works</a>
 	</div>
 
 	<div class="scroll-indicator" aria-hidden="true">
 		<span class="scroll-line"></span>
-		<span class="scroll-dot"></span>
 	</div>
 </section>
 
@@ -46,6 +54,7 @@
 	.hero {
 		position: relative;
 		height: 100vh;
+		height: 100svh;
 		min-height: 600px;
 		overflow: hidden;
 		display: flex;
@@ -65,6 +74,12 @@
 		object-fit: cover;
 		object-position: center;
 		display: block;
+		animation: hero-settle 2.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	@keyframes hero-settle {
+		from { transform: scale(1.07); opacity: 0.7; }
+		to   { transform: scale(1);    opacity: 1; }
 	}
 
 	.hero-overlay {
@@ -72,9 +87,9 @@
 		inset: 0;
 		background: linear-gradient(
 			to bottom,
-			rgba(14, 14, 14, 0.25) 0%,
-			rgba(14, 14, 14, 0.5) 60%,
-			rgba(14, 14, 14, 0.8) 100%
+			rgba(14, 14, 14, 0.45) 0%,
+			rgba(14, 14, 14, 0.6) 55%,
+			rgba(14, 14, 14, 0.85) 100%
 		);
 	}
 
@@ -82,25 +97,7 @@
 		position: relative;
 		z-index: 2;
 		text-align: center;
-		opacity: 0;
-		transform: translateY(20px);
-		transition: opacity 0.9s ease, transform 0.9s ease;
-	}
-
-	.hero-content.visible {
-		opacity: 1;
-		transform: translateY(0);
-	}
-
-	.hero-eyebrow {
-		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 9px;
-		font-weight: 300;
-		letter-spacing: 0.45em;
-		text-transform: uppercase;
-		color: rgba(200, 192, 184, 0.9);
-		margin: 0 0 1.5rem;
-		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
+		padding: 0 1.5rem;
 	}
 
 	.hero-headline {
@@ -111,24 +108,41 @@
 		letter-spacing: -0.01em;
 		color: var(--warm-white, #f0ebe3);
 		margin: 0 0 2rem;
-		text-shadow: 0 2px 28px rgba(255, 255, 255, 0.45);
+		text-shadow: 0 2px 24px rgba(14, 14, 14, 0.55);
 	}
 
 	.hero-headline em {
 		font-style: italic;
-		color: var(--forest-green, #2D4739);
-		text-shadow: 0 2px 20px rgba(255, 255, 255, 0.7);
+		color: var(--green-lit, #86ad93);
+		text-shadow: 0 2px 20px rgba(14, 14, 14, 0.6);
 	}
 
 	.hero-sub {
 		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 10px;
-		font-weight: 100;
-		letter-spacing: 0.4em;
+		font-size: 13px;
+		font-weight: 300;
+		letter-spacing: 0.3em;
 		text-transform: uppercase;
-		color: var(--silver, #c8c0b8);
-		margin: 0;
-		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
+		color: var(--warm-white, #f0ebe3);
+		margin: 0 0 2.5rem;
+		text-shadow: 0 1px 12px rgba(14, 14, 14, 0.7);
+	}
+
+	.hero-cta {
+		display: inline-block;
+		padding: 14px 28px;
+		border: 1px solid var(--warm-white, #f0ebe3);
+		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+		font-size: 12px;
+		letter-spacing: 0.35em;
+		text-transform: uppercase;
+		color: var(--warm-white, #f0ebe3);
+		transition: background-color 0.3s ease, color 0.3s ease;
+	}
+
+	.hero-cta:hover {
+		background: var(--warm-white, #f0ebe3);
+		color: var(--near-black, #0e0e0e);
 	}
 
 	/* Scroll indicator */
@@ -147,35 +161,27 @@
 	.scroll-line {
 		display: block;
 		width: 1px;
-		height: 40px;
-		background: linear-gradient(to bottom, transparent, var(--silver, #c8c0b8));
-		animation: scroll-pulse 2s ease-in-out infinite;
+		height: 48px;
+		background: var(--silver, #c8c0b8);
+		transform-origin: top;
+		animation: scroll-draw 2.6s cubic-bezier(0.65, 0, 0.35, 1) 1.6s infinite;
 	}
 
-	.scroll-dot {
-		display: block;
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: var(--forest-green, #2D4739);
-		animation: scroll-pulse 2s ease-in-out infinite 0.3s;
-	}
-
-	@keyframes scroll-pulse {
-		0%, 100% { opacity: 0.3; }
-		50% { opacity: 1; }
+	@keyframes scroll-draw {
+		0%   { transform: scaleY(0); transform-origin: top; opacity: 0.8; }
+		45%  { transform: scaleY(1); transform-origin: top; opacity: 0.8; }
+		55%  { transform: scaleY(1); transform-origin: bottom; opacity: 0.8; }
+		100% { transform: scaleY(0); transform-origin: bottom; opacity: 0.8; }
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.hero-content {
-			transition: none;
-			opacity: 1;
-			transform: none;
-		}
-		.scroll-line,
-		.scroll-dot {
+		.scroll-line {
 			animation: none;
+			transform: none;
 			opacity: 0.6;
+		}
+		.hero-bg img {
+			animation: none;
 		}
 		.hero-bg {
 			transform: none !important;

@@ -57,7 +57,7 @@
 <div class="post-page">
   <Navbar />
 
-  <main class="post-main">
+  <main id="main" class="post-main">
     <!-- Back nav -->
     <div class="post-nav-bar">
       <div class="post-nav-inner">
@@ -80,7 +80,7 @@
     <div class="post-article-wrap">
       <article class="post-article">
         <!-- Meta above title -->
-        <div class="post-meta">
+        <div class="post-meta enter" style="--enter-delay: 150ms">
           <span class="post-label">{data.post.label}</span>
           <span class="meta-sep">·</span>
           <span class="post-author">{data.post.author}</span>
@@ -94,7 +94,7 @@
           </time>
         </div>
 
-        <h1 class="post-title">{data.post.title}</h1>
+        <h1 class="post-title enter" style="--enter-delay: 260ms">{data.post.title}</h1>
 
         <!-- Prose content -->
         <div class="post-prose">
@@ -161,6 +161,12 @@
     height: 520px;
     object-fit: cover;
     display: block;
+    animation: post-hero-settle 1.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes post-hero-settle {
+    from { transform: scale(1.05); opacity: 0.6; }
+    to   { transform: none; opacity: 1; }
   }
 
   .post-hero-overlay {

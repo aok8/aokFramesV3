@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 	import type { PeekImage } from '$lib/types/peek.js';
 
@@ -6,6 +7,43 @@
 	let lightboxOpen = $state(false);
 	let lightboxIndex = $state(0);
 	let loaded = $state<boolean[]>([]);
+
+	// "Developing" reveal: frames below the fold start underexposed and come up as they scroll in.
+	let armed = $state(false);
+	let developed = $state<Record<number, boolean>>({});
+	let io: IntersectionObserver | undefined;
+	let reducedMotion = false;
+
+	function getObserver() {
+		if (!io) {
+			io = new IntersectionObserver(
+				(entries) => {
+					for (const entry of entries) {
+						if (!entry.isIntersecting) continue;
+						developed[Number((entry.target as HTMLElement).dataset.i)] = true;
+						io?.unobserve(entry.target);
+					}
+				},
+				{ rootMargin: '0px 0px -6% 0px' }
+			);
+		}
+		return io;
+	}
+
+	onMount(() => {
+		reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		armed = !reducedMotion;
+		return () => io?.disconnect();
+	});
+
+	function develop(node: HTMLElement) {
+		if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return {};
+		const r = node.getBoundingClientRect();
+		// Already on screen at load: never hide what the visitor is looking at.
+		if (r.top < window.innerHeight * 0.92) developed[Number(node.dataset.i)] = true;
+		else getObserver().observe(node);
+		return {};
+	}
 
 	const lightboxImages = $derived(
 		images.map((image, index) => ({ src: image.url, alt: imageAlt(image, index) }))
@@ -42,6 +80,10 @@
 			<button
 				type="button"
 				class="sheet-frame"
+				class:pending={armed && !developed[i]}
+				data-i={i}
+				style:--develop-delay={`${(i % 4) * 90}ms`}
+				use:develop
 				onclick={() => openImage(i)}
 				aria-label={`View ${imageAlt(image, i)}`}
 			>
@@ -89,7 +131,7 @@
 	.sheet-kicker,
 	.sheet-note {
 		font-family: var(--font-ui);
-		font-size: 9px;
+		font-size: 11px;
 		font-weight: 300;
 		letter-spacing: 0.28em;
 		text-transform: uppercase;
@@ -104,7 +146,7 @@
 		line-height: 1;
 	}
 	.sheet-note {
-		color: #6f8f7b;
+		color: var(--green-lit);
 	}
 	.sheet-grid {
 		display: grid;
@@ -137,6 +179,27 @@
 		filter: sepia(0%) contrast(1.08);
 		transform: scale(1.025);
 	}
+	/* Underexposed until scrolled into view, then developed up to full tone. */
+	.sheet-frame {
+		--develop-delay: 0ms;
+	}
+	.sheet-frame img {
+		transition:
+			opacity 0.9s ease var(--develop-delay),
+			filter 1.3s cubic-bezier(0.16, 1, 0.3, 1) var(--develop-delay),
+			transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	.sheet-frame.pending img.img-loaded {
+		opacity: 0.12;
+		filter: sepia(55%) contrast(0.8) brightness(0.45);
+		transition-delay: 0ms;
+	}
+	/* Looking at one frame quiets the rest of the sheet. */
+	@media (hover: hover) {
+		.sheet-grid:has(.sheet-frame:hover) .sheet-frame:not(:hover) img.img-loaded {
+			opacity: 0.5;
+		}
+	}
 	.sheet-shimmer {
 		position: absolute;
 		z-index: 1;
@@ -157,7 +220,7 @@
 		right: 0.6rem;
 		bottom: 0.45rem;
 		font-family: var(--font-ui);
-		font-size: 8px;
+		font-size: 11px;
 		letter-spacing: 0.2em;
 		color: rgba(240, 235, 227, 0.72);
 		text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
@@ -193,6 +256,10 @@
 		.sheet-shimmer {
 			animation: none;
 			transition: none;
+		}
+		.sheet-frame.pending img.img-loaded {
+			opacity: 1;
+			filter: none;
 		}
 		.sheet-frame:hover img,
 		.sheet-frame:focus-visible img {

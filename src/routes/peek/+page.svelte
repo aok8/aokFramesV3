@@ -27,7 +27,7 @@
 <div class="peek-page">
 	<Navbar />
 
-	<main class="peek-main">
+	<main id="main" class="peek-main">
 		<header class="peek-header">
 			<p class="peek-eyebrow">Quick-Peek</p>
 			<h1 class="peek-title">On the Table</h1>

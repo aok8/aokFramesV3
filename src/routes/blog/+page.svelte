@@ -125,7 +125,7 @@
 <div class="journal-page">
   <Navbar />
 
-  <main class="journal-main">
+  <main id="main" class="journal-main">
     <div class="journal-wrapper">
 
       <header class="journal-header">

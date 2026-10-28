@@ -41,7 +41,7 @@
   let currentPath = $derived($page.url.pathname);
 </script>
 
-<svelte:window bind:scrollY />
+<svelte:window bind:scrollY onkeydown={(e) => e.key === 'Escape' && isMenuOpen && closeMenu()} />
 
 <nav
   class="navbar"
@@ -108,7 +108,7 @@
         <a href="/peek" onclick={closeMenu} class:active={currentPath.startsWith('/peek')}>Peek</a>
       </li>
       <li>
-        <a href="/blog" onclick={closeMenu} class:active={currentPath.startsWith('/blog')}>Blog</a>
+        <a href="/blog" onclick={closeMenu} class:active={currentPath.startsWith('/blog')}>Journal</a>
       </li>
       <li>
         <a href="/prints" onclick={closeMenu} class:active={currentPath.startsWith('/prints')}>Prints/Collabs</a>
@@ -164,7 +164,7 @@
 
   .logo-bold {
     font-weight: 700;
-    color: var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
   }
 
   .logo-light {
@@ -183,17 +183,19 @@
 
   .desktop-links a {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.3em;
     text-transform: uppercase;
     text-decoration: none;
     color: var(--warm-white, #f0ebe3);
     transition: color 0.2s ease;
+    display: inline-block;
+    padding: 14px 0;
   }
 
   .desktop-links a:hover,
   .desktop-links a.active {
-    color: var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
   }
 
   /* Hamburger */
@@ -208,8 +210,8 @@
     cursor: pointer;
     padding: 0.5rem;
     z-index: 110;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .bar {
@@ -266,7 +268,7 @@
 
   .mobile-links a:hover,
   .mobile-links a.active {
-    color: var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
   }
 
   /* Mobile breakpoint */

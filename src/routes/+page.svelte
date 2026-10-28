@@ -7,7 +7,7 @@
 
 <Navbar />
 
-<main>
+<main id="main">
 	<Hero />
 	<Gallery />
 </main>

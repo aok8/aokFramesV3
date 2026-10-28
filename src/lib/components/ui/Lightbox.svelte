@@ -231,7 +231,7 @@
   .lb-label {
     margin-top: 0.6rem;
     font-family: var(--font-ui);
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
     color: rgba(240, 235, 227, 0.45);

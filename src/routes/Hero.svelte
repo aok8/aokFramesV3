@@ -22,6 +22,8 @@
 	>
 		<img
 			src={assetUrl('constants/w1920/bg.webp')}
+			srcset="{assetUrl('constants/w1024/bg.webp')} 1024w, {assetUrl('constants/w1920/bg.webp')} 1920w, {assetUrl('constants/w3000/bg.webp')} 3000w"
+			sizes="100vw"
 			alt=""
 			aria-hidden="true"
 			fetchpriority="high"
@@ -31,9 +33,9 @@
 	</div>
 
 	<div class="hero-content" class:visible={mounted}>
-		<p class="hero-eyebrow">Film &amp; Digital · Seattle</p>
-		<h1 class="hero-headline">Moments<br /><em>in Light</em></h1>
-		<p class="hero-sub">Photography by Alain Kouassi</p>
+		<h1 class="hero-headline">Moments{' '}<br aria-hidden="true" /><em>in Light</em></h1>
+		<p class="hero-sub">Film &amp; digital photography by Alain Kouassi · Seattle</p>
+		<a class="hero-cta" href="/works">View the work</a>
 	</div>
 
 	<div class="scroll-indicator" aria-hidden="true">
@@ -46,6 +48,7 @@
 	.hero {
 		position: relative;
 		height: 100vh;
+		height: 100svh;
 		min-height: 600px;
 		overflow: hidden;
 		display: flex;
@@ -72,9 +75,9 @@
 		inset: 0;
 		background: linear-gradient(
 			to bottom,
-			rgba(14, 14, 14, 0.25) 0%,
-			rgba(14, 14, 14, 0.5) 60%,
-			rgba(14, 14, 14, 0.8) 100%
+			rgba(14, 14, 14, 0.45) 0%,
+			rgba(14, 14, 14, 0.6) 55%,
+			rgba(14, 14, 14, 0.85) 100%
 		);
 	}
 
@@ -82,6 +85,7 @@
 		position: relative;
 		z-index: 2;
 		text-align: center;
+		padding: 0 1.5rem;
 		opacity: 0;
 		transform: translateY(20px);
 		transition: opacity 0.9s ease, transform 0.9s ease;
@@ -92,17 +96,6 @@
 		transform: translateY(0);
 	}
 
-	.hero-eyebrow {
-		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 9px;
-		font-weight: 300;
-		letter-spacing: 0.45em;
-		text-transform: uppercase;
-		color: rgba(200, 192, 184, 0.9);
-		margin: 0 0 1.5rem;
-		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
-	}
-
 	.hero-headline {
 		font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
 		font-size: clamp(4rem, 9vw, 9rem);
@@ -111,24 +104,41 @@
 		letter-spacing: -0.01em;
 		color: var(--warm-white, #f0ebe3);
 		margin: 0 0 2rem;
-		text-shadow: 0 2px 28px rgba(255, 255, 255, 0.45);
+		text-shadow: 0 2px 24px rgba(14, 14, 14, 0.55);
 	}
 
 	.hero-headline em {
 		font-style: italic;
-		color: var(--forest-green, #2D4739);
-		text-shadow: 0 2px 20px rgba(255, 255, 255, 0.7);
+		color: var(--green-lit, #86ad93);
+		text-shadow: 0 2px 20px rgba(14, 14, 14, 0.6);
 	}
 
 	.hero-sub {
 		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 10px;
-		font-weight: 100;
-		letter-spacing: 0.4em;
+		font-size: 13px;
+		font-weight: 300;
+		letter-spacing: 0.3em;
 		text-transform: uppercase;
-		color: var(--silver, #c8c0b8);
-		margin: 0;
-		text-shadow: 0 1px 10px rgba(255, 255, 255, 0.8);
+		color: var(--warm-white, #f0ebe3);
+		margin: 0 0 2.5rem;
+		text-shadow: 0 1px 12px rgba(14, 14, 14, 0.7);
+	}
+
+	.hero-cta {
+		display: inline-block;
+		padding: 14px 28px;
+		border: 1px solid var(--warm-white, #f0ebe3);
+		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+		font-size: 12px;
+		letter-spacing: 0.35em;
+		text-transform: uppercase;
+		color: var(--warm-white, #f0ebe3);
+		transition: background-color 0.3s ease, color 0.3s ease;
+	}
+
+	.hero-cta:hover {
+		background: var(--warm-white, #f0ebe3);
+		color: var(--near-black, #0e0e0e);
 	}
 
 	/* Scroll indicator */

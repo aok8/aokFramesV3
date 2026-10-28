@@ -20,7 +20,7 @@
   <Navbar />
 
   <!-- Hero -->
-  <section class="hero">
+  <section class="hero" id="main" tabindex="-1">
     <div class="hero-inner">
       <div class="hero-image-wrap">
         {#if !profileImageError}

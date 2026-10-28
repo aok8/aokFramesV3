@@ -46,6 +46,8 @@
   }
 
   .footer-monogram {
+    display: inline-block;
+    padding: 8px 0;
     font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
     font-size: 1.5rem;
     font-weight: 300;
@@ -57,7 +59,7 @@
 
   .footer-monogram em {
     font-style: italic;
-    color: var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
   }
 
   .footer-monogram:hover {
@@ -72,12 +74,14 @@
 
   .footer-links a {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 9px;
-    letter-spacing: 0.35em;
+    font-size: 12px;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
     color: var(--text-dim, rgba(200, 192, 184, 0.45));
     text-decoration: none;
     transition: color 0.3s ease;
+    display: inline-block;
+    padding: 14px 4px;
   }
 
   .footer-links a:hover {
@@ -86,12 +90,12 @@
 
   .divider {
     color: var(--text-dim, rgba(200, 192, 184, 0.45));
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .footer-copy {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
     color: var(--text-dim, rgba(200, 192, 184, 0.3));

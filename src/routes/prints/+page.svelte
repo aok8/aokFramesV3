@@ -42,7 +42,7 @@
   <Navbar />
 
   <!-- Page header -->
-  <header class="page-header">
+  <header class="page-header" id="main" tabindex="-1">
     <h1 class="page-title">Prints &amp; Collabs</h1>
     <p class="page-subtitle">Original photography · Limited editions</p>
   </header>
@@ -251,8 +251,8 @@
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.25em;
-    color: var(--forest-green, #2D4739);
-    border: 1px solid var(--forest-green, #2D4739);
+    color: var(--green-lit, #86ad93);
+    border: 1px solid var(--green-lit, #86ad93);
     padding: 0.75rem 2rem;
     text-decoration: none;
     display: inline-block;

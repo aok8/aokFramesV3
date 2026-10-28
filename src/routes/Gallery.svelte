@@ -60,7 +60,7 @@
 
 <section class="gallery" aria-label="Selected works">
 	<header class="gallery-header">
-		<p class="gallery-label">Selected Works</p>
+		<h2 class="gallery-label">Selected Works</h2>
 	</header>
 
 	{#if loading}
@@ -76,7 +76,7 @@
 	{:else}
 		<div class="gallery-grid">
 			{#each images as image, i}
-				<button class="gallery-item" onclick={() => openLightbox(i)} aria-label="View photo">
+				<button class="gallery-item" onclick={() => openLightbox(i)} aria-label={image.alt ? `View photo: ${image.alt}` : 'View photo'}>
 					<img
 						src={image.url}
 						width={image.width}
@@ -101,6 +101,14 @@
 			<span class="view-all-line" aria-hidden="true"></span>
 		</a>
 	</div>
+
+	<div class="gallery-inquiry">
+		<p class="inquiry-line">Prints, portraits and commissions.</p>
+		<div class="inquiry-actions">
+			<a class="inquiry-primary" href="mailto:aokframes@gmail.com?subject=Inquiry%20from%20aokframes.com">Get in touch</a>
+			<a class="inquiry-secondary" href="/prints">See prints</a>
+		</div>
+	</div>
 </section>
 
 <style>
@@ -115,8 +123,9 @@
 	}
 
 	.gallery-label {
+		font-weight: 300;
 		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 9px;
+		font-size: 12px;
 		font-weight: 300;
 		letter-spacing: 0.45em;
 		text-transform: uppercase;
@@ -168,10 +177,11 @@
 		bottom: 10px;
 		left: 12px;
 		font-family: var(--font-ui);
-		font-size: 9px;
+		font-size: 12px;
 		letter-spacing: 0.25em;
 		text-transform: uppercase;
-		color: rgba(240, 235, 227, 0.45);
+		color: rgba(240, 235, 227, 0.85);
+		text-shadow: 0 1px 8px rgba(14, 14, 14, 0.9);
 		pointer-events: none;
 		user-select: none;
 		transition: color 0.4s ease;
@@ -180,7 +190,7 @@
 
 	.gallery-item:hover .photo-label,
 	.gallery-item:focus .photo-label {
-		color: rgba(240, 235, 227, 0.7);
+		color: var(--warm-white, #f0ebe3);
 	}
 
 	/* Skeleton loaders */
@@ -211,6 +221,7 @@
 	}
 
 	.view-all-link {
+		padding: 14px 0;
 		display: flex;
 		align-items: center;
 		gap: 1rem;
@@ -220,12 +231,12 @@
 	}
 
 	.view-all-link:hover {
-		color: var(--forest-green, #2D4739);
+		color: var(--green-lit, #86ad93);
 	}
 
 	.view-all-text {
 		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 9px;
+		font-size: 12px;
 		font-weight: 300;
 		letter-spacing: 0.45em;
 		text-transform: uppercase;
@@ -243,6 +254,63 @@
 		width: 60px;
 	}
 
+	/* Inquiry — the buyer's next step after the gallery */
+	.gallery-inquiry {
+		max-width: 1400px;
+		margin: 6rem auto 0;
+		text-align: center;
+	}
+
+	.inquiry-line {
+		font-family: var(--font-display, 'Cormorant Garamond', Georgia, serif);
+		font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+		font-weight: 300;
+		font-style: italic;
+		color: var(--warm-white, #f0ebe3);
+		margin: 0 0 2rem;
+	}
+
+	.inquiry-actions {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 2rem;
+		flex-wrap: wrap;
+	}
+
+	.inquiry-primary {
+		display: inline-block;
+		padding: 14px 28px;
+		border: 1px solid var(--green-lit, #86ad93);
+		color: var(--green-lit, #86ad93);
+		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+		font-size: 12px;
+		letter-spacing: 0.35em;
+		text-transform: uppercase;
+		transition: background-color 0.3s ease, color 0.3s ease;
+	}
+
+	.inquiry-primary:hover {
+		background: var(--green-lit, #86ad93);
+		color: var(--near-black, #0e0e0e);
+	}
+
+	.inquiry-secondary {
+		padding: 14px 0;
+		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+		font-size: 12px;
+		letter-spacing: 0.35em;
+		text-transform: uppercase;
+		color: var(--silver, #c8c0b8);
+		border-bottom: 1px solid transparent;
+		transition: color 0.3s ease, border-color 0.3s ease;
+	}
+
+	.inquiry-secondary:hover {
+		color: var(--warm-white, #f0ebe3);
+		border-color: currentColor;
+	}
+
 	/* Empty state */
 	.gallery-empty {
 		max-width: 1400px;
@@ -253,7 +321,7 @@
 
 	.gallery-empty p {
 		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-		font-size: 10px;
+		font-size: 12px;
 		letter-spacing: 0.3em;
 		text-transform: uppercase;
 		color: var(--text-dim, rgba(200, 192, 184, 0.45));

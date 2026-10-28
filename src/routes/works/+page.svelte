@@ -295,7 +295,7 @@
 
   <div class="works-container">
     <!-- Left: typographic index -->
-    <main class="works-index">
+    <main id="main" class="works-index">
       <header class="works-header">
         <h1 class="works-title">Works</h1>
       </header>
@@ -604,7 +604,7 @@
   .row-number {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 100;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.3em;
     color: var(--silver, #c8c0b8);
     opacity: 0.5;
@@ -616,7 +616,7 @@
   }
 
   .works-row:hover .row-number {
-		color: var(--forest-green, #2d4739);
+		color: var(--green-lit, #86ad93);
     opacity: 1;
   }
 
@@ -646,7 +646,7 @@
   .row-tags {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 300;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
     color: var(--silver, #c8c0b8);
@@ -917,7 +917,7 @@
     left: 0.6rem;
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-weight: 300;
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 0.25em;
     text-transform: uppercase;
     color: rgba(240, 235, 227, 0.55);
@@ -1042,7 +1042,7 @@
     left: 50%;
     transform: translateX(-50%);
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 300;
     letter-spacing: 0.35em;
     text-transform: uppercase;
@@ -1096,7 +1096,7 @@
     display: inline-block;
     margin-left: 0.65rem;
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 400;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -1165,7 +1165,7 @@
 
   .nsfw-eyebrow {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 300;
     letter-spacing: 0.45em;
     text-transform: uppercase;
@@ -1201,7 +1201,7 @@
 
   .nsfw-tags-label {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 300;
     letter-spacing: 0.3em;
     text-transform: uppercase;
@@ -1216,7 +1216,7 @@
 
   .nsfw-tag {
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 300;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -1259,9 +1259,9 @@
     font-weight: 400;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-		color: var(--forest-green, #2d4739);
+		color: var(--green-lit, #86ad93);
     background: none;
-		border: 1px solid var(--forest-green, #2d4739);
+		border: 1px solid var(--green-lit, #86ad93);
     padding: 0.75rem 1.75rem;
     cursor: pointer;
 		transition:

@@ -10,7 +10,7 @@
 <div class="error-page">
   <Navbar />
 
-  <main class="error-main">
+  <main id="main" class="error-main">
     <p class="error-eyebrow">Journal</p>
     <h1 class="error-code">404</h1>
     <p class="error-message">This post doesn't exist.</p>

@@ -57,7 +57,7 @@
 <div class="post-page">
   <Navbar />
 
-  <main class="post-main">
+  <main id="main" class="post-main">
     <!-- Back nav -->
     <div class="post-nav-bar">
       <div class="post-nav-inner">

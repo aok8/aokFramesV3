@@ -20,8 +20,8 @@
 
   <main id="main" class="error-main">
     <p class="error-eyebrow">Error</p>
-    <h1 class="error-code">{status}</h1>
-    <div class="error-message">
+    <h1 class="error-code enter" style="--enter-delay: 80ms">{status}</h1>
+    <div class="error-message enter" style="--enter-delay: 220ms">
       {#if status === 404}
         <p>Sorry, this page doesn't exist. It's probably hidden somewhere with Kodak Aerochrome.</p>
         <p>There may be a typo in the URL or the page may have been moved.</p>
@@ -29,7 +29,7 @@
         <p>{message}</p>
       {/if}
     </div>
-    <a href="/" class="btn-bordered">Back to Home</a>
+    <a href="/" class="btn-bordered enter" style="--enter-delay: 360ms">Back to Home</a>
   </main>
 
   <Footer />

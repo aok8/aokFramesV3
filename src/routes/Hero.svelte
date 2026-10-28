@@ -1,25 +1,32 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import { assetUrl } from '$lib/utils/r2.js';
 
-	let scrollY = $state(0);
-	let mounted = $state(false);
+	let bgEl: HTMLDivElement | undefined = $state();
 
+	// Parallax runs outside Svelte reactivity: one rAF-throttled transform write per scroll frame,
+	// and nothing at all once the hero has left the screen.
 	onMount(() => {
-		mounted = true;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		let ticking = false;
+		const update = () => {
+			ticking = false;
+			const y = window.scrollY;
+			if (bgEl && y < window.innerHeight * 1.2) bgEl.style.transform = `translate3d(0, ${y * 0.35}px, 0)`;
+		};
+		const onScroll = () => {
+			if (!ticking) {
+				ticking = true;
+				requestAnimationFrame(update);
+			}
+		};
+		window.addEventListener('scroll', onScroll, { passive: true });
+		return () => window.removeEventListener('scroll', onScroll);
 	});
-
-	let parallaxOffset = $derived(scrollY * 0.35);
 </script>
 
-<svelte:window bind:scrollY />
-
 <section class="hero" aria-label="Hero">
-	<div
-		class="hero-bg"
-		style="transform: translateY({parallaxOffset}px)"
-	>
+	<div class="hero-bg" bind:this={bgEl}>
 		<img
 			src={assetUrl('constants/w1920/bg.webp')}
 			srcset="{assetUrl('constants/w1024/bg.webp')} 1024w, {assetUrl('constants/w1920/bg.webp')} 1920w, {assetUrl('constants/w3000/bg.webp')} 3000w"
@@ -32,15 +39,14 @@
 		<div class="hero-overlay"></div>
 	</div>
 
-	<div class="hero-content" class:visible={mounted}>
-		<h1 class="hero-headline">Moments{' '}<br aria-hidden="true" /><em>in Light</em></h1>
-		<p class="hero-sub">Film &amp; digital photography by Alain Kouassi</p>
-		<a class="hero-cta" href="/works">View worksk</a>
+	<div class="hero-content">
+		<h1 class="hero-headline enter" style="--enter-delay: 250ms">Moments{' '}<br aria-hidden="true" /><em>in Light</em></h1>
+		<p class="hero-sub enter" style="--enter-delay: 600ms">Film &amp; digital photography by Alain Kouassi</p>
+		<a class="hero-cta enter" style="--enter-delay: 800ms" href="/works">View works</a>
 	</div>
 
 	<div class="scroll-indicator" aria-hidden="true">
 		<span class="scroll-line"></span>
-		<span class="scroll-dot"></span>
 	</div>
 </section>
 
@@ -68,6 +74,12 @@
 		object-fit: cover;
 		object-position: center;
 		display: block;
+		animation: hero-settle 2.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	@keyframes hero-settle {
+		from { transform: scale(1.07); opacity: 0.7; }
+		to   { transform: scale(1);    opacity: 1; }
 	}
 
 	.hero-overlay {
@@ -86,14 +98,6 @@
 		z-index: 2;
 		text-align: center;
 		padding: 0 1.5rem;
-		opacity: 0;
-		transform: translateY(20px);
-		transition: opacity 0.9s ease, transform 0.9s ease;
-	}
-
-	.hero-content.visible {
-		opacity: 1;
-		transform: translateY(0);
 	}
 
 	.hero-headline {
@@ -157,35 +161,27 @@
 	.scroll-line {
 		display: block;
 		width: 1px;
-		height: 40px;
-		background: linear-gradient(to bottom, transparent, var(--silver, #c8c0b8));
-		animation: scroll-pulse 2s ease-in-out infinite;
+		height: 48px;
+		background: var(--silver, #c8c0b8);
+		transform-origin: top;
+		animation: scroll-draw 2.6s cubic-bezier(0.65, 0, 0.35, 1) 1.6s infinite;
 	}
 
-	.scroll-dot {
-		display: block;
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: var(--forest-green, #2D4739);
-		animation: scroll-pulse 2s ease-in-out infinite 0.3s;
-	}
-
-	@keyframes scroll-pulse {
-		0%, 100% { opacity: 0.3; }
-		50% { opacity: 1; }
+	@keyframes scroll-draw {
+		0%   { transform: scaleY(0); transform-origin: top; opacity: 0.8; }
+		45%  { transform: scaleY(1); transform-origin: top; opacity: 0.8; }
+		55%  { transform: scaleY(1); transform-origin: bottom; opacity: 0.8; }
+		100% { transform: scaleY(0); transform-origin: bottom; opacity: 0.8; }
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.hero-content {
-			transition: none;
-			opacity: 1;
-			transform: none;
-		}
-		.scroll-line,
-		.scroll-dot {
+		.scroll-line {
 			animation: none;
+			transform: none;
 			opacity: 0.6;
+		}
+		.hero-bg img {
+			animation: none;
 		}
 		.hero-bg {
 			transform: none !important;

@@ -3,11 +3,21 @@
 	import Footer from '$lib/components/ui/footer.svelte';
 	import FilmStrip from '$lib/components/peek/FilmStrip.svelte';
 	import ContactSheet from '$lib/components/peek/ContactSheet.svelte';
+	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 	import type { PageData } from './$types.js';
 
 	let { data }: { data: PageData } = $props();
 
 	const featuredImages = $derived(data.images.slice(0, 6));
+
+	let stripOpen = $state(false);
+	let stripIndex = $state(0);
+	const stripLightbox = $derived(
+		featuredImages.map((image, i) => ({
+			src: image.url,
+			alt: image.alt?.trim() || `Recently processed photograph ${i + 1}`
+		}))
+	);
 </script>
 
 <svelte:head>
@@ -29,9 +39,9 @@
 
 	<main id="main" class="peek-main">
 		<header class="peek-header">
-			<p class="peek-eyebrow">Quick-Peek</p>
-			<h1 class="peek-title">On the Table</h1>
-			<p class="peek-desc">
+			<p class="peek-eyebrow enter">Quick-Peek</p>
+			<h1 class="peek-title enter" style="--enter-delay: 100ms">On the Table</h1>
+			<p class="peek-desc enter" style="--enter-delay: 220ms">
 				Images I've processed in the past days, just a peek into what I'm up to.<br />
 				Images will either be made into a work, or stored away, archived.<br />
 				Check back to see what's on the table.
@@ -48,7 +58,20 @@
 				I got nothing right now, but I promise I'm working on the next batch. Maybe. Kinda.
 			</p>
 		{:else}
-			<FilmStrip images={featuredImages} speed={40} height={260} />
+			<FilmStrip
+				images={featuredImages}
+				speed={40}
+				height={260}
+				onopen={(i) => ((stripIndex = i), (stripOpen = true))}
+			/>
+			<Lightbox
+				images={stripLightbox}
+				index={stripIndex}
+				open={stripOpen}
+				onclose={() => (stripOpen = false)}
+				onprev={() => (stripIndex = Math.max(0, stripIndex - 1))}
+				onnext={() => (stripIndex = Math.min(featuredImages.length - 1, stripIndex + 1))}
+			/>
 			<ContactSheet images={data.images} />
 		{/if}
 	</main>
@@ -78,11 +101,11 @@
 
 	.peek-eyebrow {
 		font-family: var(--font-ui);
-		font-size: 8px;
+		font-size: 12px;
 		font-weight: 300;
 		letter-spacing: 0.45em;
 		text-transform: uppercase;
-		color: var(--forest-green);
+		color: var(--green-lit);
 		margin-bottom: 1rem;
 	}
 
@@ -108,7 +131,7 @@
 
 	@media (max-width: 768px) {
 		.peek-desc {
-			font-size: 10px;
+			font-size: 12px;
 			white-space: normal;
 		}
 	}

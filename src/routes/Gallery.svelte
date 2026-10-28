@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getPortfolioImages } from '$lib/utils/images.js';
-	import { initScrollReveal, initImageHoverEffect, initFadeUpReveal, killScrollTriggers } from '$lib/utils/animations.js';
+	import { initScrollReveal, initFadeUpReveal, killScrollTriggers } from '$lib/utils/animations.js';
+	import { reveal } from '$lib/utils/reveal.js';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 
 	interface PortfolioImage {
@@ -45,7 +46,6 @@
 				// Tick so Svelte has flushed the new image nodes into the DOM
 				await Promise.resolve();
 				initScrollReveal('.gallery-item', { stagger: 0.06, duration: 1.0 });
-				initImageHoverEffect('.gallery-item');
 				initFadeUpReveal('.gallery-header', { duration: 0.7, y: 16 });
 			} catch {
 				error = true;
@@ -102,7 +102,7 @@
 		</a>
 	</div>
 
-	<div class="gallery-inquiry">
+	<div class="gallery-inquiry" use:reveal>
 		<p class="inquiry-line">Prints, portraits and commissions.</p>
 		<div class="inquiry-actions">
 			<a class="inquiry-primary" href="mailto:aokframes@gmail.com?subject=Inquiry%20from%20aokframes.com">Get in touch</a>

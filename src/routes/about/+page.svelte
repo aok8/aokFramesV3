@@ -10,9 +10,9 @@
 
 <svelte:head>
   <title>About — AOKFrames</title>
-  <meta name="description" content="Alain Kouassi is a Seattle-based photographer working in film and digital — capturing the moments just before and after things happen." />
+  <meta name="description" content="Alain Kouassi is a Austin-based photographer working in film and digital — capturing the moments just before and after things happen." />
   <meta property="og:title" content="About — AOKFrames" />
-  <meta property="og:description" content="Alain Kouassi is a Seattle-based photographer working in film and digital — capturing the moments just before and after things happen." />
+  <meta property="og:description" content="Alain Kouassi is a Austin-based photographer working in film and digital — capturing the moments just before and after things happen." />
   <meta property="og:url" content="https://aokframes.com/about" />
 </svelte:head>
 
@@ -42,7 +42,7 @@
 
       <div class="hero-text">
         <h1 class="hero-name">Alain Kouassi</h1>
-        <p class="hero-subtitle">Seattle Photographer · Film &amp; Digital</p>
+        <p class="hero-subtitle">Austin Photographer · Film &amp; Digital</p>
       </div>
     </div>
   </section>
@@ -64,7 +64,7 @@
       <div class="bio-body">
         <p>
           Alain is a photographer with a love for visual storytelling.
-          Originally from New Jersey and now based in Seattle, he brings four years of photographic experience to his work,
+          Originally from New Jersey and now based in Austin, he brings four years of photographic experience to his work,
           including three years immersed in the art of film.
           Whether in vivid color or classic black and white, he seeks to capture a collection of awe inspiring images.
         </p>

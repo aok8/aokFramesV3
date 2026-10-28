@@ -34,8 +34,8 @@
 
 	<div class="hero-content" class:visible={mounted}>
 		<h1 class="hero-headline">Moments{' '}<br aria-hidden="true" /><em>in Light</em></h1>
-		<p class="hero-sub">Film &amp; digital photography by Alain Kouassi · Seattle</p>
-		<a class="hero-cta" href="/works">View the work</a>
+		<p class="hero-sub">Film &amp; digital photography by Alain Kouassi</p>
+		<a class="hero-cta" href="/works">View worksk</a>
 	</div>
 
 	<div class="scroll-indicator" aria-hidden="true">

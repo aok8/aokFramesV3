@@ -8,7 +8,7 @@
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { dev } from '$app/environment';
 	import { logger } from '$lib/utils/logger.js';
-  import { initFadeUpReveal } from '$lib/utils/animations.js';
+  import { reveal } from '$lib/utils/reveal.js';
 
   // Type definition for Layout data
   type ExpectedLayoutData = {
@@ -109,12 +109,6 @@
     }
 
     // Reveal post cards after all data loading settles
-    // Wait for the cards to actually be in the DOM; if there are none (empty/error state)
-    // there is nothing to reveal, so don't ask GSAP to animate a missing target.
-    await tick();
-    if (document.querySelector('.post-card')) {
-      initFadeUpReveal('.post-card', { stagger: 0.07, duration: 0.65, y: 18 });
-    }
   });
 </script>
 
@@ -144,8 +138,10 @@
         </div>
       {:else if $posts && $posts.length > 0}
         <div class="posts-list">
-          {#each $posts as post (post.id)}
-            <BlogPostComponent {post} />
+          {#each $posts as post, i (post.id)}
+            <div use:reveal={{ delay: i * 70, y: 18, duration: 650 }}>
+              <BlogPostComponent {post} />
+            </div>
           {/each}
         </div>
       {:else if loadError}

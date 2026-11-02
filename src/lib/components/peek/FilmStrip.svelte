@@ -16,15 +16,18 @@
 		onopen?: (index: number) => void;
 	} = $props();
 
-	// Enough copies of the roll that the strip never runs out of film on wide screens.
-	// Server render uses 2; the client raises it after measuring.
-	let copies = $state(2);
-	const total = $derived(images.length * copies);
+	// One full roll plus only the frames needed to fill the viewport while it wraps. (Two whole rolls
+	// meant ~70 frames and a 24,000px-wide moving layer at the 35-frame cap.) The server render uses
+	// a safe default; the client trims it after measuring.
+	let extra = $state(7);
+	const total = $derived(images.length + (images.length ? extra : 0));
 	const frames = $derived(Array.from({ length: total }, (_, i) => images[i % images.length]));
 
+	// Loaded flags only ever grow: resetting them when the frame count changes left already-loaded
+	// frames stuck invisible, because their onload never fires a second time.
 	let imgLoaded = $state<boolean[]>([]);
 	$effect(() => {
-		imgLoaded = new Array(total).fill(false);
+		if (imgLoaded.length < total) imgLoaded = [...imgLoaded, ...new Array(total - imgLoaded.length).fill(false)];
 	});
 
 	function checkLoaded(node: HTMLImageElement, index: number) {
@@ -117,8 +120,8 @@
 		frameW = frame?.offsetWidth || frameW;
 		trackW = trackEl.clientWidth;
 		setWidth = frameW * images.length;
-		const needed = Math.max(2, Math.ceil(trackW / setWidth) + 1);
-		if (needed !== copies) copies = needed;
+		const needed = Math.ceil(trackW / frameW) + 1;
+		if (needed !== extra) extra = needed;
 		offset = wrap(offset);
 		paint();
 		wake();
@@ -217,9 +220,9 @@
 		};
 	});
 
-	// Re-measure when the number of copies changes the DOM.
+	// Re-measure when the number of frames changes the DOM.
 	$effect(() => {
-		void copies;
+		void extra;
 		queueMicrotask(measure);
 	});
 </script>

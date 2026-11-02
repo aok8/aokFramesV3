@@ -4,7 +4,7 @@
   import type { Work } from '$lib/types/works.js';
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
-  import { initFadeUpReveal } from '$lib/utils/animations.js';
+  import { reveal } from '$lib/utils/reveal.js';
 
   let { data }: { data: { works: Work[] } } = $props();
 
@@ -255,7 +255,6 @@
 
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
-    initFadeUpReveal('.works-row', { stagger: 0.04, duration: 0.6, y: 12 });
 
     // Preload all cover images so hover reveals are instant
 		const coverUrls = works.map((w) => w.coverImage).filter(Boolean);
@@ -309,6 +308,7 @@
           {#each works as work, i}
             <li
               class="works-row"
+              use:reveal={{ delay: Math.min(i * 40, 400), y: 12, duration: 600 }}
               class:hovered={hoveredId === work.id}
 							onmouseenter={() => {
 								if (previewsReady) hoveredId = work.id;

@@ -2,8 +2,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getPortfolioImages } from '$lib/utils/images.js';
-	import { initFadeUpReveal, killScrollTriggers } from '$lib/utils/animations.js';
-	import { reveal } from '$lib/utils/reveal.js';
+		import { reveal } from '$lib/utils/reveal.js';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 
 	interface PortfolioImage {
@@ -81,7 +80,6 @@
 				images = result;
 				// Tick so Svelte has flushed the new image nodes into the DOM
 				await Promise.resolve();
-				initFadeUpReveal('.gallery-header', { duration: 0.7, y: 16 });
 			} catch {
 				error = true;
 			} finally {
@@ -89,12 +87,12 @@
 			}
 		})();
 
-		return () => killScrollTriggers();
+		return () => io?.disconnect();
 	});
 </script>
 
 <section class="gallery" aria-label="Selected works">
-	<header class="gallery-header">
+	<header class="gallery-header" use:reveal={{ y: 16, duration: 700 }}>
 		<h2 class="gallery-label">Selected Works</h2>
 	</header>
 

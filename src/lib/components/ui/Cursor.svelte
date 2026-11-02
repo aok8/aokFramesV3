@@ -2,8 +2,9 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 
-	let x = $state(0);
-	let y = $state(0);
+	// Position is written straight to the element each frame; routing it through reactive state
+	// re-ran Svelte's update for every mouse move.
+	let cursorEl: HTMLDivElement | undefined = $state();
 	let isHovering = $state(false);
 	let visible = $state(false);
 	let enabled = $state(false);
@@ -26,8 +27,7 @@
 		function scheduleUpdate() {
 			if (rafId !== null) return;
 			rafId = requestAnimationFrame(() => {
-				x = latestX;
-				y = latestY;
+				if (cursorEl) cursorEl.style.transform = `translate(${latestX}px, ${latestY}px) translate(-50%, -50%)`;
 				if (!visible) visible = true;
 				rafId = null;
 			});
@@ -79,10 +79,10 @@
 
 {#if enabled}
 	<div
+		bind:this={cursorEl}
 		class="cursor"
 		class:hovering={isHovering}
 		class:visible
-		style="transform: translate({x}px, {y}px) translate(-50%, -50%)"
 	></div>
 {/if}
 

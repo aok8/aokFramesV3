@@ -16,15 +16,18 @@
 		onopen?: (index: number) => void;
 	} = $props();
 
-	// Enough copies of the roll that the strip never runs out of film on wide screens.
-	// Server render uses 2; the client raises it after measuring.
-	let copies = $state(2);
-	const total = $derived(images.length * copies);
+	// One full roll plus only the frames needed to fill the viewport while it wraps. (Two whole rolls
+	// meant ~70 frames and a 24,000px-wide moving layer at the 35-frame cap.) The server render uses
+	// a safe default; the client trims it after measuring.
+	let extra = $state(7);
+	const total = $derived(images.length + (images.length ? extra : 0));
 	const frames = $derived(Array.from({ length: total }, (_, i) => images[i % images.length]));
 
+	// Loaded flags only ever grow: resetting them when the frame count changes left already-loaded
+	// frames stuck invisible, because their onload never fires a second time.
 	let imgLoaded = $state<boolean[]>([]);
 	$effect(() => {
-		imgLoaded = new Array(total).fill(false);
+		if (imgLoaded.length < total) imgLoaded = [...imgLoaded, ...new Array(total - imgLoaded.length).fill(false)];
 	});
 
 	function checkLoaded(node: HTMLImageElement, index: number) {
@@ -53,7 +56,6 @@
 	let setWidth = 0;
 	let trackW = 0;
 	let seekTarget: number | null = null;
-	let kidsCache: HTMLElement[] = [];
 
 	let rafId = 0;
 	let last = 0;
@@ -73,19 +75,9 @@
 
 	function paint() {
 		if (!innerEl) return;
+		// The only per-frame work: one transform write. Anything else that changes every frame
+		// (filters, per-frame CSS variables) forces Firefox to re-rasterise the film and judders.
 		innerEl.style.transform = `translate3d(${-offset}px,0,0)`;
-		// Frames near the middle of the viewport are "exposed"; the edges sink into the dark.
-		const half = trackW / 2 || 1;
-		if (!kidsCache.length || kidsCache.length !== total) {
-			kidsCache = Array.from(innerEl.querySelectorAll<HTMLElement>('.film-frame'));
-		}
-		const kids = kidsCache;
-		for (let i = 0; i < kids.length; i++) {
-			const cx = i * frameW + frameW / 2 - offset;
-			if (cx < -frameW || cx > trackW + frameW) continue;
-			const d = Math.min(1, Math.abs(cx - half) / half);
-			kids[i].style.setProperty('--lit', (1 - 0.45 * d * d).toFixed(3));
-		}
 	}
 
 	function tick(now: number) {
@@ -128,8 +120,8 @@
 		frameW = frame?.offsetWidth || frameW;
 		trackW = trackEl.clientWidth;
 		setWidth = frameW * images.length;
-		const needed = Math.max(2, Math.ceil(trackW / setWidth) + 1);
-		if (needed !== copies) copies = needed;
+		const needed = Math.ceil(trackW / frameW) + 1;
+		if (needed !== extra) extra = needed;
 		offset = wrap(offset);
 		paint();
 		wake();
@@ -228,9 +220,9 @@
 		};
 	});
 
-	// Re-measure when the number of copies changes the DOM.
+	// Re-measure when the number of frames changes the DOM.
 	$effect(() => {
-		void copies;
+		void extra;
 		queueMicrotask(measure);
 	});
 </script>
@@ -364,9 +356,18 @@
 	.frames-row {
 		display: flex;
 		align-items: stretch;
+		/*
+		 * The film base is painted once across the whole roll. Painting it per frame left a hairline
+		 * seam at every frame boundary that flickered as the roll moved over fractional pixels.
+		 * Light seems to pass through the base: warmer and brighter toward the perforations.
+		 */
+		background:
+			linear-gradient(180deg, rgba(255, 190, 120, 0.2), transparent 85%) top / 100% var(--rail-h) no-repeat,
+			linear-gradient(0deg, rgba(255, 190, 120, 0.2), transparent 85%) bottom / 100% var(--rail-h) no-repeat,
+			linear-gradient(180deg, #c9793c 0%, var(--film-base) 34%, var(--film-base) 66%, #c9793c 100%);
+		box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 	}
 	.film-frame {
-		--lit: 1;
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -375,22 +376,12 @@
 		padding: 0;
 		border: 0;
 		text-align: left;
-		background:
-			linear-gradient(90deg, rgba(255, 196, 130, 0.12), transparent 18%, transparent 82%, rgba(255, 196, 130, 0.08)),
-			linear-gradient(180deg, #c9793c 0%, var(--film-base) 34%, var(--film-base) 66%, #c9793c 100%);
-		box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+		background: transparent;
 		cursor: inherit;
 	}
 	.film-frame:focus-visible {
 		outline-offset: -3px;
 		z-index: 4;
-	}
-	/* Light seems to pass through the base: warmer, brighter toward the perforations */
-	.rail-top {
-		background: linear-gradient(180deg, rgba(255, 190, 120, 0.2), transparent 85%);
-	}
-	.rail-bottom {
-		background: linear-gradient(0deg, rgba(255, 190, 120, 0.2), transparent 85%);
 	}
 	.rail {
 		display: flex;
@@ -456,9 +447,7 @@
 		height: var(--frame-height);
 		margin-right: var(--gap);
 		background: #0e0e0e;
-		box-shadow:
-			0 0 0 1px rgba(36, 15, 3, 0.55),
-			0 0 14px 1px rgba(255, 160, 80, 0.22);
+		box-shadow: 0 0 14px 1px rgba(255, 160, 80, 0.22);
 	}
 	.frame-shimmer {
 		position: absolute;
@@ -495,32 +484,45 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		filter: sepia(6%) contrast(1.05) brightness(var(--lit));
+		filter: sepia(6%) contrast(1.05);
 		opacity: 0;
 		transform: scale(1.04);
 		transition:
 			opacity 0.6s ease,
+			filter 0.3s ease,
 			transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
 		pointer-events: none;
 	}
 	.film-frame img.img-loaded {
 		opacity: 1;
-		transform: scale(1);
+		transform: none;
 	}
 	@media (hover: hover) {
-		.film-frame:hover img {
-			transform: scale(1.03);
+		.film-frame:hover img.img-loaded {
+			filter: sepia(0%) contrast(1.1) brightness(1.06);
 		}
 	}
-	/* Film grain over the whole cell, base included */
-	.film-frame::after {
+	/*
+	 * Static layers on the track (they do not move with the film): a vignette so the edges sink
+	 * into the dark and the middle reads as "exposed", plus a light grain. Both use normal
+	 * blending: blend modes on a moving film force offscreen compositing and judder in Firefox.
+	 */
+	.strip-track::before {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-		opacity: 0.35;
+		z-index: 9;
 		pointer-events: none;
-		mix-blend-mode: overlay;
+		background: linear-gradient(90deg, rgba(8, 8, 8, 0.5), transparent 32%, transparent 68%, rgba(8, 8, 8, 0.5));
+	}
+	.strip-track::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 11;
+		pointer-events: none;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+		opacity: 0.5;
 	}
 	.strip-fade {
 		position: absolute;

@@ -254,6 +254,7 @@
 			<div class="frames-row">
 				{#each frames as image, i}
 					{@const dup = i >= images.length}
+					{@const num = (i % images.length) + 1}
 					<button
 						type="button"
 						class="film-frame"
@@ -265,22 +266,37 @@
 						onfocus={() => onFrameFocus(i)}
 						onblur={onFrameBlur}
 					>
-						<span class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></span>
-						<img
-							src={image.url}
-							alt=""
-							loading={i < 6 ? 'eager' : 'lazy'}
-							decoding="async"
-							draggable="false"
-							fetchpriority={i === 0 ? 'high' : 'auto'}
-							class:img-loaded={imgLoaded[i]}
-							use:checkLoaded={i}
-							onload={() => (imgLoaded[i] = true)}
-							onerror={() => (imgLoaded[i] = true)}
-						/>
-						<span class="frame-num" aria-hidden="true"
-							>{String((i % images.length) + 1).padStart(2, '0')}</span
-						>
+						<span class="rail rail-top" aria-hidden="true">
+							<span class="perfs"></span>
+							<span class="edge">
+								<span class="edge-num">{num}</span>
+								<span class="edge-brand">AOKFRAMES</span>
+							</span>
+						</span>
+						<span class="window">
+							<span class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></span>
+							<img
+								src={image.url}
+								alt=""
+								loading={i < 6 ? 'eager' : 'lazy'}
+								decoding="async"
+								draggable="false"
+								fetchpriority={i === 0 ? 'high' : 'auto'}
+								class:img-loaded={imgLoaded[i]}
+								use:checkLoaded={i}
+								onload={() => (imgLoaded[i] = true)}
+								onerror={() => (imgLoaded[i] = true)}
+							/>
+						</span>
+						<span class="rail rail-bottom" aria-hidden="true">
+							<span class="edge">
+								<span class="edge-arrow"></span>
+								<span class="edge-num">{num}A</span>
+								<span class="edge-ticks"></span>
+								<span class="edge-num">{num}</span>
+							</span>
+							<span class="perfs"></span>
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -324,39 +340,26 @@
 	.strip-track:active {
 		cursor: grabbing;
 	}
+	/*
+	 * The roll is one continuous strip of film base: sprocket holes cut through both rails
+	 * (8 per frame, so the pattern is seamless as the roll loops), a thin base-coloured bar
+	 * between exposures, and the frame number printed on the rail like real edge markings.
+	 *
+	 * Colours: real 35mm colour-negative base is a saturated orange (~#c8641e). Pure orange glares
+	 * against a near-black page, so the base is pulled down in lightness and chroma to a burnt amber
+	 * (#b4632a), and the edge print is a deep rust-brown (#240f03, about 4.5:1 against the base).
+	 */
 	.strip-inner {
 		--frame-w: 340px;
+		--gap: 10px;
+		--rail-h: 38px;
+		--perf-band: 22px;
+		--perf-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42.5' height='22'%3E%3Crect x='10.25' y='4.5' width='22' height='13' rx='3.2' fill='%23080808' stroke='%238a431a' stroke-width='1'/%3E%3C/svg%3E");
+		--film-base: #b4632a;
+		--film-ink: #240f03;
 		position: relative;
 		display: inline-flex;
-		padding-block: 20px;
-		background: #050505;
 		will-change: transform;
-	}
-	/* Sprocket holes: exactly 12 per frame so the pattern is seamless when the roll loops. */
-	.strip-inner::before,
-	.strip-inner::after {
-		content: '';
-		position: absolute;
-		z-index: 2;
-		left: 0;
-		width: 100%;
-		height: 20px;
-		background-image: linear-gradient(
-			90deg,
-			transparent 0 27.5%,
-			rgba(200, 192, 184, 0.22) 27.5% 31%,
-			#0e0e0e 31% 69%,
-			rgba(200, 192, 184, 0.22) 69% 72.5%,
-			transparent 72.5% 100%
-		);
-		background-size: calc(var(--frame-w) / 12) 100%;
-		background-repeat: repeat-x;
-	}
-	.strip-inner::before {
-		top: 0;
-	}
-	.strip-inner::after {
-		bottom: 0;
 	}
 	.frames-row {
 		display: flex;
@@ -365,20 +368,88 @@
 	.film-frame {
 		--lit: 1;
 		position: relative;
-		display: block;
+		display: flex;
+		flex-direction: column;
 		width: var(--frame-w);
-		height: var(--frame-height);
 		flex-shrink: 0;
-		overflow: hidden;
 		padding: 0;
 		border: 0;
-		border-right: 1px solid rgba(200, 192, 184, 0.04);
-		background: #111;
+		text-align: left;
+		background: linear-gradient(180deg, #be6e33 0%, var(--film-base) 12%, var(--film-base) 88%, #a95b25 100%);
+		box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 		cursor: inherit;
 	}
 	.film-frame:focus-visible {
-		outline-offset: -4px;
+		outline-offset: -3px;
 		z-index: 4;
+	}
+	.rail {
+		display: flex;
+		flex-direction: column;
+		height: var(--rail-h);
+		flex-shrink: 0;
+	}
+	.rail-bottom {
+		justify-content: flex-end;
+	}
+	.perfs {
+		height: var(--perf-band);
+		background-image: var(--perf-tile);
+		background-repeat: repeat-x;
+		background-size: calc(var(--frame-w) / 8) 100%;
+	}
+	.edge {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 0.6em;
+		padding-inline: 11px;
+		font-family: var(--font-ui);
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.14em;
+		line-height: 1;
+		color: var(--film-ink);
+		font-variant-numeric: tabular-nums;
+		pointer-events: none;
+	}
+	.edge-num {
+		font-size: 12px;
+		font-weight: 700;
+	}
+	.edge-brand {
+		margin-left: auto;
+		opacity: 0.8;
+		letter-spacing: 0.3em;
+		font-size: 9.5px;
+	}
+	/* Edge-code ruler between the lettered and plain frame numbers, as on real stock */
+	.edge-ticks {
+		flex: 1;
+		max-width: 84px;
+		height: 7px;
+		margin-inline: 6px 8px;
+		background: repeating-linear-gradient(90deg, var(--film-ink) 0 1.5px, transparent 1.5px 5px);
+		opacity: 0.65;
+	}
+	.rail-bottom .edge {
+		gap: 0.5em;
+	}
+	/* Film arrow: a small filled triangle printed beside the frame number */
+	.edge-arrow {
+		width: 0;
+		height: 0;
+		border-block: 4px solid transparent;
+		border-left: 6px solid var(--film-ink);
+	}
+	.window {
+		position: relative;
+		display: block;
+		overflow: hidden;
+		height: var(--frame-height);
+		margin-right: var(--gap);
+		background: #0e0e0e;
+		box-shadow: 0 0 0 1px rgba(36, 15, 3, 0.55);
 	}
 	.frame-shimmer {
 		position: absolute;
@@ -432,19 +503,7 @@
 			transform: scale(1.03);
 		}
 	}
-	.frame-num {
-		position: absolute;
-		z-index: 2;
-		bottom: 8px;
-		left: 10px;
-		font-family: var(--font-ui);
-		font-size: 11px;
-		font-weight: 300;
-		letter-spacing: 0.25em;
-		color: rgba(240, 235, 227, 0.75);
-		text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-		pointer-events: none;
-	}
+	/* Film grain over the whole cell, base included */
 	.film-frame::after {
 		content: '';
 		position: absolute;
@@ -491,6 +550,13 @@
 	@media (max-width: 768px) {
 		.strip-inner {
 			--frame-w: 280px;
+			--gap: 8px;
+			--rail-h: 34px;
+			--perf-band: 20px;
+			--perf-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='35' height='20'%3E%3Crect x='8.5' y='4.5' width='18' height='11' rx='2.8' fill='%23080808' stroke='%238a431a' stroke-width='1'/%3E%3C/svg%3E");
+		}
+		.edge-brand {
+			display: none;
 		}
 		.strip-fade {
 			width: 40px;

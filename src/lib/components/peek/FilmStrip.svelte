@@ -356,6 +356,16 @@
 	.frames-row {
 		display: flex;
 		align-items: stretch;
+		/*
+		 * The film base is painted once across the whole roll. Painting it per frame left a hairline
+		 * seam at every frame boundary that flickered as the roll moved over fractional pixels.
+		 * Light seems to pass through the base: warmer and brighter toward the perforations.
+		 */
+		background:
+			linear-gradient(180deg, rgba(255, 190, 120, 0.2), transparent 85%) top / 100% var(--rail-h) no-repeat,
+			linear-gradient(0deg, rgba(255, 190, 120, 0.2), transparent 85%) bottom / 100% var(--rail-h) no-repeat,
+			linear-gradient(180deg, #c9793c 0%, var(--film-base) 34%, var(--film-base) 66%, #c9793c 100%);
+		box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 	}
 	.film-frame {
 		position: relative;
@@ -366,22 +376,12 @@
 		padding: 0;
 		border: 0;
 		text-align: left;
-		background:
-			linear-gradient(90deg, rgba(255, 196, 130, 0.12), transparent 18%, transparent 82%, rgba(255, 196, 130, 0.08)),
-			linear-gradient(180deg, #c9793c 0%, var(--film-base) 34%, var(--film-base) 66%, #c9793c 100%);
-		box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+		background: transparent;
 		cursor: inherit;
 	}
 	.film-frame:focus-visible {
 		outline-offset: -3px;
 		z-index: 4;
-	}
-	/* Light seems to pass through the base: warmer, brighter toward the perforations */
-	.rail-top {
-		background: linear-gradient(180deg, rgba(255, 190, 120, 0.2), transparent 85%);
-	}
-	.rail-bottom {
-		background: linear-gradient(0deg, rgba(255, 190, 120, 0.2), transparent 85%);
 	}
 	.rail {
 		display: flex;
@@ -447,9 +447,7 @@
 		height: var(--frame-height);
 		margin-right: var(--gap);
 		background: #0e0e0e;
-		box-shadow:
-			0 0 0 1px rgba(36, 15, 3, 0.55),
-			0 0 14px 1px rgba(255, 160, 80, 0.22);
+		box-shadow: 0 0 14px 1px rgba(255, 160, 80, 0.22);
 	}
 	.frame-shimmer {
 		position: absolute;
@@ -491,16 +489,17 @@
 		transform: scale(1.04);
 		transition:
 			opacity 0.6s ease,
+			filter 0.3s ease,
 			transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
 		pointer-events: none;
 	}
 	.film-frame img.img-loaded {
 		opacity: 1;
-		transform: scale(1);
+		transform: none;
 	}
 	@media (hover: hover) {
-		.film-frame:hover img {
-			transform: scale(1.03);
+		.film-frame:hover img.img-loaded {
+			filter: sepia(0%) contrast(1.1) brightness(1.06);
 		}
 	}
 	/*

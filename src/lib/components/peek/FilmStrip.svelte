@@ -53,7 +53,6 @@
 	let setWidth = 0;
 	let trackW = 0;
 	let seekTarget: number | null = null;
-	let kidsCache: HTMLElement[] = [];
 
 	let rafId = 0;
 	let last = 0;
@@ -73,19 +72,9 @@
 
 	function paint() {
 		if (!innerEl) return;
+		// The only per-frame work: one transform write. Anything else that changes every frame
+		// (filters, per-frame CSS variables) forces Firefox to re-rasterise the film and judders.
 		innerEl.style.transform = `translate3d(${-offset}px,0,0)`;
-		// Frames near the middle of the viewport are "exposed"; the edges sink into the dark.
-		const half = trackW / 2 || 1;
-		if (!kidsCache.length || kidsCache.length !== total) {
-			kidsCache = Array.from(innerEl.querySelectorAll<HTMLElement>('.film-frame'));
-		}
-		const kids = kidsCache;
-		for (let i = 0; i < kids.length; i++) {
-			const cx = i * frameW + frameW / 2 - offset;
-			if (cx < -frameW || cx > trackW + frameW) continue;
-			const d = Math.min(1, Math.abs(cx - half) / half);
-			kids[i].style.setProperty('--lit', (1 - 0.45 * d * d).toFixed(3));
-		}
 	}
 
 	function tick(now: number) {
@@ -366,7 +355,6 @@
 		align-items: stretch;
 	}
 	.film-frame {
-		--lit: 1;
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -495,7 +483,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		filter: sepia(6%) contrast(1.05) brightness(var(--lit));
+		filter: sepia(6%) contrast(1.05);
 		opacity: 0;
 		transform: scale(1.04);
 		transition:
@@ -512,15 +500,27 @@
 			transform: scale(1.03);
 		}
 	}
-	/* Film grain over the whole cell, base included */
-	.film-frame::after {
+	/*
+	 * Static layers on the track (they do not move with the film): a vignette so the edges sink
+	 * into the dark and the middle reads as "exposed", plus a light grain. Both use normal
+	 * blending: blend modes on a moving film force offscreen compositing and judder in Firefox.
+	 */
+	.strip-track::before {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-		opacity: 0.35;
+		z-index: 9;
 		pointer-events: none;
-		mix-blend-mode: overlay;
+		background: linear-gradient(90deg, rgba(8, 8, 8, 0.5), transparent 32%, transparent 68%, rgba(8, 8, 8, 0.5));
+	}
+	.strip-track::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 11;
+		pointer-events: none;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+		opacity: 0.5;
 	}
 	.strip-fade {
 		position: absolute;

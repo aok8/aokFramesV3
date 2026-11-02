@@ -267,11 +267,11 @@
 						onblur={onFrameBlur}
 					>
 						<span class="rail rail-top" aria-hidden="true">
-							<span class="perfs"></span>
 							<span class="edge">
 								<span class="edge-num">{num}</span>
 								<span class="edge-brand">AOKFRAMES</span>
 							</span>
+							<span class="perfs"></span>
 						</span>
 						<span class="window">
 							<span class="frame-shimmer" class:shimmer-done={imgLoaded[i]}></span>
@@ -289,13 +289,13 @@
 							/>
 						</span>
 						<span class="rail rail-bottom" aria-hidden="true">
+							<span class="perfs"></span>
 							<span class="edge">
 								<span class="edge-arrow"></span>
 								<span class="edge-num">{num}A</span>
 								<span class="edge-ticks"></span>
 								<span class="edge-num">{num}</span>
 							</span>
-							<span class="perfs"></span>
 						</span>
 					</button>
 				{/each}
@@ -352,9 +352,9 @@
 	.strip-inner {
 		--frame-w: 340px;
 		--gap: 10px;
-		--rail-h: 38px;
-		--perf-band: 22px;
-		--perf-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42.5' height='22'%3E%3Crect x='10.25' y='4.5' width='22' height='13' rx='3.2' fill='%23080808' stroke='%238a431a' stroke-width='1'/%3E%3C/svg%3E");
+		--rail-h: 40px;
+		--perf-band: 24px;
+		--perf-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42.5' height='24'%3E%3Crect x='14.25' y='3' width='14' height='18' rx='3' fill='%23080808' stroke='%238a431a' stroke-width='1'/%3E%3C/svg%3E");
 		--film-base: #b4632a;
 		--film-ink: #240f03;
 		position: relative;
@@ -375,7 +375,9 @@
 		padding: 0;
 		border: 0;
 		text-align: left;
-		background: linear-gradient(180deg, #be6e33 0%, var(--film-base) 12%, var(--film-base) 88%, #a95b25 100%);
+		background:
+			linear-gradient(90deg, rgba(255, 196, 130, 0.12), transparent 18%, transparent 82%, rgba(255, 196, 130, 0.08)),
+			linear-gradient(180deg, #c9793c 0%, var(--film-base) 34%, var(--film-base) 66%, #c9793c 100%);
 		box-shadow: inset 0 1px 0 rgba(255, 214, 170, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 		cursor: inherit;
 	}
@@ -383,14 +385,18 @@
 		outline-offset: -3px;
 		z-index: 4;
 	}
+	/* Light seems to pass through the base: warmer, brighter toward the perforations */
+	.rail-top {
+		background: linear-gradient(180deg, rgba(255, 190, 120, 0.2), transparent 85%);
+	}
+	.rail-bottom {
+		background: linear-gradient(0deg, rgba(255, 190, 120, 0.2), transparent 85%);
+	}
 	.rail {
 		display: flex;
 		flex-direction: column;
 		height: var(--rail-h);
 		flex-shrink: 0;
-	}
-	.rail-bottom {
-		justify-content: flex-end;
 	}
 	.perfs {
 		height: var(--perf-band);
@@ -400,6 +406,7 @@
 	}
 	.edge {
 		flex: 1;
+		padding-top: 1px;
 		display: flex;
 		align-items: center;
 		gap: 0.6em;
@@ -449,7 +456,9 @@
 		height: var(--frame-height);
 		margin-right: var(--gap);
 		background: #0e0e0e;
-		box-shadow: 0 0 0 1px rgba(36, 15, 3, 0.55);
+		box-shadow:
+			0 0 0 1px rgba(36, 15, 3, 0.55),
+			0 0 14px 1px rgba(255, 160, 80, 0.22);
 	}
 	.frame-shimmer {
 		position: absolute;
@@ -551,9 +560,9 @@
 		.strip-inner {
 			--frame-w: 280px;
 			--gap: 8px;
-			--rail-h: 34px;
-			--perf-band: 20px;
-			--perf-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='35' height='20'%3E%3Crect x='8.5' y='4.5' width='18' height='11' rx='2.8' fill='%23080808' stroke='%238a431a' stroke-width='1'/%3E%3C/svg%3E");
+			--rail-h: 35px;
+			--perf-band: 21px;
+			--perf-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='35' height='21'%3E%3Crect x='11.5' y='3' width='12' height='15' rx='2.6' fill='%23080808' stroke='%238a431a' stroke-width='1'/%3E%3C/svg%3E");
 		}
 		.edge-brand {
 			display: none;

@@ -5,12 +5,18 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="theme-color" content="#0e0e0e" />
 
-		<!-- Favicon (served from Cloudflare R2 via /directr2 proxy) -->
-		<link rel="icon" href="/directr2/constants/favicon.png" />
+		<!-- Fonts are self-hosted (@fontsource), so no third-party font preconnects are needed. -->
 
-		<!-- Font preconnect hints — reduces first-render latency for web fonts -->
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<!-- The image CDN serves the hero and every photo: open the connection early. -->
+		<link rel="preconnect" href="https://assets.aokframes.com" />
+
+		<!-- The splash plays once per session. On repeat visits, hide its server-rendered copy
+		     before first paint so the page isn't covered until the app hydrates. -->
+		<script>
+			try {
+				if (sessionStorage.getItem('aok_preloaded')) document.documentElement.classList.add('aok-preloaded');
+			} catch (e) {}
+		</script>
 
 		%sveltekit.head%
 

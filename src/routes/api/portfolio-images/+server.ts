@@ -315,7 +315,9 @@ export const GET: RequestHandler = async ({ platform, request }): Promise<Respon
       });
     } else {
       // Normal production response - return just the images array
-      return json(images);
+      return json(images, {
+        headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' }
+      });
     }
   } catch (error) {
     logEvent(`[portfolio-images] Error listing images: ${error}`);

@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { getPortfolioImages } from '$lib/utils/images.js';
 
-  const PRELOAD_COUNT = 15;
+  // Roughly the first screenful of the gallery. The rest load lazily as the visitor scrolls
+  // (the gallery's develop-in reveal is built for that), instead of all at once up front.
+  const PRELOAD_COUNT = 9;
   const SESSION_KEY  = 'aok_preloaded';
 
   let visible  = $state(true);
@@ -19,16 +22,13 @@
     }
 
     try {
-      const res = await fetch(`/api/portfolio-images?width=${window.innerWidth}`);
-      const raw = await res.json();
-      const all: { url: string }[] = Array.isArray(raw) ? raw : (raw.images ?? []);
+      const all = await getPortfolioImages(window.innerWidth);
 
       const priority = all.slice(0, PRELOAD_COUNT);
-      const rest     = all.slice(PRELOAD_COUNT);
       const total    = priority.length || 1;
       let   loaded   = 0;
 
-      // Preload first 15 in parallel, track progress
+      // Preload the first screenful in parallel, track progress
       const MAX_WAIT_MS = 3000;
       await Promise.race([
         new Promise<void>((resolve) => setTimeout(resolve, MAX_WAIT_MS)),
@@ -45,18 +45,6 @@
         )
         )
       ]);
-
-      // Fire the rest of the gallery images in background
-      rest.forEach(({ url }) => { new Image().src = url; });
-
-      // Fire works cover preloads in background — so /works hover is instant
-      // Don't await; this runs in parallel while the user browses the home page
-      fetch('/api/works-covers')
-        .then((r) => r.json())
-        .then((covers: { coverImage: string }[]) => {
-          covers.forEach(({ coverImage }) => { new Image().src = coverImage; });
-        })
-        .catch(() => {});
 
       sessionStorage.setItem(SESSION_KEY, '1');
     } catch {
@@ -98,6 +86,11 @@
 {/if}
 
 <style>
+  /* Already played this session (set by an inline script in app.html before first paint) */
+  :global(html.aok-preloaded) .preloader {
+    display: none;
+  }
+
   /* ── Overlay ─────────────────────────────────────────────────── */
   .preloader {
     position: fixed;

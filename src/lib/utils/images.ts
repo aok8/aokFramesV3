@@ -8,7 +8,21 @@ interface PortfolioImage {
   alt: string;
 }
 
-export const getPortfolioImages = async (screenWidth: number): Promise<PortfolioImage[]> => {
+// The preloader and the gallery both ask for the list on the first visit; share one request.
+const inflight = new Map<number, Promise<PortfolioImage[]>>();
+
+export const getPortfolioImages = (screenWidth: number): Promise<PortfolioImage[]> => {
+  let request = inflight.get(screenWidth);
+  if (!request) {
+    request = fetchPortfolioImages(screenWidth);
+    inflight.set(screenWidth, request);
+    // Don't keep a failed (empty) result: let the next caller retry.
+    request.then((images) => { if (images.length === 0) inflight.delete(screenWidth); });
+  }
+  return request;
+};
+
+const fetchPortfolioImages = async (screenWidth: number): Promise<PortfolioImage[]> => {
   try {
     // Screen width is now passed in
     logger.log(`Fetching portfolio images from API with screen width: ${screenWidth}...`);

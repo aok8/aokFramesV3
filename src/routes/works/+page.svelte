@@ -256,8 +256,10 @@
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
 
-    // Preload all cover images so hover reveals are instant
-		const coverUrls = works.map((w) => w.coverImage).filter(Boolean);
+    // Preload all cover images so hover reveals are instant. The preview pane only exists on
+    // wide, hover-capable screens; elsewhere these 3000px covers would be downloaded for nothing.
+		const canPreview = window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 901px)').matches;
+		const coverUrls = canPreview ? works.map((w) => w.coverImage).filter(Boolean) : [];
     if (coverUrls.length === 0) {
       previewsReady = true;
     } else {

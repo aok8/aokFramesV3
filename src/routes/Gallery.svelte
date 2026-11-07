@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { getPortfolioImages } from '$lib/utils/images.js';
 		import { reveal } from '$lib/utils/reveal.js';
+	import { prefetchWorkCovers } from '$lib/utils/prefetch.js';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 
 	interface PortfolioImage {
@@ -140,7 +141,7 @@
 	<Lightbox images={lbImages} index={lbIndex} open={lbOpen} onclose={closeLightbox} onprev={prevImage} onnext={nextImage} />
 
 	<div class="gallery-cta">
-		<a href="/works" class="view-all-link">
+		<a href="/works" class="view-all-link" onpointerenter={prefetchWorkCovers} onfocus={prefetchWorkCovers}>
 			<span class="view-all-text">View All Works</span>
 			<span class="view-all-line" aria-hidden="true"></span>
 		</a>

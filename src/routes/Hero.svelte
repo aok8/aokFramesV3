@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { assetUrl } from '$lib/utils/r2.js';
+	import { prefetchWorkCovers } from '$lib/utils/prefetch.js';
 
 	let bgEl: HTMLDivElement | undefined = $state();
 
@@ -42,7 +43,7 @@
 	<div class="hero-content">
 		<h1 class="hero-headline enter" style="--enter-delay: 250ms">Moments{' '}<br aria-hidden="true" /><em>in Light</em></h1>
 		<p class="hero-sub enter" style="--enter-delay: 600ms">Film &amp; digital photography by Alain Kouassi</p>
-		<a class="hero-cta enter" style="--enter-delay: 800ms" href="/works">View works</a>
+		<a class="hero-cta enter" style="--enter-delay: 800ms" href="/works" onpointerenter={prefetchWorkCovers} onfocus={prefetchWorkCovers}>View works</a>
 	</div>
 
 	<div class="scroll-indicator" aria-hidden="true">

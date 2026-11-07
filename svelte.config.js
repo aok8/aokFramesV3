@@ -12,9 +12,12 @@ const config = {
 		// Using Cloudflare adapter for Cloudflare Pages deployment
 		adapter: adapter({
 			// Ensure we're using the correct target for Cloudflare
+			// Static files (JS/CSS chunks under /_app, files in /static) are served straight from
+			// Cloudflare's asset store. With `exclude: []` every one of them also went through the
+			// worker first, adding a function invocation and latency to each request.
 			routes: {
 				include: ['/*'],
-				exclude: []
+				exclude: ['<all>']
 			}
 		}),
 		// Add proper handling for client-side routes

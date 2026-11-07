@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { prefetchWorkCovers } from '$lib/utils/prefetch.js';
 
   let { backgroundColor, textColor }: { backgroundColor?: string; textColor?: string } = $props();
 
@@ -62,7 +63,7 @@
         </li>
       {/if}
       <li>
-        <a href="/works" class:active={currentPath.startsWith('/works')}>Works</a>
+        <a href="/works" class:active={currentPath.startsWith('/works')} onpointerenter={prefetchWorkCovers} onfocus={prefetchWorkCovers}>Works</a>
       </li>
       <li>
         <a href="/about" class:active={currentPath.startsWith('/about')}>About</a>

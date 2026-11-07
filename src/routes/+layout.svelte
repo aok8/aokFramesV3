@@ -101,8 +101,10 @@
   <meta name="twitter:image" content="https://assets.aokframes.com/constants/w1920/bg.webp" />
 </svelte:head>
 
-<!-- Preloader — first visit only (sessionStorage gated), preloads gallery images -->
-<Preloader />
+<!-- Preloader — home page, first visit per session only (sessionStorage gated) -->
+{#if $page.url.pathname === '/'}
+  <Preloader />
+{/if}
 
 <!-- Custom cursor — renders nothing on touch devices (guarded inside component) -->
 <Cursor />

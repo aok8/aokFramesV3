@@ -5,6 +5,8 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import { reveal } from '$lib/utils/reveal.js';
+  import EdgePrint from '$lib/components/ui/EdgePrint.svelte';
+  import { workPhotoMeta } from '$lib/utils/filmMeta.js';
 
   let { data }: { data: { works: Work[] } } = $props();
 
@@ -29,6 +31,23 @@
   let lbLoaded      = $state(false);
 
   const works = $derived(data.works ?? []);
+
+  // Film data per photo: the filename first, then what the series says about itself.
+  const photoMetas = $derived(
+    selectedWork ? selectedWork.images.map((image) => workPhotoMeta(image.src, selectedWork!)) : []
+  );
+  // The series header sums up its photos: every film stock and camera it was shot on.
+  const seriesSummary = $derived.by(() => {
+    if (photoMetas.length === 0) return null;
+    const unique = (values: (string | undefined)[]) =>
+      [...new Set(values.filter(Boolean))].join(' / ') || undefined;
+    return {
+      stock: unique(photoMetas.map((m) => m.stock)) ?? 'Film',
+      camera: unique(photoMetas.map((m) => m.camera)),
+      bw: photoMetas.every((m) => m.bw),
+      digital: photoMetas.every((m) => m.digital)
+    };
+  });
 	const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 	function rememberFocusedElement() {
@@ -438,6 +457,10 @@
         <p class="overlay-desc">{selectedWork.description}</p>
       {/if}
 
+      {#if seriesSummary}
+        <div class="overlay-film"><EdgePrint meta={seriesSummary} /></div>
+      {/if}
+
       <div class="contact-grid">
         {#each selectedWork.images as image, i}
 					<button
@@ -517,8 +540,13 @@
 			aria-label="Next image">›</button
 		>
 
-    <!-- Counter -->
-    <div class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</div>
+    <!-- Counter and film data -->
+    <div class="lb-caption">
+      <span class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</span>
+      {#if photoMetas[lightboxIndex]}
+        <EdgePrint meta={photoMetas[lightboxIndex]} />
+      {/if}
+    </div>
 
     <!-- Close (back to contact sheet) -->
 		<button type="button" class="lb-close" onclick={closeLightbox} aria-label="Back to gallery"
@@ -783,6 +811,10 @@
     overflow: hidden;
   }
 
+  .overlay-film {
+    margin-bottom: 1.5rem;
+  }
+
   .overlay-inner {
     display: flex;
     flex-direction: column;
@@ -1038,18 +1070,28 @@
   }
 
   /* Counter */
-  .lb-counter {
+  .lb-caption {
     position: fixed;
-    bottom: 1.75rem;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 1rem;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 1.25rem;
+    padding-inline: 1rem;
+    pointer-events: none;
+  }
+
+  .lb-counter {
+    font-variant-numeric: tabular-nums;
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-size: 11px;
     font-weight: 300;
     letter-spacing: 0.35em;
     text-transform: uppercase;
-    color: rgba(200, 192, 184, 0.4);
-    pointer-events: none;
+    color: rgba(200, 192, 184, 0.75);
   }
 
   /* Close (back to contact sheet) */

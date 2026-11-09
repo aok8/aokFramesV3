@@ -3,6 +3,7 @@ import type { Work } from '../types/works.js';
 import { dev } from '$app/environment';
 import matter from 'gray-matter';
 import { assetUrl } from '../utils/r2.js';
+import { altFromFilename, compareByOrder, resolveCoverFile } from '../utils/workFiles.js';
 
 // Polyfill Buffer for Cloudflare Workers environment
 if (typeof Buffer === 'undefined') {
@@ -279,18 +280,17 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
       
       // Get list of images in the directory
       const dirContents = await fs.readdir(dirPath);
-      const imageFiles = dirContents.filter((file: string) => 
-        /\.(jpg|jpeg|png|webp)$/i.test(file) && file !== 'header.webp'
-      );
+      const imageFiles: string[] = dirContents
+        .filter((file: string) => /\.(jpg|jpeg|png|webp)$/i.test(file) && file !== 'header.webp')
+        .sort(compareByOrder);
 
-      // Fix cover image path for development mode
-      const coverImage = data.coverImage.startsWith('/')
-        ? assetUrl(`works/${encodeURIComponent(exactSlug)}${data.coverImage}`)
-        : assetUrl(`works/${encodeURIComponent(exactSlug)}/${data.coverImage}`);
+      const coverImage = assetUrl(
+        `works/${encodeURIComponent(exactSlug)}/${resolveCoverFile(data.coverImage, imageFiles)}`
+      );
 
       const images = imageFiles.map((file: string) => ({
         src: assetUrl(`works/${encodeURIComponent(exactSlug)}/${file}`),
-        alt: file.split('.')[0], // Use filename without extension as alt text
+        alt: altFromFilename(file),
         fallback: assetUrl(`works/${encodeURIComponent(exactSlug)}/${file}`)
       }));
 
@@ -302,6 +302,8 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
         coverImage,
         nsfw: data.nsfw || false,
         tags: data.tags || [],
+        film: data.film ? String(data.film) : undefined,
+        camera: data.camera ? String(data.camera) : undefined,
         nsfw_tags: data.nsfw_tags || [],
         images
       };
@@ -394,26 +396,23 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
         throw listError;
       }
 
+      const fileOf = (key: string) => key.split('/').pop() ?? '';
       const images = listResult.objects
-        .filter(obj => {
-          const isImage = /\.(jpg|jpeg|png|webp)$/i.test(obj.key);
-          const isNotIndexMd = !obj.key.endsWith('index.md');
-          return isImage && isNotIndexMd;
-        })
-        .map(obj => {
-          const imagePath = assetUrl(obj.key);
-          console.log(`loadWork: Adding image path: ${imagePath}`);
-          return {
-            src: imagePath,
-            alt: obj.key.split('/').pop()?.split('.')[0] || '' // Use filename without extension as alt text
-          };
-        });
+        .filter(obj => /\.(jpg|jpeg|png|webp)$/i.test(obj.key))
+        .sort((x, y) => compareByOrder(fileOf(x.key), fileOf(y.key)))
+        .map(obj => ({
+          src: assetUrl(obj.key),
+          alt: altFromFilename(fileOf(obj.key))
+        }));
 
       console.log(`loadWork: Found ${images.length} images for work "${exactSlug}"`);
 
-      const coverImage = data.coverImage.startsWith('/')
-        ? assetUrl(`works/${encodeURIComponent(exactSlug)}${data.coverImage}`)
-        : assetUrl(`works/${encodeURIComponent(exactSlug)}/${data.coverImage}`);
+      const coverImage = assetUrl(
+        `works/${encodeURIComponent(exactSlug)}/${resolveCoverFile(
+          data.coverImage,
+          images.map((image) => fileOf(image.src))
+        )}`
+      );
       
       console.log(`loadWork: Cover image path: "${coverImage}"`);
       
@@ -427,6 +426,8 @@ export async function loadWork(slug: string, platform?: Platform): Promise<Work 
           coverImage,
           nsfw: data.nsfw || false,
           tags: data.tags || [],
+          film: data.film ? String(data.film) : undefined,
+          camera: data.camera ? String(data.camera) : undefined,
           nsfw_tags: data.nsfw_tags || [],
           images
         };

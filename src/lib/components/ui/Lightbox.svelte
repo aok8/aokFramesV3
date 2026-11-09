@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import type { FilmMeta } from '$lib/utils/filmMeta.js';
+  import EdgePrint from './EdgePrint.svelte';
 
   interface LightboxImage {
     src: string;
@@ -238,20 +239,7 @@
         <span class="lb-count" aria-live="polite">{index + 1} / {images.length}</span>
       {/if}
       {#if current.meta}
-        {#if current.meta.digital}
-          <span class="lb-edge digital">Digital</span>
-        {:else}
-          <span class="lb-edge" class:bw={current.meta.bw}>
-            <span class="lb-edge-arrow" aria-hidden="true"></span>
-            <span>{current.meta.stock}</span>
-            <span aria-hidden="true">·</span>
-            <span>{current.meta.camera}</span>
-            <span aria-hidden="true">·</span>
-            <span>{current.meta.date}</span>
-            <span aria-hidden="true">·</span>
-            <span>Fr. {current.meta.frame}</span>
-          </span>
-        {/if}
+        <EdgePrint meta={current.meta} />
       {/if}
       {#if current.alt}
         <span class="lb-label">{current.alt}</span>
@@ -412,42 +400,6 @@
     letter-spacing: 0.3em;
     color: rgba(200, 192, 184, 0.75);
     font-variant-numeric: tabular-nums;
-  }
-
-  /* Edge print: the film's own data, printed on a strip of base like the markings on a negative.
-     Colour stocks sit on the amber base used on Peek; black-and-white stocks on a silver base. */
-  .lb-edge {
-    display: inline-flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.55em;
-    padding: 6px 10px 5px;
-    font-family: var(--font-ui);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #240f03;
-    background: #b4632a;
-  }
-
-  .lb-edge.bw {
-    color: #1a1816;
-    background: #b9b3aa;
-  }
-
-  /* Digital files aren't film, so no film base: just a quiet outlined label */
-  .lb-edge.digital {
-    color: rgba(200, 192, 184, 0.85);
-    background: transparent;
-    box-shadow: inset 0 0 0 1px rgba(200, 192, 184, 0.35);
-  }
-
-  .lb-edge-arrow {
-    width: 0;
-    height: 0;
-    border-block: 4px solid transparent;
-    border-left: 6px solid currentColor;
   }
 
   .lb-label {

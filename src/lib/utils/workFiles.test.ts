@@ -31,8 +31,23 @@ describe('workFiles', () => {
 			expect(resolveCoverFile('15.webp', files)).toBe('15_Portra800_F100_09_14_24_6.webp');
 		});
 
-		it('leaves a cover it cannot find unchanged', () => {
-			expect(resolveCoverFile('9.webp', files)).toBe('9.webp');
+		it('ignores letter case and extension when matching a name', () => {
+			expect(resolveCoverFile('5_TRIX400_BessaR_08_12_24_20.jpg', files)).toBe('5_Trix400_BessaR_08_12_24_20.webp');
+		});
+
+		it('accepts a bare number from frontmatter', () => {
+			expect(resolveCoverFile(15, files)).toBe('15_Portra800_F100_09_14_24_6.webp');
+		});
+
+		it('falls back to the first photo when the cover cannot be found or is missing', () => {
+			expect(resolveCoverFile('9.webp', files)).toBe('1.webp');
+			expect(resolveCoverFile('old-cover.webp', files)).toBe('1.webp');
+			expect(resolveCoverFile(undefined, files)).toBe('1.webp');
+			expect(resolveCoverFile('', files)).toBe('1.webp');
+		});
+
+		it('keeps the given name when the folder has no photos', () => {
+			expect(resolveCoverFile('9.webp', [])).toBe('9.webp');
 		});
 	});
 

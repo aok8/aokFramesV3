@@ -23,19 +23,31 @@ export function compareByOrder(a: string, b: string): number {
 }
 
 /**
- * The file a series' `coverImage` refers to. An exact filename always wins. A plain number
- * ("5.webp") also finds its renamed photo ("5_Trix400_BessaR_08_12_24_20.webp"), so renaming a
- * folder doesn't break its cover.
+ * The file a series' `coverImage` refers to, tried in this order:
+ * 1. the exact filename;
+ * 2. the same name ignoring letter case and extension ("Cover.jpg" finds "cover.webp");
+ * 3. a plain number ("5.webp", or `coverImage: 5`) finds its renamed photo
+ *    ("5_Trix400_BessaR_08_12_24_20.webp"), so renaming a folder doesn't break its cover;
+ * 4. otherwise, or when `coverImage` is missing, the first photo in the series.
+ *
+ * `files` must already be in display order (see compareByOrder).
  */
-export function resolveCoverFile(coverImage: string, files: string[]): string {
-	const wanted = coverImage.replace(/^\/+/, '');
-	if (files.includes(wanted)) return wanted;
-	const numbered = /^(\d+)(?:\.[a-z0-9]+)?$/i.exec(wanted);
-	if (numbered) {
-		const match = files.find((file) => orderOf(file) === Number(numbered[1]));
-		if (match) return match;
+export function resolveCoverFile(coverImage: unknown, files: string[]): string {
+	const wanted = String(coverImage ?? '').trim().replace(/^\/+/, '');
+	if (wanted) {
+		if (files.includes(wanted)) return wanted;
+
+		const stem = (name: string) => name.replace(/\.[a-z0-9]+$/i, '').toLowerCase();
+		const sameName = files.find((file) => stem(file) === stem(wanted));
+		if (sameName) return sameName;
+
+		const numbered = /^(\d+)(?:\.[a-z0-9]+)?$/i.exec(wanted);
+		if (numbered) {
+			const match = files.find((file) => orderOf(file) === Number(numbered[1]));
+			if (match) return match;
+		}
 	}
-	return wanted;
+	return files[0] ?? wanted;
 }
 
 /**

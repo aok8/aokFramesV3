@@ -60,6 +60,21 @@ function prettify(raw: string): string {
 	return raw.replace(/([A-Za-z])(\d)/, '$1 $2');
 }
 
+/**
+ * Display name for a camera code. Voigtländer Bessa R-series models are matched as a family, so
+ * "BessaR4m", "BessaR3m", "R4m" or "R2a" all read as "Bessa R4M", "Bessa R3M", "Bessa R2A".
+ * Other codes written brand-then-model split where the capitals start the model:
+ * "RicohR1" → "Ricoh R1", "NikonFM2" → "Nikon FM2".
+ */
+function cameraName(code: string): string {
+	if (CAMERAS[code]) return CAMERAS[code];
+	const bessa = /^(?:Bessa)?R(\d)([a-z]?)$/i.exec(code);
+	if (bessa) return `Bessa R${bessa[1]}${bessa[2].toUpperCase()}`;
+	const brandModel = /^([A-Z][a-z]+)([A-Z][A-Za-z0-9]*)$/.exec(code);
+	if (brandModel) return `${brandModel[1]} ${brandModel[2]}`;
+	return prettify(code);
+}
+
 /** The bare filename: no folders, extension or leading order number. */
 function baseName(urlOrName: string): string {
 	const last = urlOrName.split('/').pop() ?? '';
@@ -82,7 +97,7 @@ export function filmMeta(urlOrName: string): FilmMeta | null {
 	if (month < 1 || month > 12) return DIGITAL;
 	return {
 		stock: STOCKS[stockKey] ?? prettify(stockKey),
-		camera: CAMERAS[cameraKey] ?? prettify(cameraKey),
+		camera: cameraName(cameraKey),
 		date: `${Number(dd)} ${MONTHS[month - 1]} 20${yy}`,
 		frame,
 		bw: BW_STOCKS.has(stockKey),

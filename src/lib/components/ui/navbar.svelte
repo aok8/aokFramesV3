@@ -29,11 +29,16 @@
     isMenuOpen = false;
   }
 
+  // Solid once scrolled (was 92% black with a blur). Stopgap for iOS 26 Safari, which draws the
+  // page behind the status bar and won't let sites paint that strip yet
+  // (https://bugs.webkit.org/show_bug.cgi?id=306465); a solid fixed header is the workaround that
+  // keeps scrolled titles from showing through there. Other browsers look the same either way.
+  // Revisit (and bring the translucent blur back if wanted) once Safari lets sites control it.
   let navBg = $derived(
     backgroundColor
       ? backgroundColor
       : isScrolled
-        ? 'rgba(14, 14, 14, 0.92)'
+        ? 'var(--near-black, #0e0e0e)'
         : 'transparent'
   );
 
@@ -127,12 +132,23 @@
     height: 64px;
     z-index: 100;
     background-color: var(--nav-bg);
-    transition: background-color 0.4s ease, backdrop-filter 0.4s ease;
+    transition: background-color 0.4s ease;
   }
 
-  .navbar.scrolled {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+  /*
+   * Phone browsers can draw the page behind the status bar (the clock), above the top of the
+   * viewport. Without this, titles scrolled past the bar showed through up there. A solid band
+   * the site's own black extends the bar upward, out of sight on desktop.
+   */
+  .navbar::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 200px;
+    background: var(--near-black, #0e0e0e);
+    pointer-events: none;
   }
 
   .nav-content {
@@ -239,7 +255,10 @@
     left: 0;
     width: 100%;
     height: 100vh;
+    height: 100dvh;
     background-color: #0e0e0e;
+    /* cover the phone's status bar and toolbar areas too */
+    box-shadow: 0 0 0 100vmax #0e0e0e;
     z-index: 99;
     display: flex;
     justify-content: center;

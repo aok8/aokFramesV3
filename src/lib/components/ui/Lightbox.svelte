@@ -275,16 +275,19 @@
     inset: 0;
     z-index: 1000;
     background: rgba(8, 8, 8, 0.94);
+    /* Same tint past the viewport edges, where phone browsers draw under the clock and toolbar */
+    box-shadow: 0 0 0 100vmax rgba(8, 8, 8, 0.94);
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto auto;
     padding: 3.5rem 4.5rem 1rem;
     animation: lb-fade-in 0.3s ease;
     cursor: zoom-out;
-    transition: background-color 0.45s ease;
+    transition: background-color 0.45s ease, box-shadow 0.45s ease;
   }
 
   .lb-backdrop.closing {
     background: rgba(8, 8, 8, 0);
+    box-shadow: 0 0 0 100vmax rgba(8, 8, 8, 0);
   }
 
   .lb-backdrop.closing > :not(.lb-stage) {
@@ -451,6 +454,12 @@
   }
 
   @media (max-width: 640px) {
+    /* Counter above the film strip and title, always in the same place */
+    .lb-meta {
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
     .lb-backdrop {
       padding: 3.5rem 0.75rem 0.75rem;
     }

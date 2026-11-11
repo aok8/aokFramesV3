@@ -28,6 +28,12 @@ describe('filmMeta', () => {
 		expect(filmMeta('Trix400_BessaR_08_12_24_20.webp')?.camera).toBe('Bessa R');
 	});
 
+	it('splits brand and model for cameras written together', () => {
+		expect(filmMeta('4_Portra800_RicohR1_09_11_23_22.webp')?.camera).toBe('Ricoh R1');
+		expect(filmMeta('Portra400_NikonFM2_01_02_24_3.webp')?.camera).toBe('Nikon FM2');
+		expect(filmMeta('Portra400_Mamiya6_01_02_24_3.webp')?.camera).toBe('Mamiya 6');
+	});
+
 	it('prettifies stocks and cameras it does not know', () => {
 		const m = filmMeta('Superia400_Canonet_02_01_25_3.webp');
 		expect(m?.stock).toBe('Superia 400');

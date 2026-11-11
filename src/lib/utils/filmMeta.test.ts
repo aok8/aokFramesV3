@@ -21,6 +21,13 @@ describe('filmMeta', () => {
 		expect(m?.bw).toBe(true);
 	});
 
+	it('names Bessa R-series models correctly', () => {
+		expect(filmMeta('7_Portra800_BessaR4m_04_13_25_16.jpg')?.camera).toBe('Bessa R4M');
+		expect(filmMeta('Trix400_BessaR3m_04_13_25_2.webp')?.camera).toBe('Bessa R3M');
+		expect(filmMeta('Portra800_R4m_01_03_25_11.webp')?.camera).toBe('Bessa R4M');
+		expect(filmMeta('Trix400_BessaR_08_12_24_20.webp')?.camera).toBe('Bessa R');
+	});
+
 	it('prettifies stocks and cameras it does not know', () => {
 		const m = filmMeta('Superia400_Canonet_02_01_25_3.webp');
 		expect(m?.stock).toBe('Superia 400');

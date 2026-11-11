@@ -36,17 +36,22 @@
   const photoMetas = $derived(
     selectedWork ? selectedWork.images.map((image) => workPhotoMeta(image.src, selectedWork!)) : []
   );
-  // The series header sums up its photos: every film stock and camera it was shot on.
-  const seriesSummary = $derived.by(() => {
-    if (photoMetas.length === 0) return null;
-    const unique = (values: (string | undefined)[]) =>
-      [...new Set(values.filter(Boolean))].join(' / ') || undefined;
-    return {
-      stock: unique(photoMetas.map((m) => m.stock)) ?? 'Film',
-      camera: unique(photoMetas.map((m) => m.camera)),
-      bw: photoMetas.every((m) => m.bw),
-      digital: photoMetas.every((m) => m.digital)
-    };
+  // The series header lists every medium it was shot on, one tag each, in the order they first
+  // appear: "Portra 800 · Bessa R4M", "Tri-X 400 · Bessa R", "Digital". A camera used with
+  // several stocks shows on each of them.
+  const seriesFilms = $derived.by(() => {
+    const byStock = new Map<string, { bw: boolean; digital: boolean; cameras: Set<string> }>();
+    for (const m of photoMetas) {
+      const entry = byStock.get(m.stock) ?? { bw: m.bw, digital: m.digital, cameras: new Set<string>() };
+      if (m.camera) entry.cameras.add(m.camera);
+      byStock.set(m.stock, entry);
+    }
+    return [...byStock].map(([stock, e]) => ({
+      stock,
+      camera: [...e.cameras].join(' / ') || undefined,
+      bw: e.bw,
+      digital: e.digital
+    }));
   });
 	const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -457,8 +462,12 @@
         <p class="overlay-desc">{selectedWork.description}</p>
       {/if}
 
-      {#if seriesSummary}
-        <div class="overlay-film"><EdgePrint meta={seriesSummary} /></div>
+      {#if seriesFilms.length}
+        <ul class="overlay-film" aria-label="Shot on">
+          {#each seriesFilms as film (film.stock)}
+            <li><EdgePrint meta={film} /></li>
+          {/each}
+        </ul>
       {/if}
 
       <div class="contact-grid">
@@ -811,8 +820,14 @@
     overflow: hidden;
   }
 
+  /* One tag per medium, side by side, wrapping on narrow screens */
   .overlay-film {
-    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
   }
 
   .overlay-inner {

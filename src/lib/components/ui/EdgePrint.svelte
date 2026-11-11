@@ -3,10 +3,9 @@
 
 	let { meta }: { meta: FilmMeta } = $props();
 
+	// The frame number stays in the data but isn't printed: it means nothing to visitors.
 	const parts = $derived(
-		[meta.stock, meta.camera, meta.date, meta.frame ? `Fr. ${meta.frame}` : undefined].filter(
-			(part): part is string => Boolean(part)
-		)
+		[meta.stock, meta.camera, meta.date].filter((part): part is string => Boolean(part))
 	);
 </script>
 

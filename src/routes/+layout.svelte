@@ -120,6 +120,7 @@
     position: fixed;
     inset: 0;
     background: var(--near-black, #0e0e0e);
+    box-shadow: 0 0 0 100vmax var(--near-black, #0e0e0e);
     z-index: 9990;
     opacity: 0;
     pointer-events: none;

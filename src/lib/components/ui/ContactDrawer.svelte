@@ -244,6 +244,7 @@
 		inset: 0;
 		z-index: 1100;
 		background: rgba(8, 8, 8, 0.6);
+		box-shadow: 0 0 0 100vmax rgba(8, 8, 8, 0.6);
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 0.4s ease;

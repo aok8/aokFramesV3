@@ -97,6 +97,8 @@
     inset: 0;
     z-index: 9995;
     background: var(--near-black, #0e0e0e);
+    /* cover the phone's status bar and toolbar areas too */
+    box-shadow: 0 0 0 100vmax var(--near-black, #0e0e0e);
     display: flex;
     align-items: center;
     justify-content: center;

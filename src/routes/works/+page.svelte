@@ -814,7 +814,10 @@
     position: fixed;
     inset: 0;
     z-index: 200;
-    background: rgba(14, 14, 14, 0.97);
+    /* Solid, so the works list never shows through. The spread shadow paints the same black
+       past the viewport edges, where phone browsers draw under the clock and toolbar. */
+    background: var(--near-black, #0e0e0e);
+    box-shadow: 0 0 0 100vmax var(--near-black, #0e0e0e);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1002,7 +1005,8 @@
     position: fixed;
     inset: 0;
     z-index: 300;
-    background: rgba(0, 0, 0, 0.96);
+    background: #070707;
+    box-shadow: 0 0 0 100vmax #070707;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1133,6 +1137,12 @@
 
   /* Mobile lightbox */
   @media (max-width: 640px) {
+    /* Counter above the film strip, always: side by side it jumped around with caption length */
+    .lb-caption {
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
 		.lb-nav {
 			font-size: 2.5rem;
 			width: 3rem;
@@ -1181,6 +1191,7 @@
     inset: 0;
     z-index: 400;
     background: rgba(0, 0, 0, 0.85);
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     display: flex;

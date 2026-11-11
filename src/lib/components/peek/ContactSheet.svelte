@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
+	import { filmMeta } from '$lib/utils/filmMeta.js';
 	import type { PeekImage } from '$lib/types/peek.js';
 
 	let { images = [] }: { images: PeekImage[] } = $props();
@@ -45,8 +46,10 @@
 		return {};
 	}
 
+	let frameEls = $state<HTMLElement[]>([]);
+
 	const lightboxImages = $derived(
-		images.map((image, index) => ({ src: image.url, alt: imageAlt(image, index) }))
+		images.map((image, index) => ({ src: image.url, alt: imageAlt(image, index), meta: filmMeta(image.url) }))
 	);
 	$effect(() => {
 		loaded = new Array(images.length).fill(false);
@@ -79,6 +82,7 @@
 		{#each images as image, i}
 			<button
 				type="button"
+				bind:this={frameEls[i]}
 				class="sheet-frame"
 				class:pending={armed && !developed[i]}
 				data-i={i}
@@ -111,6 +115,8 @@
 	onclose={() => (lightboxOpen = false)}
 	onprev={() => (lightboxIndex = Math.max(0, lightboxIndex - 1))}
 	onnext={() => (lightboxIndex = Math.min(images.length - 1, lightboxIndex + 1))}
+	onselect={(i) => (lightboxIndex = i)}
+	originFor={(i) => frameEls[i]}
 />
 
 <style>

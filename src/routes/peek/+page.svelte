@@ -4,6 +4,7 @@
 	import FilmStrip from '$lib/components/peek/FilmStrip.svelte';
 	import ContactSheet from '$lib/components/peek/ContactSheet.svelte';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
+	import { filmMeta } from '$lib/utils/filmMeta.js';
 	import type { PageData } from './$types.js';
 
 	let { data }: { data: PageData } = $props();
@@ -19,7 +20,8 @@
 	const stripLightbox = $derived(
 		featuredImages.map((image, i) => ({
 			src: image.url,
-			alt: image.alt?.trim() || `Recently processed photograph ${i + 1}`
+			alt: image.alt?.trim() || `Recently processed photograph ${i + 1}`,
+			meta: filmMeta(image.url)
 		}))
 	);
 </script>
@@ -75,6 +77,8 @@
 				onclose={() => (stripOpen = false)}
 				onprev={() => (stripIndex = Math.max(0, stripIndex - 1))}
 				onnext={() => (stripIndex = Math.min(featuredImages.length - 1, stripIndex + 1))}
+				onselect={(i) => (stripIndex = i)}
+				originFor={(i) => document.querySelectorAll<HTMLElement>('.film-frame:not(.duplicate-frame) .window')[i]}
 			/>
 			<ContactSheet images={data.images} />
 		{/if}

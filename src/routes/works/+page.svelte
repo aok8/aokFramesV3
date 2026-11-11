@@ -5,6 +5,8 @@
   import Navbar from '$lib/components/ui/navbar.svelte';
   import Footer from '$lib/components/ui/footer.svelte';
   import { reveal } from '$lib/utils/reveal.js';
+  import EdgePrint from '$lib/components/ui/EdgePrint.svelte';
+  import { workPhotoMeta } from '$lib/utils/filmMeta.js';
 
   let { data }: { data: { works: Work[] } } = $props();
 
@@ -29,6 +31,28 @@
   let lbLoaded      = $state(false);
 
   const works = $derived(data.works ?? []);
+
+  // Film data per photo: the filename first, then what the series says about itself.
+  const photoMetas = $derived(
+    selectedWork ? selectedWork.images.map((image) => workPhotoMeta(image.src, selectedWork!)) : []
+  );
+  // The series header lists every medium it was shot on, one tag each, in the order they first
+  // appear: "Portra 800 · Bessa R4M", "Tri-X 400 · Bessa R", "Digital". A camera used with
+  // several stocks shows on each of them.
+  const seriesFilms = $derived.by(() => {
+    const byStock = new Map<string, { bw: boolean; digital: boolean; cameras: Set<string> }>();
+    for (const m of photoMetas) {
+      const entry = byStock.get(m.stock) ?? { bw: m.bw, digital: m.digital, cameras: new Set<string>() };
+      if (m.camera) entry.cameras.add(m.camera);
+      byStock.set(m.stock, entry);
+    }
+    return [...byStock].map(([stock, e]) => ({
+      stock,
+      camera: [...e.cameras].join(' / ') || undefined,
+      bw: e.bw,
+      digital: e.digital
+    }));
+  });
 	const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 	function rememberFocusedElement() {
@@ -438,6 +462,14 @@
         <p class="overlay-desc">{selectedWork.description}</p>
       {/if}
 
+      {#if seriesFilms.length}
+        <ul class="overlay-film" aria-label="Shot on">
+          {#each seriesFilms as film (film.stock)}
+            <li><EdgePrint meta={film} /></li>
+          {/each}
+        </ul>
+      {/if}
+
       <div class="contact-grid">
         {#each selectedWork.images as image, i}
 					<button
@@ -517,8 +549,13 @@
 			aria-label="Next image">›</button
 		>
 
-    <!-- Counter -->
-    <div class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</div>
+    <!-- Counter and film data -->
+    <div class="lb-caption">
+      <span class="lb-counter">{lightboxIndex + 1} / {selectedWork.images.length}</span>
+      {#if photoMetas[lightboxIndex]}
+        <EdgePrint meta={photoMetas[lightboxIndex]} />
+      {/if}
+    </div>
 
     <!-- Close (back to contact sheet) -->
 		<button type="button" class="lb-close" onclick={closeLightbox} aria-label="Back to gallery"
@@ -783,6 +820,16 @@
     overflow: hidden;
   }
 
+  /* One tag per medium, side by side, wrapping on narrow screens */
+  .overlay-film {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
+  }
+
   .overlay-inner {
     display: flex;
     flex-direction: column;
@@ -1038,18 +1085,28 @@
   }
 
   /* Counter */
-  .lb-counter {
+  .lb-caption {
     position: fixed;
-    bottom: 1.75rem;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 1rem;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 1.25rem;
+    padding-inline: 1rem;
+    pointer-events: none;
+  }
+
+  .lb-counter {
+    font-variant-numeric: tabular-nums;
     font-family: var(--font-ui, 'Josefin Sans', sans-serif);
     font-size: 11px;
     font-weight: 300;
     letter-spacing: 0.35em;
     text-transform: uppercase;
-    color: rgba(200, 192, 184, 0.4);
-    pointer-events: none;
+    color: rgba(200, 192, 184, 0.75);
   }
 
   /* Close (back to contact sheet) */

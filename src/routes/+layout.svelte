@@ -17,6 +17,7 @@
   import { browser } from '$app/environment';
   import Cursor from '$lib/components/ui/Cursor.svelte';
   import Preloader from '$lib/components/ui/Preloader.svelte';
+  import ContactDrawer from '$lib/components/ui/ContactDrawer.svelte';
 
   let { children } = $props();
 
@@ -128,3 +129,6 @@
 <a href="#main" class="skip-link">Skip to content</a>
 
 {@render children()}
+
+<!-- Inquiry drawer, opened from any "Contact" / "Get in touch" link -->
+<ContactDrawer />

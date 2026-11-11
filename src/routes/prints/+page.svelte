@@ -2,6 +2,7 @@
   import { Footer, Navbar } from "$lib/components/ui/index.js";
   import { assetUrl } from '$lib/utils/r2.js';
   import { reveal } from '$lib/utils/reveal.js';
+  import { openContact } from '$lib/stores/contact.js';
   import { onMount, afterUpdate } from 'svelte'; // Import lifecycle hooks
 
   // Receive data from load function
@@ -113,7 +114,7 @@
         >
           View Store
         </a>
-        <a href="mailto:aokframes@gmail.com" class="btn-bordered">
+        <a href="mailto:aokframes@gmail.com" class="btn-bordered" onclick={openContact('Print')}>
           Get in Touch
         </a>
       </div>

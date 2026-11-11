@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getPortfolioImages } from '$lib/utils/images.js';
-		import { reveal } from '$lib/utils/reveal.js';
+	import { reveal } from '$lib/utils/reveal.js';
+	import { filmMeta } from '$lib/utils/filmMeta.js';
+	import { openContact } from '$lib/stores/contact.js';
 	import { prefetchWorkCovers } from '$lib/utils/prefetch.js';
 	import Lightbox from '$lib/components/ui/Lightbox.svelte';
 
@@ -22,7 +24,28 @@
 	let lbOpen  = $state(false);
 	let lbIndex = $state(0);
 
-	const lbImages = $derived(images.map(img => ({ src: img.url, alt: img.alt })));
+	const metas = $derived(images.map((img) => filmMeta(img.url)));
+	const lbImages = $derived(images.map((img, i) => ({ src: img.url, alt: img.alt, meta: metas[i] })));
+
+	// Tiles, so the lightbox can grow out of (and back into) the photo that was clicked.
+	let tileEls = $state<HTMLElement[]>([]);
+
+	// Browse by film stock: picking a stock leaves its frames lit and lets the rest sink back,
+	// so the masonry never reflows. Picking it again shows everything.
+	let activeStock = $state<string | null>(null);
+	const stocks = $derived.by(() => {
+		const counts = new Map<string, number>();
+		for (const m of metas) if (m) counts.set(m.stock, (counts.get(m.stock) ?? 0) + 1);
+		return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+	});
+	const stockStatus = $derived(
+		activeStock
+			? `Showing ${stocks.find(([s]) => s === activeStock)?.[1] ?? 0} frames on ${activeStock}`
+			: ''
+	);
+	function toggleStock(stock: string) {
+		activeStock = activeStock === stock ? null : stock;
+	}
 
 	// "Developing print" reveal: each photo comes up from underexposed once it has both loaded
 	// and scrolled into view. Tiles hold their true aspect ratio, so nothing shifts as they develop.
@@ -95,6 +118,19 @@
 <section class="gallery" aria-label="Selected works">
 	<header class="gallery-header" use:reveal={{ y: 16, duration: 700 }}>
 		<h2 class="gallery-label">Selected Works</h2>
+		{#if stocks.length > 1}
+			<div class="stock-filter" role="group" aria-label="Browse by film stock">
+				{#each stocks as [stock, count]}
+					<button
+						type="button"
+						class="stock-chip"
+						aria-pressed={activeStock === stock}
+						onclick={() => toggleStock(stock)}
+					>{stock}<span class="stock-count">{count}</span></button>
+				{/each}
+			</div>
+			<p class="visually-hidden" role="status">{stockStatus}</p>
+		{/if}
 	</header>
 
 	{#if loading}
@@ -111,8 +147,10 @@
 		<div class="gallery-grid">
 			{#each images as image, i}
 				<button
+					bind:this={tileEls[i]}
 					class="gallery-item"
 					class:developed={isDeveloped(i)}
+					class:out={activeStock !== null && metas[i]?.stock !== activeStock}
 					style:aspect-ratio={image.width && image.height ? `${image.width} / ${image.height}` : undefined}
 					style:--develop-delay={`${delays[i] ?? 0}ms`}
 					use:watchTile={i}
@@ -138,7 +176,16 @@
 		</div>
 	{/if}
 
-	<Lightbox images={lbImages} index={lbIndex} open={lbOpen} onclose={closeLightbox} onprev={prevImage} onnext={nextImage} />
+	<Lightbox
+		images={lbImages}
+		index={lbIndex}
+		open={lbOpen}
+		onclose={closeLightbox}
+		onprev={prevImage}
+		onnext={nextImage}
+		onselect={(i) => (lbIndex = i)}
+		originFor={(i) => tileEls[i]}
+	/>
 
 	<div class="gallery-cta">
 		<a href="/works" class="view-all-link" onpointerenter={prefetchWorkCovers} onfocus={prefetchWorkCovers}>
@@ -150,7 +197,7 @@
 	<div class="gallery-inquiry" use:reveal>
 		<p class="inquiry-line">Prints, portraits and commissions.</p>
 		<div class="inquiry-actions">
-			<a class="inquiry-primary" href="mailto:aokframes@gmail.com?subject=Inquiry%20from%20aokframes.com">Get in touch</a>
+			<a class="inquiry-primary" href="mailto:aokframes@gmail.com?subject=Inquiry%20from%20aokframes.com" onclick={openContact('Hello')}>Get in touch</a>
 			<a class="inquiry-secondary" href="/prints">See prints</a>
 		</div>
 	</div>
@@ -165,6 +212,70 @@
 	.gallery-header {
 		max-width: 1400px;
 		margin: 0 auto 3rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1rem 2rem;
+	}
+
+	/* Browse by film stock */
+	.stock-filter {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+	}
+
+	.stock-chip {
+		font-family: var(--font-ui, 'Josefin Sans', sans-serif);
+		font-size: 12px;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: var(--text-dim, rgba(200, 192, 184, 0.7));
+		padding: 12px 0;
+		border-bottom: 1px solid transparent;
+		transition: color 0.25s ease, border-color 0.25s ease;
+	}
+
+	.stock-chip:hover {
+		color: var(--warm-white, #f0ebe3);
+	}
+
+	.stock-chip[aria-pressed='true'] {
+		color: var(--warm-white, #f0ebe3);
+		border-bottom-color: var(--film-amber, #b4632a);
+	}
+
+	.stock-count {
+		margin-left: 0.45em;
+		font-size: 10px;
+		letter-spacing: 0.05em;
+		vertical-align: super;
+		color: var(--text-dim, rgba(200, 192, 184, 0.7));
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+
+	/* Frames on other stocks sink back without moving */
+	.gallery-item {
+		transition: opacity 0.45s ease, filter 0.45s ease;
+	}
+
+	.gallery-item.out {
+		opacity: 0.12;
+		filter: grayscale(1);
+	}
+
+	.gallery-item.out:hover,
+	.gallery-item.out:focus-visible {
+		opacity: 0.5;
 	}
 
 	.gallery-label {

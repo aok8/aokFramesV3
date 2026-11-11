@@ -5,8 +5,43 @@
   import { assetUrl } from '$lib/utils/r2.js';
   import type { BlogPost as BlogPostType } from '$lib/types/blog.js';
   import { marked } from 'marked';
+  import { onMount } from 'svelte';
 
   export let data: { post: BlogPostType };
+
+  // About 220 words a minute, counted from the markdown without its syntax.
+  $: readingMinutes = Math.max(
+    1,
+    Math.round((data.post?.content ?? '').replace(/[#>*_`\[\]()!-]/g, ' ').split(/\s+/).filter(Boolean).length / 220)
+  );
+
+  // Reading progress: a hairline across the top that fills as the article is read.
+  let progressEl: HTMLDivElement;
+  let articleEl: HTMLElement;
+  onMount(() => {
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      if (!articleEl || !progressEl) return;
+      const rect = articleEl.getBoundingClientRect();
+      const total = rect.height - window.innerHeight;
+      const p = total > 0 ? Math.min(1, Math.max(0, -rect.top / total)) : 1;
+      progressEl.style.transform = `scaleX(${p})`;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  });
 
   // Render markdown content to HTML, rewriting relative img srcs to CDN URLs
   $: htmlContent = (() => {
@@ -55,6 +90,7 @@
 </svelte:head>
 
 <div class="post-page">
+  <div class="read-progress" aria-hidden="true"><div bind:this={progressEl}></div></div>
   <Navbar />
 
   <main id="main" class="post-main">
@@ -78,7 +114,7 @@
 
     <!-- Article -->
     <div class="post-article-wrap">
-      <article class="post-article">
+      <article class="post-article" bind:this={articleEl}>
         <!-- Meta above title -->
         <div class="post-meta enter" style="--enter-delay: 150ms">
           <span class="post-label">{data.post.label}</span>
@@ -92,6 +128,8 @@
 							day: 'numeric'
 						})}
           </time>
+          <span class="meta-sep">·</span>
+          <span class="post-date">{readingMinutes} min read</span>
         </div>
 
         <h1 class="post-title enter" style="--enter-delay: 260ms">{data.post.title}</h1>
@@ -207,7 +245,7 @@
   .post-author,
   .post-date {
     font-family: var(--font-ui);
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 300;
     letter-spacing: 0.1em;
     color: var(--text-dim);
@@ -217,7 +255,7 @@
   .meta-sep {
     color: var(--text-dim);
     opacity: 0.4;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   /* Title */
@@ -231,6 +269,35 @@
   }
 
   /* Prose */
+  /* Reading progress hairline */
+  .read-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  .read-progress div {
+    height: 100%;
+    background: var(--gold);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+
+  /* Drop cap on the opening paragraph, in the display face */
+  .post-prose > :global(p:first-of-type)::first-letter {
+    float: left;
+    font-family: var(--font-display);
+    font-size: 4.4em;
+    font-weight: 300;
+    line-height: 0.82;
+    padding: 0.32rem 0.6rem 0 0;
+    color: var(--gold);
+  }
+
   .post-prose {
     font-family: var(--font-display);
     font-size: 1.1rem;
